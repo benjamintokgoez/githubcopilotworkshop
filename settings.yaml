@@ -1,0 +1,51 @@
+# QuantCore Configuration
+# =======================
+
+server:
+  host: "0.0.0.0"
+  # BUG (Challenge 2 — Debugging): Port is quoted → YAML loads it as
+  # string "8443" instead of int 8443.  uvicorn expects an int.
+  port: "8443"
+  workers: 1
+  log_level: "info"
+
+engine:
+  max_order_size: 10000
+  max_position_value: 1000000.0
+  enable_pre_trade_checks: true
+  matching_algorithm: "fifo"  # fifo | pro_rata
+
+risk:
+  var_confidence: 0.95
+  var_horizon_days: 1
+  risk_free_rate: 0.05
+  max_portfolio_var: 50000.0
+
+data:
+  database_url: "sqlite:///quantcore.db"
+  feed_interval_ms: 100
+  ohlc_interval_seconds: 60
+
+strategies:
+  enabled:
+    - "MomentumBreakout"
+    - "EMACrossover"
+    - "BollingerMeanReversion"
+  default_parameters:
+    MomentumBreakout:
+      lookback: 20
+      atr_multiplier: 1.5
+    EMACrossover:
+      fast_span: 12
+      slow_span: 26
+    BollingerMeanReversion:
+      window: 20
+      num_std: 2.0
+
+auth:
+  key_ttl_seconds: 86400
+  max_keys_per_client: 5
+
+logging:
+  level: "INFO"
+  format: "%(asctime)s [%(name)s] %(levelname)s: %(message)s"

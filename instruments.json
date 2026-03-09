@@ -1,0 +1,100 @@
+[
+  {
+    "symbol": "AAPL",
+    "name": "Apple Inc.",
+    "instrument_type": "EQUITY",
+    "tick_size": 0.01,
+    "lot_size": 1,
+    "currency": "USD",
+    "exchange": "NASDAQ"
+  },
+  {
+    "symbol": "GOOGL",
+    "name": "Alphabet Inc.",
+    "instrument_type": "EQUITY",
+    "tick_size": 0.01,
+    "lot_size": 1,
+    "currency": "USD",
+    "exchange": "NASDAQ"
+  },
+  {
+    "symbol": "MSFT",
+    "name": "Microsoft Corporation",
+    "instrument_type": "EQUITY",
+    "tick_size": 0.01,
+    "lot_size": 1,
+    "currency": "USD",
+    "exchange": "NASDAQ"
+  },
+  {
+    "symbol": "TSLA",
+    "name": "Tesla Inc.",
+    "instrument_type": "EQUITY",
+    "tick_size": 0.01,
+    "lot_size": 1,
+    "currency": "USD",
+    "exchange": "NASDAQ"
+  },
+  {
+    "symbol": "AMZN",
+    "name": "Amazon.com Inc.",
+    "instrument_type": "EQUITY",
+    "tick_size": 0.01,
+    "lot_size": 1,
+    "currency": "USD",
+    "exchange": "NASDAQ"
+  },
+  {
+    "symbol": "SPY",
+    "name": "SPDR S&P 500 ETF",
+    "instrument_type": "ETF",
+    "tick_size": 0.01,
+    "lot_size": 1,
+    "currency": "USD",
+    "exchange": "NYSE"
+  },
+  {
+    "symbol": "AAPL-C-200-2025-06",
+    "name": "AAPL Call 200 Jun 2025",
+    "instrument_type": "OPTION",
+    "tick_size": 0.05,
+    "lot_size": 100,
+    "currency": "USD",
+    "exchange": "CBOE",
+    "underlying": "AAPL",
+    "strike": 200.0,
+    "expiry": "2025-06-20",
+    "option_type": "CALL"
+  },
+  {
+    "symbol": "AAPL-P-180-2025-06",
+    "name": "AAPL Put 180 Jun 2025",
+    "instrument_type": "OPTION",
+    "tick_size": 0.05,
+    "lot_size": 100,
+    "currency": "USD",
+    "exchange": "CBOE",
+    "underlying": "AAPL",
+    "strike": 180.0,
+    "expiry": "2025-06-20",
+    "option_type": "PUT"
+  },
+  {
+    "symbol": "BTC-USD",
+    "name": "Bitcoin / US Dollar",
+    "instrument_type": "CRYPTO",
+    "tick_size": 0.01,
+    "lot_size": 0.001,
+    "currency": "USD",
+    "exchange": "QUANTCORE"
+  },
+  {
+    "symbol": "ETH-USD",
+    "name": "Ethereum / US Dollar",
+    "instrument_type": "CRYPTO",
+    "tick_size": 0.01,
+    "lot_size": 0.01,
+    "currency": "USD",
+    "exchange": "QUANTCORE"
+  }
+]

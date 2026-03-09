@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuantCore Dashboard</title>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <style>
+        :root {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-card: #21262d;
+            --text-primary: #e6edf3;
+            --text-secondary: #8b949e;
+            --accent-green: #3fb950;
+            --accent-red: #f85149;
+            --accent-blue: #58a6ff;
+            --accent-yellow: #d29922;
+            --border: #30363d;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+
+        .header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .header .status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .status-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: var(--accent-green);
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            padding: 24px;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        .card h3 {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .card .value {
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        .card .value.positive { color: var(--accent-green); }
+        .card .value.negative { color: var(--accent-red); }
+
+        .chart-container {
+            grid-column: span 2;
+            min-height: 350px;
+        }
+
+        .positions-table {
+            grid-column: span 2;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 12px;
+        }
+
+        th, td {
+            text-align: left;
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--border);
+            font-size: 13px;
+        }
+
+        th {
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .order-book {
+            grid-column: span 2;
+        }
+
+        .book-sides {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-top: 12px;
+        }
+
+        .book-side h4 {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .book-level {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 8px;
+            font-size: 13px;
+            font-family: 'SF Mono', monospace;
+        }
+
+        .book-level.bid { background: rgba(63, 185, 80, 0.1); }
+        .book-level.ask { background: rgba(248, 81, 73, 0.1); }
+
+        .refresh-btn {
+            background: var(--accent-blue);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .refresh-btn:hover { opacity: 0.9; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>⚡ QuantCore Dashboard</h1>
+        <div class="status">
+            <div class="status-dot"></div>
+            <span id="status-text">Connected</span>
+            <button class="refresh-btn" onclick="refreshData()">Refresh</button>
+        </div>
+    </div>
+
+    <div class="dashboard">
+        <!-- KPI Cards -->
+        <div class="card">
+            <h3>Portfolio Value</h3>
+            <div class="value" id="portfolio-value">$0.00</div>
+        </div>
+        <div class="card">
+            <h3>Unrealised P&L</h3>
+            <div class="value" id="unrealised-pnl">$0.00</div>
+        </div>
+        <div class="card">
+            <h3>Value at Risk (95%)</h3>
+            <div class="value" id="var-value">$0.00</div>
+        </div>
+        <div class="card">
+            <h3>Active Orders</h3>
+            <div class="value" id="active-orders">0</div>
+        </div>
+
+        <!-- P&L Chart -->
+        <div class="card chart-container">
+            <h3>P&L History</h3>
+            <div id="pnl-chart"></div>
+        </div>
+
+        <!-- Risk Metrics -->
+        <div class="card chart-container">
+            <h3>Risk Breakdown</h3>
+            <div id="risk-chart"></div>
+        </div>
+
+        <!-- Positions Table -->
+        <div class="card positions-table">
+            <h3>Open Positions</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Symbol</th>
+                        <th>Qty</th>
+                        <th>Avg Price</th>
+                        <th>Market Price</th>
+                        <th>P&L</th>
+                    </tr>
+                </thead>
+                <tbody id="positions-body">
+                    <tr><td colspan="5" style="color: var(--text-secondary)">No positions</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Order Book -->
+        <div class="card order-book">
+            <h3>Order Book — <select id="book-symbol" style="background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border);padding:4px 8px;border-radius:4px;">
+                <option>AAPL</option>
+                <option>GOOGL</option>
+                <option>MSFT</option>
+            </select></h3>
+            <div class="book-sides">
+                <div class="book-side">
+                    <h4>Bids</h4>
+                    <div id="bids-list">
+                        <div class="book-level bid"><span>--</span><span>--</span></div>
+                    </div>
+                </div>
+                <div class="book-side">
+                    <h4>Asks</h4>
+                    <div id="asks-list">
+                        <div class="book-level ask"><span>--</span><span>--</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // TODO (Challenge 7): Wire this dashboard to the /api/v1 endpoints.
+        // Attendees should implement:
+        // 1. fetchPortfolio() — GET /api/v1/portfolio/snapshot
+        // 2. fetchPositions() — GET /api/v1/positions
+        // 3. fetchOrderBook(symbol) — GET /api/v1/portfolio/risk
+        // 4. fetchMetrics() — GET /api/v1/metrics
+        // 5. Auto-refresh every 5 seconds
+        // 6. Real-time P&L chart updates
+        // 7. Order submission form
+
+        const API_BASE = '/api/v1';
+
+        function formatCurrency(value) {
+            return new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD',
+            }).format(value);
+        }
+
+        function initCharts() {
+            // P&L chart placeholder
+            const pnlData = [{
+                x: [],
+                y: [],
+                type: 'scatter',
+                mode: 'lines',
+                line: { color: '#58a6ff', width: 2 },
+                fill: 'tozeroy',
+                fillcolor: 'rgba(88, 166, 255, 0.1)',
+            }];
+            const pnlLayout = {
+                paper_bgcolor: 'transparent',
+                plot_bgcolor: 'transparent',
+                font: { color: '#8b949e' },
+                xaxis: { showgrid: false },
+                yaxis: { gridcolor: '#30363d' },
+                margin: { t: 10, r: 20, b: 40, l: 60 },
+                height: 280,
+            };
+            Plotly.newPlot('pnl-chart', pnlData, pnlLayout, { displayModeBar: false });
+
+            // Risk breakdown placeholder
+            const riskData = [{
+                values: [40, 30, 20, 10],
+                labels: ['Delta', 'Gamma', 'Vega', 'Theta'],
+                type: 'pie',
+                hole: 0.5,
+                marker: {
+                    colors: ['#58a6ff', '#3fb950', '#d29922', '#f85149'],
+                },
+                textfont: { color: '#e6edf3' },
+            }];
+            const riskLayout = {
+                paper_bgcolor: 'transparent',
+                font: { color: '#8b949e' },
+                margin: { t: 10, r: 20, b: 20, l: 20 },
+                height: 280,
+                showlegend: true,
+                legend: { font: { color: '#8b949e' } },
+            };
+            Plotly.newPlot('risk-chart', riskData, riskLayout, { displayModeBar: false });
+        }
+
+        async function refreshData() {
+            document.getElementById('status-text').textContent = 'Refreshing...';
+            try {
+                // TODO: Implement API calls here
+                document.getElementById('status-text').textContent = 'Connected';
+            } catch (error) {
+                document.getElementById('status-text').textContent = 'Error';
+                console.error('Failed to refresh:', error);
+            }
+        }
+
+        // Initialise
+        document.addEventListener('DOMContentLoaded', () => {
+            initCharts();
+            refreshData();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,70 @@
+[project]
+name = "quantcore"
+version = "0.4.0"
+description = "High-performance order matching engine with risk analytics"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.11"
+authors = [
+    {name = "QuantCore Workshop", email = "workshop@quantcore.dev"},
+]
+
+dependencies = [
+    "pydantic>=1.10,<2.0",
+    "fastapi>=0.104",
+    "uvicorn[standard]>=0.24",
+    "sqlalchemy>=2.0",
+    "pyyaml>=6.0",
+    "numpy>=1.24",
+    "scipy>=1.11",
+    "sortedcontainers>=2.4",
+    "websockets>=12.0",
+    "mcp>=1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4",
+    "pytest-asyncio>=0.21",
+    "pytest-cov>=4.1",
+    "httpx>=0.25",
+    "ruff>=0.1",
+    "mypy>=1.7",
+    "bandit>=1.7",
+]
+dashboard = [
+    "jinja2>=3.1",
+    "plotly>=5.18",
+]
+
+[project.scripts]
+quantcore = "main:main"
+quantcore-mcp = "qxm.mcp_server.server:run_server"
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["qxm*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: integration tests requiring database",
+]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "S", "B"]
+ignore = ["S101"]  # allow assert in tests
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+plugins = ["pydantic.mypy"]
