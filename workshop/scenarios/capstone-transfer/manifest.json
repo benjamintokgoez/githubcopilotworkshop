@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "id": "capstone-transfer",
+  "title": "Capstone - a daily export utility under mild adversity",
+  "kind": "code",
+  "lab": "Lab 6",
+  "summary": "A domain-light individual task: business-date windows, an ISO filename, and a German-formatted total, with sample input, explicit expected values, and a confident claim in the brief that does not survive checking.",
+  "fallback": "workshop/fallbacks/capstone-transfer",
+  "acceptance_doc": "workshop/scenarios/capstone-transfer/acceptance.md",
+  "required_artifacts": [
+    "workshop/scenarios/capstone-transfer/issue.md",
+    "workshop/scenarios/capstone-transfer/data/records_2026-08-19.json"
+  ],
+  "briefing": [
+    "workshop/scenarios/capstone-transfer/issue.md",
+    "workshop/scenarios/capstone-transfer/data/records_2026-08-19.json"
+  ],
+  "stage": [
+    {
+      "payload": "workshop/scenarios/capstone-transfer/payloads/daily_export.py.txt",
+      "target": "workshop/scenarios/capstone-transfer/work/daily_export.py",
+      "mode": "0644",
+      "description": "The utility skeleton. Four functions, nothing more."
+    },
+    {
+      "payload": "workshop/scenarios/capstone-transfer/payloads/test_daily_export.py.txt",
+      "target": "workshop/scenarios/capstone-transfer/work/test_daily_export.py",
+      "mode": "0644",
+      "description": "The acceptance checks, using the expected values from the lab."
+    },
+    {
+      "payload": "workshop/scenarios/capstone-transfer/payloads/NOTES.md.txt",
+      "target": "workshop/scenarios/capstone-transfer/work/NOTES.md",
+      "mode": "0644",
+      "description": "Your handover: workflow, the claim you rejected, and the uncertainty sentence."
+    }
+  ],
+  "acceptance": {
+    "kind": "command",
+    "commands": [
+      {
+        "label": "Business-date windows, half-open boundary, filename, and display total",
+        "argv": [
+          "{python}",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "workshop/scenarios/capstone-transfer/work",
+          "-t",
+          "workshop/scenarios/capstone-transfer/work",
+          "-p",
+          "test_*.py"
+        ],
+        "timeout_seconds": 120
+      }
+    ]
+  }
+}

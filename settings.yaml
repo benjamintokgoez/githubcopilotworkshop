@@ -1,50 +1,49 @@
 # QuantCore Configuration
 # =======================
+# Development-safe defaults for the workshop baseline. No secrets belong in
+# this file - see .env.example for the environment variables the app consumes.
+#
+# Python baseline: 3.12, verified against the 3.12.14 patch release, in sync
+# with pyproject.toml requires-python, .github/workflows/ci.yml, and
+# .devcontainer/devcontainer.json.
+
+# Declarative workshop contract: Python stores UTC and the static dashboard
+# presents Europe/Berlin. These are fixed cross-surface invariants, not runtime
+# timezone switches.
+timezone:
+  application: "UTC"
+  presentation: "Europe/Berlin"
 
 server:
-  host: "0.0.0.0"
-  # BUG (Challenge 2 — Debugging): Port is quoted → YAML loads it as
-  # string "8443" instead of int 8443.  uvicorn expects an int.
-  port: "8443"
-  workers: 1
+  host: "127.0.0.1"
+  port: 8443
   log_level: "info"
-
-engine:
-  max_order_size: 10000
-  max_position_value: 1000000.0
-  enable_pre_trade_checks: true
-  matching_algorithm: "fifo"  # fifo | pro_rata
+  cors_origins: []
+  cors_allow_credentials: false
 
 risk:
-  var_confidence: 0.95
-  var_horizon_days: 1
-  risk_free_rate: 0.05
-  max_portfolio_var: 50000.0
+  # Null is honest: the dashboard reports VaR as unavailable unless an
+  # explicit positive daily return volatility is supplied.
+  daily_volatility: null
 
-data:
-  database_url: "sqlite:///quantcore.db"
-  feed_interval_ms: 100
-  ohlc_interval_seconds: 60
+# Development-safe: local SQLite file, no external database server required.
+database:
+  url: "sqlite:///quantcore.db"
+  echo: false
 
-strategies:
-  enabled:
-    - "MomentumBreakout"
-    - "EMACrossover"
-    - "BollingerMeanReversion"
-  default_parameters:
-    MomentumBreakout:
-      lookback: 20
-      atr_multiplier: 1.5
-    EMACrossover:
-      fast_span: 12
-      slow_span: 26
-    BollingerMeanReversion:
-      window: 20
-      num_std: 2.0
+feed:
+  # Supported modes: simulated, disabled, off, none. The reusable WebSocket
+  # adapter is intentionally not wired into this offline workshop app.
+  mode: "simulated"
+  interval_ms: 100
+  seed: 7
+
+dashboard:
+  # Aggregate totals are nominal simulator sums; no FX conversion is performed.
+  currency: "EUR"
 
 auth:
   key_ttl_seconds: 86400
-  max_keys_per_client: 5
 
 logging:
   level: "INFO"

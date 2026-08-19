@@ -1,0 +1,36 @@
+Captured run of the acceptance check for scenario 'elective-mcp', in its starting
+state - that is, immediately after 'start' and before any participant work.
+Command: python scripts/workshop.py verify elective-mcp
+Exit code: 3
+Repository paths are replaced with <repo>; the output is truncated exactly as
+the runner truncates it. Synthetic capture for the workshop.
+------------------------------------------------------------------------------
+
+Verifying scenario: elective-mcp
+Acceptance contract: workshop/scenarios/elective-mcp/acceptance.md
+
+Evidence file: workshop/scenarios/elective-mcp/work/permission_inventory.md
+  PASS  evidence file workshop/scenarios/elective-mcp/work/permission_inventory.md is readable: ok
+  FAIL  no template placeholder is left anywhere in the file: still contains '<fill in'
+  FAIL  section '## 1. What this server can reach': still contains the template placeholder '<fill in'
+  FAIL  section '## 2. Tools offered, enabled, disabled': still contains the template placeholder '<fill in'
+  FAIL  section '## 3. Evidence the answer came from the tool': still contains the template placeholder '<fill in'
+  FAIL  section '## 4. Negative case': still contains the template placeholder '<fill in'
+  FAIL  section '## 5. What MCP configuration does not protect against': still contains the template placeholder '<fill in'
+  FAIL  section '## 6. What I would ask my platform team for': still contains the template placeholder '<fill in'
+  FAIL  field '- Tools offered:': still contains the template placeholder '<fill in'
+  FAIL  field '- Tools enabled:': still contains the template placeholder '<fill in'
+  FAIL  field '- Tools disabled:': still contains the template placeholder '<fill in'
+  FAIL  field '- Where the control lives:': still contains the template placeholder '<fill in'
+  FAIL  field '- Approval boundary:': still contains the template placeholder '<fill in'
+  FAIL  field '- Data that leaves this machine:': still contains the template placeholder '<fill in'
+  FAIL  field '- What I asked for outside the permission:': still contains the template placeholder '<fill in'
+  FAIL  field '- Observed behaviour:': still contains the template placeholder '<fill in'
+  FAIL  field '- Approval owner:': still contains the template placeholder '<fill in'
+
+Summary: 1/17 acceptance checks passed
+
+This is the expected result before your change is complete.
+Keep this output: it is your fail-before evidence.
+
+error: acceptance not met for elective-mcp

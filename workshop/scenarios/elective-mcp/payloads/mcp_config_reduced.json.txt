@@ -1,0 +1,18 @@
+{
+  "servers": {
+    "quantcore-local": {
+      "type": "stdio",
+      "command": "python",
+      "args": ["-m", "qxm.mcp_server.server"],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "QXM_ENV": "workshop-simulation"
+      },
+      "envFile": "${workspaceFolder}/.env",
+      "dev": {
+        "watch": "qxm/mcp_server/**/*.py"
+      },
+      "sandboxEnabled": false
+    }
+  }
+}

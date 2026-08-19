@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Exact interpreter patch baseline. Dependencies use bounded ranges rather
+  # than a lock file, so the delivery release checklist still requires a
+  # clean-room run. Keep this compatible with requires-python and aligned with
+  # the baseline documented in pyproject.toml and the devcontainer.
+  PYTHON_VERSION: "3.12.14"
+
+jobs:
+  quality:
+    name: Install, compile, and check quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
+          cache-dependency-path: |
+            pyproject.toml
+            requirements.txt
+
+      - name: Install project (editable, with dev extras)
+        run: python -m pip install -e ".[dev]"
+
+      - name: Verify dependency consistency
+        run: python -m pip check
+
+      - name: Byte-compile source (syntax check)
+        # -x skips any stray/scratch virtualenv or cache directories that
+        # concurrent workstreams may leave behind under package folders.
+        run: python -m compileall -q -x '(^|/)[^/]*venv[^/]*(/|$)|(^|/)__pycache__(/|$)' qxm main.py scripts security_check.py tests
+
+      - name: Run pytest
+        run: python -m pytest tests/ -v
+
+      - name: Run ruff (lint)
+        run: python -m ruff check .
+
+      - name: Run ruff (format check)
+        run: python -m ruff format --check .
+
+      - name: Run mypy (type check)
+        run: python -m mypy qxm main.py scripts
+
+      - name: Run workshop doctor (environment preflight)
+        run: python scripts/workshop_doctor.py --strict
+
+      - name: Validate dashboard JavaScript
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          html = Path("dashboard/index.html").read_text(encoding="utf-8")
+          scripts = re.findall(
+              r"<script(?:\s[^>]*)?>(.*?)</script>",
+              html,
+              flags=re.DOTALL | re.IGNORECASE,
+          )
+          if not scripts:
+              raise SystemExit("dashboard contains no inline JavaScript")
+          output = Path(os.environ["RUNNER_TEMP"]) / "quantcore-dashboard.js"
+          output.write_text("\n".join(scripts), encoding="utf-8")
+          PY
+          node --check "$RUNNER_TEMP/quantcore-dashboard.js"
+
+      - name: Run bandit (security scan)
+        run: python -m bandit -r qxm main.py -ll
+
+      - name: Run security_check.py (workshop vulnerability scan)
+        run: python security_check.py

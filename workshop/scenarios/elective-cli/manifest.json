@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "id": "elective-cli",
+  "title": "Elective - terminal agent permissions and blast radius",
+  "kind": "evidence",
+  "lab": "Lab 5B",
+  "summary": "A captured terminal-agent session with approvals and one denial, a repository-safe task, and the allow/ask/deny policy you write and defend.",
+  "fallback": "workshop/fallbacks/elective-cli",
+  "acceptance_doc": "workshop/scenarios/elective-cli/acceptance.md",
+  "required_artifacts": [
+    "workshop/scenarios/elective-cli/brief.md",
+    "workshop/scenarios/elective-cli/fixtures/cli_session_transcript.md",
+    "workshop/scenarios/elective-cli/fixtures/repo_safe_task.md"
+  ],
+  "briefing": [
+    "workshop/scenarios/elective-cli/brief.md",
+    "workshop/scenarios/elective-cli/fixtures/cli_session_transcript.md",
+    "workshop/scenarios/elective-cli/fixtures/repo_safe_task.md"
+  ],
+  "stage": [
+    {
+      "payload": "workshop/scenarios/elective-cli/payloads/permission_policy.md.txt",
+      "target": "workshop/scenarios/elective-cli/work/permission_policy.md",
+      "mode": "0644",
+      "description": "Your allow / ask / deny policy and the evidence behind it."
+    }
+  ],
+  "acceptance": {
+    "kind": "evidence",
+    "evidence": {
+      "path": "workshop/scenarios/elective-cli/work/permission_policy.md",
+      "required_headings": [
+        "## 1. Default posture",
+        "## 2. Rules",
+        "## 3. Negative case",
+        "## 4. What an allowlist does not protect against",
+        "## 5. Shared machines and CI"
+      ],
+      "min_words_per_section": 15,
+      "placeholders": ["TODO", "TBD", "<fill in", "PLACEHOLDER"],
+      "fields": [
+        {
+          "label": "- Default posture:",
+          "min_chars": 10,
+          "must_contain_any": ["deny", "ask", "approve each"]
+        },
+        {"label": "- Broadest entry I wrote:", "min_chars": 20},
+        {"label": "- What I asked for outside the policy:", "min_chars": 20},
+        {"label": "- Observed behaviour:", "min_chars": 20},
+        {"label": "- Evidence source:", "min_chars": 8, "must_contain_any": ["live", "captured"]}
+      ],
+      "blocks": [
+        {
+          "heading_prefix": "### Rule",
+          "min_count": 3,
+          "fields": [
+            {"label": "- Command:", "min_chars": 5},
+            {
+              "label": "- Verdict:",
+              "min_chars": 3,
+              "must_contain_any": ["allow", "ask", "deny"]
+            },
+            {"label": "- Why:", "min_chars": 20},
+            {"label": "- Blast radius if wrong:", "min_chars": 20}
+          ]
+        }
+      ]
+    }
+  }
+}

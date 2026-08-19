@@ -10,6 +10,7 @@ from qxm.risk.greeks import (
 )
 from qxm.risk.portfolio import PortfolioAnalytics
 from qxm.risk.var import (
+    StressResult,
     VaREngine,
     conditional_var,
     historical_var,
@@ -22,6 +23,7 @@ __all__ = [
     "CachedGreek",
     "OptionPricer",
     "PortfolioAnalytics",
+    "StressResult",
     "VaREngine",
     "aggregate_greeks",
     "bs_call_price",

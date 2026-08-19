@@ -1,0 +1,46 @@
+Captured run of the acceptance check for scenario 'elective-customization', in its starting
+state - that is, immediately after 'start' and before any participant work.
+Command: python scripts/workshop.py verify elective-customization
+Exit code: 3
+Repository paths are replaced with <repo>; the output is truncated exactly as
+the runner truncates it. Synthetic capture for the workshop.
+------------------------------------------------------------------------------
+
+Verifying scenario: elective-customization
+Acceptance contract: workshop/scenarios/elective-customization/acceptance.md
+
+Evidence file: workshop/scenarios/elective-customization/work/customization_notes.md
+  PASS  evidence file workshop/scenarios/elective-customization/work/customization_notes.md is readable: ok
+  FAIL  no template placeholder is left anywhere in the file: still contains '<fill in'
+  FAIL  section '## 1. The task I measured with': still contains the template placeholder '<fill in'
+  FAIL  section '## 2. Before': still contains the template placeholder '<fill in'
+  FAIL  section '## 3. After': still contains the template placeholder '<fill in'
+  FAIL  section '## 4. Rules': still contains the template placeholder '<fill in'
+  FAIL  section '## 5. What I deleted or rewrote': still contains the template placeholder '<fill in'
+  FAIL  section '## 6. Contradiction test': still contains the template placeholder '<fill in'
+  FAIL  section '## 7. What durable context cannot enforce': still contains the template placeholder '<fill in'
+  FAIL  field '- Observable difference:': still contains the template placeholder '<fill in'
+  FAIL  field '- Rule I deleted or rewrote:': still contains the template placeholder '<fill in'
+  FAIL  field '- Why its effect was not observable:': still contains the template placeholder '<fill in'
+  FAIL  field '- What I asked for that contradicts a rule:': still contains the template placeholder '<fill in'
+  FAIL  field '- Observed behaviour:': still contains the template placeholder '<fill in'
+  PASS  blocks starting with '### Rule': found 3
+  FAIL  section '### Rule 1 (block 1)': still contains the template placeholder '<fill in'
+  FAIL  block 1: field '- Rule:': still contains the template placeholder '<fill in'
+  FAIL  block 1: field '- How a reviewer checks it:': still contains the template placeholder '<fill in'
+  FAIL  block 1: field '- Belongs in:': still contains the template placeholder '<fill in'
+  FAIL  section '### Rule 2 (block 2)': still contains the template placeholder '<fill in'
+  FAIL  block 2: field '- Rule:': still contains the template placeholder '<fill in'
+  FAIL  block 2: field '- How a reviewer checks it:': still contains the template placeholder '<fill in'
+  FAIL  block 2: field '- Belongs in:': still contains the template placeholder '<fill in'
+  FAIL  section '### Rule 3 (block 3)': still contains the template placeholder '<fill in'
+  FAIL  block 3: field '- Rule:': still contains the template placeholder '<fill in'
+  FAIL  block 3: field '- How a reviewer checks it:': still contains the template placeholder '<fill in'
+  FAIL  block 3: field '- Belongs in:': still contains the template placeholder '<fill in'
+
+Summary: 2/27 acceptance checks passed
+
+This is the expected result before your change is complete.
+Keep this output: it is your fail-before evidence.
+
+error: acceptance not met for elective-customization

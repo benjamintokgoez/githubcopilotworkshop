@@ -1,323 +1,1586 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QuantCore Dashboard</title>
-    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
-    <style>
-        :root {
-            --bg-primary: #0d1117;
-            --bg-secondary: #161b22;
-            --bg-card: #21262d;
-            --text-primary: #e6edf3;
-            --text-secondary: #8b949e;
-            --accent-green: #3fb950;
-            --accent-red: #f85149;
-            --accent-blue: #58a6ff;
-            --accent-yellow: #d29922;
-            --border: #30363d;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QuantCore Dashboard</title>
+<script>
+  (() => {
+    const param = new URLSearchParams(window.location.search).get("scoutTheme");
+    const theme =
+      param || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    document.documentElement.setAttribute("data-theme", theme);
+  })();
+</script>
+<style>
+  :root {
+    color-scheme: light;
+    --cp-bg: #f7f4ef;
+    --cp-bg-elevated: #fcfbf8;
+    --cp-surface: #ffffff;
+    --cp-surface-soft: #f5f5f5;
+    --cp-border: #dedede;
+    --cp-border-strong: #919191;
+    --cp-text: #242424;
+    --cp-text-muted: #5c5c5c;
+    --cp-text-soft: #6f6f6f;
+    --cp-accent: #b11f4b;
+    --cp-accent-hover: #9a1a41;
+    --cp-accent-soft: rgba(177, 31, 75, 0.08);
+    --cp-accent-fg: #ffffff;
+    --cp-success: #16a34a;
+    --cp-danger: #dc2626;
+    --cp-warning: #f59e0b;
+    --cp-link: #0078d4;
+    --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.12);
+    --cp-overlay: rgba(255, 255, 255, 0.8);
+    --cp-panel: rgba(255, 255, 255, 0.86);
+    --cp-panel-strong: rgba(255, 255, 255, 0.96);
+    --cp-sheen: rgba(255, 255, 255, 0.55);
+    --cp-highlight: rgba(177, 31, 75, 0.12);
+  }
+  html[data-theme="dark"] {
+    color-scheme: dark;
+    --cp-bg: #3d3b3a;
+    --cp-bg-elevated: #343231;
+    --cp-surface: #292929;
+    --cp-surface-soft: #2e2e2e;
+    --cp-border: #474747;
+    --cp-border-strong: #5f5f5f;
+    --cp-text: #dedede;
+    --cp-text-muted: #919191;
+    --cp-text-soft: #b0b0b0;
+    --cp-accent: #fd8ea1;
+    --cp-accent-hover: #fb7b91;
+    --cp-accent-soft: rgba(253, 142, 161, 0.14);
+    --cp-accent-fg: #1a1a1a;
+    --cp-success: #4ade80;
+    --cp-danger: #f87171;
+    --cp-warning: #fbbf24;
+    --cp-link: #4da6ff;
+    --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
+    --cp-overlay: rgba(41, 41, 41, 0.88);
+    --cp-panel: rgba(41, 41, 41, 0.72);
+    --cp-panel-strong: rgba(41, 41, 41, 0.96);
+    --cp-sheen: rgba(255, 255, 255, 0.04);
+    --cp-highlight: rgba(253, 142, 161, 0.12);
+  }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+  * { box-sizing: border-box; }
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            min-height: 100vh;
-        }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--cp-bg);
+    color: var(--cp-text);
+    font-family: "Segoe UI", Aptos, Calibri, -apple-system, BlinkMacSystemFont, sans-serif;
+    line-height: 1.45;
+  }
 
-        .header {
-            background: var(--bg-secondary);
-            border-bottom: 1px solid var(--border);
-            padding: 16px 24px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
+  h1, h2, h3 { font-weight: 600; margin: 0; }
 
-        .header h1 {
-            font-size: 20px;
-            font-weight: 600;
-        }
+  .mono { font-family: Consolas, "Courier New", Courier, monospace; }
 
-        .header .status {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 14px;
-            color: var(--text-secondary);
-        }
+  .visually-hidden {
+    position: absolute !important;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
 
-        .status-dot {
-            width: 8px; height: 8px;
-            border-radius: 50%;
-            background: var(--accent-green);
-        }
+  .skip-link {
+    position: absolute;
+    left: 8px;
+    top: -48px;
+    background: var(--cp-accent);
+    color: var(--cp-accent-fg);
+    padding: 10px 16px;
+    border-radius: 10px;
+    z-index: 1000;
+    text-decoration: none;
+    font-weight: 600;
+    transition: top 0.15s ease;
+  }
+  .skip-link:focus { top: 8px; }
 
-        .dashboard {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 16px;
-            padding: 24px;
-        }
+  :focus-visible {
+    outline: 2px solid var(--cp-accent);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
 
-        .card {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 20px;
-        }
+  .app-header {
+    background: var(--cp-bg-elevated);
+    border-bottom: 1px solid var(--cp-border);
+    padding: 16px 24px;
+  }
 
-        .card h3 {
-            font-size: 14px;
-            color: var(--text-secondary);
-            margin-bottom: 8px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
+  .app-header .title-row {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
 
-        .card .value {
-            font-size: 28px;
-            font-weight: 700;
-        }
+  .app-header h1 { font-size: 22px; }
+  .app-header .subtitle { color: var(--cp-text-muted); font-size: 13px; }
 
-        .card .value.positive { color: var(--accent-green); }
-        .card .value.negative { color: var(--accent-red); }
+  .control-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+  }
 
-        .chart-container {
-            grid-column: span 2;
-            min-height: 350px;
-        }
+  .control-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--cp-text-muted);
+  }
 
-        .positions-table {
-            grid-column: span 2;
-        }
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border-radius: 10px;
+    background: var(--cp-surface-soft);
+    border: 1px solid var(--cp-border);
+    font-size: 13px;
+  }
 
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 12px;
-        }
+  .status-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--cp-text-soft);
+    flex-shrink: 0;
+  }
+  .status-dot[data-state="online"] { background: var(--cp-success); }
+  .status-dot[data-state="degraded"] { background: var(--cp-warning); }
+  .status-dot[data-state="offline"] { background: var(--cp-danger); }
 
-        th, td {
-            text-align: left;
-            padding: 8px 12px;
-            border-bottom: 1px solid var(--border);
-            font-size: 13px;
-        }
+  button, select, input {
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--cp-text);
+  }
 
-        th {
-            color: var(--text-secondary);
-            font-weight: 500;
-        }
+  button {
+    background: var(--cp-surface);
+    border: 1px solid var(--cp-border-strong);
+    border-radius: 10px;
+    padding: 8px 14px;
+    cursor: pointer;
+  }
+  button:hover { background: var(--cp-accent-soft); border-color: var(--cp-accent); }
+  button.btn-primary {
+    background: var(--cp-accent);
+    color: var(--cp-accent-fg);
+    border-color: var(--cp-accent);
+  }
+  button.btn-primary:hover { background: var(--cp-accent-hover); border-color: var(--cp-accent-hover); }
+  button:disabled { opacity: 0.55; cursor: not-allowed; }
 
-        .order-book {
-            grid-column: span 2;
-        }
+  select, input[type="password"], input[type="text"] {
+    background: var(--cp-surface);
+    border: 1px solid var(--cp-border-strong);
+    border-radius: 10px;
+    padding: 7px 10px;
+  }
 
-        .book-sides {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 16px;
-            margin-top: 12px;
-        }
+  main {
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
 
-        .book-side h4 {
-            font-size: 13px;
-            color: var(--text-secondary);
-            margin-bottom: 8px;
-        }
+  .card {
+    background: var(--cp-surface);
+    border: 1px solid var(--cp-border);
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 0 2px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.14);
+  }
 
-        .book-level {
-            display: flex;
-            justify-content: space-between;
-            padding: 4px 8px;
-            font-size: 13px;
-            font-family: 'SF Mono', monospace;
-        }
+  .card h2 {
+    font-size: 16px;
+    margin-bottom: 14px;
+  }
 
-        .book-level.bid { background: rgba(63, 185, 80, 0.1); }
-        .book-level.ask { background: rgba(248, 81, 73, 0.1); }
+  .banner {
+    border-radius: 10px;
+    padding: 12px 16px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 13px;
+    border: 1px solid var(--cp-border);
+  }
+  .banner[data-tone="error"] { background: var(--cp-accent-soft); border-color: var(--cp-danger); }
+  .banner[data-tone="info"] { background: var(--cp-surface-soft); border-color: var(--cp-border-strong); }
+  .banner .banner-icon { flex-shrink: 0; font-weight: 700; }
+  .banner .banner-body { flex: 1; }
+  .banner button { margin-top: 8px; }
+  .banner[hidden] { display: none; }
 
-        .refresh-btn {
-            background: var(--accent-blue);
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 13px;
-        }
+  details.key-panel {
+    border: 1px solid var(--cp-border);
+    border-radius: 10px;
+    background: var(--cp-surface);
+    padding: 4px 16px 16px;
+  }
+  details.key-panel summary {
+    cursor: pointer;
+    padding: 12px 0;
+    font-weight: 600;
+    list-style: none;
+  }
+  details.key-panel summary::-webkit-details-marker { display: none; }
+  details.key-panel summary::before {
+    content: "\25B8 ";
+    color: var(--cp-accent);
+  }
+  details.key-panel[open] summary::before { content: "\25BE "; }
+  details.key-panel[open] {
+    box-shadow: var(--cp-shadow);
+  }
 
-        .refresh-btn:hover { opacity: 0.9; }
-    </style>
+  .key-body { padding-top: 8px; }
+  .privacy-note {
+    background: var(--cp-surface-soft);
+    border: 1px solid var(--cp-border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 13px;
+    color: var(--cp-text-muted);
+    margin: 0 0 14px;
+  }
+  .key-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+  .key-row label { font-size: 13px; color: var(--cp-text-muted); }
+  .key-row input { flex: 1 1 220px; min-width: 180px; }
+  .key-status { font-size: 13px; color: var(--cp-text-muted); margin: 10px 0 0; min-height: 1.2em; }
+
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 16px;
+  }
+  .kpi-card {
+    background: var(--cp-surface-soft);
+    border: 1px solid var(--cp-border);
+    border-radius: 16px;
+    padding: 16px;
+  }
+  .kpi-label {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--cp-text-muted);
+    margin: 0 0 8px;
+  }
+  .kpi-value {
+    font-size: 24px;
+    font-weight: 700;
+    margin: 0;
+    font-family: Consolas, "Courier New", Courier, monospace;
+  }
+  .kpi-sub { font-size: 12px; color: var(--cp-text-soft); margin-top: 4px; }
+
+  .grid-two {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  .chart-wrap svg {
+    width: 100%;
+    height: 160px;
+    display: block;
+  }
+  .pnl-line { fill: none; stroke: var(--cp-accent); stroke-width: 2; }
+  .pnl-zero-line { stroke: var(--cp-border-strong); stroke-width: 1; stroke-dasharray: 4 3; }
+  .pnl-dot { fill: var(--cp-accent); }
+  .chart-summary { font-size: 13px; color: var(--cp-text-muted); margin-top: 8px; }
+
+  .risk-bars { list-style: none; margin: 0; padding: 0; }
+  .risk-bars li { display: grid; grid-template-columns: 70px 1fr 90px; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 13px; }
+  .bar-track { background: var(--cp-surface-soft); border: 1px solid var(--cp-border); border-radius: 10px; height: 10px; overflow: hidden; }
+  .bar-fill { background: var(--cp-accent); height: 100%; display: block; }
+  .risk-value { font-family: Consolas, "Courier New", Courier, monospace; text-align: right; }
+  .risk-stats { list-style: none; margin: 14px 0 0; padding: 12px 0 0; border-top: 1px solid var(--cp-border); display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 13px; }
+  .risk-stats li { display: flex; justify-content: space-between; gap: 8px; }
+  .risk-stats .risk-stat-value { font-family: Consolas, "Courier New", Courier, monospace; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  caption { text-align: left; color: var(--cp-text-muted); font-size: 12px; margin-bottom: 8px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--cp-border); }
+  th { color: var(--cp-text-muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; }
+  td.num, th.num { text-align: right; font-family: Consolas, "Courier New", Courier, monospace; }
+
+  .signed-value { display: inline-flex; align-items: center; gap: 4px; }
+  .signed-value[data-sign="pos"] { color: var(--cp-success); }
+  .signed-value[data-sign="neg"] { color: var(--cp-danger); }
+  .sign-icon { font-weight: 700; }
+
+  .orderbook-controls { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .orderbook-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .orderbook-grid h3 { font-size: 13px; margin-bottom: 8px; color: var(--cp-text-muted); }
+  .book-side-bid { color: var(--cp-success); }
+  .book-side-ask { color: var(--cp-danger); }
+
+  .empty-note { color: var(--cp-text-soft); font-size: 13px; font-style: italic; }
+
+  footer {
+    padding: 20px 24px 32px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+  .disclaimer {
+    background: var(--cp-surface-soft);
+    border: 1px solid var(--cp-border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    font-size: 12.5px;
+    color: var(--cp-text-muted);
+  }
+  .disclaimer p { margin: 0 0 6px; }
+  .disclaimer p:last-child { margin-bottom: 0; }
+  .as-of-note { font-size: 12px; color: var(--cp-text-soft); margin-top: 10px; }
+
+  @media (max-width: 1100px) {
+    .kpi-grid { grid-template-columns: repeat(3, 1fr); }
+    .grid-two, .orderbook-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 640px) {
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+</style>
 </head>
 <body>
-    <div class="header">
-        <h1>⚡ QuantCore Dashboard</h1>
-        <div class="status">
-            <div class="status-dot"></div>
-            <span id="status-text">Connected</span>
-            <button class="refresh-btn" onclick="refreshData()">Refresh</button>
+<a class="skip-link" href="#main-content">Skip to main content / Zum Hauptinhalt springen</a>
+
+<header class="app-header" role="banner">
+  <div class="title-row">
+    <h1>QuantCore Dashboard</h1>
+    <span class="subtitle" data-i18n="subtitle">Simulated trading dashboard for workshop use</span>
+  </div>
+  <div class="control-row">
+    <span class="status-pill" id="connectivity-pill">
+      <span class="status-dot" id="connectivity-dot" data-state="unknown" aria-hidden="true"></span>
+      <span id="connectivity-text" data-i18n="statusUnknown">Status unknown</span>
+    </span>
+    <span class="control-group" id="last-updated-group">
+      <span data-i18n="lastUpdatedLabel">Last updated</span>:
+      <span id="last-updated-value" class="mono">&mdash;</span>
+    </span>
+    <span class="control-group">
+      <button type="button" id="refresh-btn" data-i18n="refreshNowBtn">Refresh now</button>
+    </span>
+    <span class="control-group">
+      <label for="auto-refresh-select" data-i18n="autoRefreshLabel">Auto-refresh</label>
+      <select id="auto-refresh-select">
+        <option value="0" data-i18n="optManual">Manual</option>
+        <option value="5000" data-i18n="opt5">Every 5 seconds</option>
+        <option value="15000" data-i18n="opt15">Every 15 seconds</option>
+        <option value="30000" data-i18n="opt30">Every 30 seconds</option>
+      </select>
+    </span>
+    <span class="control-group">
+      <button type="button" id="lang-toggle-btn" aria-label="Auf Deutsch umschalten">Deutsch</button>
+    </span>
+  </div>
+</header>
+
+<div id="live-region" class="visually-hidden" role="status" aria-live="polite"></div>
+
+<main id="main-content">
+  <div id="error-banner" class="banner" data-tone="error" role="alert" hidden>
+    <span class="banner-icon" aria-hidden="true">&#9888;</span>
+    <span class="banner-body">
+      <span id="error-banner-text"></span>
+      <br>
+      <button type="button" id="error-retry-btn" data-i18n="retryBtn">Retry</button>
+    </span>
+  </div>
+
+  <section id="api-key-section" aria-labelledby="api-key-heading">
+    <details class="key-panel" id="api-key-details">
+      <summary id="api-key-heading" data-i18n="apiKeyHeading">API key</summary>
+      <div class="key-body">
+        <p class="privacy-note" data-i18n="apiKeyPrivacyNote">
+          Your API key is stored only in this browser tab's session storage. It is used solely to authenticate
+          requests to this dashboard's own API and is never sent anywhere else, logged, or persisted after you
+          close this tab.
+        </p>
+        <div class="key-row">
+          <label for="api-key-input" data-i18n="apiKeyInputLabel">API key</label>
+          <input id="api-key-input" type="password" autocomplete="off" spellcheck="false" aria-describedby="api-key-status">
+          <button type="button" id="toggle-key-visibility" aria-pressed="false" data-i18n="showKeyBtn">Show</button>
+          <button type="button" id="save-key-btn" class="btn-primary" data-i18n="saveKeyBtn">Save</button>
+          <button type="button" id="clear-key-btn" data-i18n="clearKeyBtn">Clear</button>
         </div>
+        <p id="api-key-status" class="key-status" role="status" aria-live="polite"></p>
+      </div>
+    </details>
+  </section>
+
+  <section aria-labelledby="kpi-heading">
+    <h2 id="kpi-heading" data-i18n="kpiHeading">Key metrics</h2>
+    <div class="kpi-grid">
+      <article class="kpi-card">
+        <p class="kpi-label" data-i18n="kpiPortfolioValue">Portfolio value</p>
+        <p class="kpi-value" id="kpi-portfolio-value">&mdash;</p>
+      </article>
+      <article class="kpi-card">
+        <p class="kpi-label" data-i18n="kpiRealised">Realised P&amp;L</p>
+        <p class="kpi-value" id="kpi-realised-pnl">&mdash;</p>
+      </article>
+      <article class="kpi-card">
+        <p class="kpi-label" data-i18n="kpiUnrealised">Unrealised P&amp;L</p>
+        <p class="kpi-value" id="kpi-unrealised-pnl">&mdash;</p>
+      </article>
+      <article class="kpi-card">
+        <p class="kpi-label" data-i18n="kpiVar">Value at Risk (95%)</p>
+        <p class="kpi-value" id="kpi-var-value">&mdash;</p>
+        <p class="kpi-sub" data-i18n="kpiVarSub">Estimated potential loss</p>
+      </article>
+      <article class="kpi-card">
+        <p class="kpi-label" data-i18n="kpiActiveOrders">Active orders</p>
+        <p class="kpi-value" id="kpi-active-orders">&mdash;</p>
+      </article>
     </div>
+  </section>
 
-    <div class="dashboard">
-        <!-- KPI Cards -->
-        <div class="card">
-            <h3>Portfolio Value</h3>
-            <div class="value" id="portfolio-value">$0.00</div>
-        </div>
-        <div class="card">
-            <h3>Unrealised P&L</h3>
-            <div class="value" id="unrealised-pnl">$0.00</div>
-        </div>
-        <div class="card">
-            <h3>Value at Risk (95%)</h3>
-            <div class="value" id="var-value">$0.00</div>
-        </div>
-        <div class="card">
-            <h3>Active Orders</h3>
-            <div class="value" id="active-orders">0</div>
-        </div>
+  <div class="grid-two">
+    <section class="card chart-wrap" aria-labelledby="pnl-heading">
+      <h2 id="pnl-heading" data-i18n="pnlHeading">P&amp;L trend</h2>
+      <svg id="pnl-svg" viewBox="0 0 400 140" preserveAspectRatio="none" role="img" aria-labelledby="pnl-svg-title pnl-svg-desc">
+        <title id="pnl-svg-title" data-i18n="pnlChartTitle">P&amp;L history chart</title>
+        <desc id="pnl-svg-desc" data-i18n="pnlNoData">No data loaded yet.</desc>
+      </svg>
+      <p class="chart-summary" id="pnl-summary"></p>
+      <details>
+        <summary data-i18n="pnlShowTable">Show data as table</summary>
+        <table id="pnl-table">
+          <caption data-i18n="pnlHeading">P&amp;L trend</caption>
+          <thead>
+            <tr>
+              <th scope="col" data-i18n="pnlColTime">Time (Europe/Berlin)</th>
+              <th scope="col" class="num" data-i18n="pnlColValue">Value</th>
+            </tr>
+          </thead>
+          <tbody id="pnl-table-body"></tbody>
+        </table>
+      </details>
+    </section>
 
-        <!-- P&L Chart -->
-        <div class="card chart-container">
-            <h3>P&L History</h3>
-            <div id="pnl-chart"></div>
-        </div>
+    <section class="card" aria-labelledby="risk-heading">
+      <h2 id="risk-heading" data-i18n="riskHeading">Risk breakdown</h2>
+      <ul class="risk-bars" id="risk-bars-list"></ul>
+      <ul class="risk-stats" id="risk-stats-list"></ul>
+    </section>
+  </div>
 
-        <!-- Risk Metrics -->
-        <div class="card chart-container">
-            <h3>Risk Breakdown</h3>
-            <div id="risk-chart"></div>
-        </div>
+  <section class="card" aria-labelledby="positions-heading">
+    <h2 id="positions-heading" data-i18n="positionsHeading">Positions</h2>
+    <table id="positions-table">
+      <caption data-i18n="positionsCaption">Open positions with quantity, average entry price, market price and profit or loss.</caption>
+      <thead>
+        <tr>
+          <th scope="col" data-i18n="positionsColSymbol">Symbol</th>
+          <th scope="col" class="num" data-i18n="positionsColQty">Quantity</th>
+          <th scope="col" class="num" data-i18n="positionsColAvgPrice">Avg. entry price</th>
+          <th scope="col" class="num" data-i18n="positionsColMarketPrice">Market price</th>
+          <th scope="col" class="num" data-i18n="positionsColPnl">Total P&amp;L</th>
+        </tr>
+      </thead>
+      <tbody id="positions-table-body"></tbody>
+    </table>
+  </section>
 
-        <!-- Positions Table -->
-        <div class="card positions-table">
-            <h3>Open Positions</h3>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Symbol</th>
-                        <th>Qty</th>
-                        <th>Avg Price</th>
-                        <th>Market Price</th>
-                        <th>P&L</th>
-                    </tr>
-                </thead>
-                <tbody id="positions-body">
-                    <tr><td colspan="5" style="color: var(--text-secondary)">No positions</td></tr>
-                </tbody>
-            </table>
-        </div>
-
-        <!-- Order Book -->
-        <div class="card order-book">
-            <h3>Order Book — <select id="book-symbol" style="background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border);padding:4px 8px;border-radius:4px;">
-                <option>AAPL</option>
-                <option>GOOGL</option>
-                <option>MSFT</option>
-            </select></h3>
-            <div class="book-sides">
-                <div class="book-side">
-                    <h4>Bids</h4>
-                    <div id="bids-list">
-                        <div class="book-level bid"><span>--</span><span>--</span></div>
-                    </div>
-                </div>
-                <div class="book-side">
-                    <h4>Asks</h4>
-                    <div id="asks-list">
-                        <div class="book-level ask"><span>--</span><span>--</span></div>
-                    </div>
-                </div>
-            </div>
-        </div>
+  <section class="card" aria-labelledby="orderbook-heading">
+    <h2 id="orderbook-heading" data-i18n="orderbookHeading">Order book</h2>
+    <div class="orderbook-controls">
+      <label for="symbol-select" data-i18n="orderbookSymbolLabel">Symbol</label>
+      <select id="symbol-select" aria-describedby="orderbook-empty-note"></select>
     </div>
+    <p class="empty-note" id="orderbook-empty-note" hidden data-i18n="orderbookNoData">No order book data available.</p>
+    <div class="orderbook-grid" id="orderbook-grid">
+      <div>
+        <h3 class="book-side-bid" data-i18n="orderbookBids">Bids (buy side)</h3>
+        <table id="bids-table">
+          <caption data-i18n="orderbookBidsCaption">Resting buy orders, best price first.</caption>
+          <thead>
+            <tr>
+              <th scope="col" class="num" data-i18n="orderbookColPrice">Price</th>
+              <th scope="col" class="num" data-i18n="orderbookColQty">Quantity</th>
+              <th scope="col" class="num" data-i18n="orderbookColOrders">Orders</th>
+            </tr>
+          </thead>
+          <tbody id="bids-table-body"></tbody>
+        </table>
+      </div>
+      <div>
+        <h3 class="book-side-ask" data-i18n="orderbookAsks">Asks (sell side)</h3>
+        <table id="asks-table">
+          <caption data-i18n="orderbookAsksCaption">Resting sell orders, best price first.</caption>
+          <thead>
+            <tr>
+              <th scope="col" class="num" data-i18n="orderbookColPrice">Price</th>
+              <th scope="col" class="num" data-i18n="orderbookColQty">Quantity</th>
+              <th scope="col" class="num" data-i18n="orderbookColOrders">Orders</th>
+            </tr>
+          </thead>
+          <tbody id="asks-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
 
-    <script>
-        // TODO (Challenge 7): Wire this dashboard to the /api/v1 endpoints.
-        // Attendees should implement:
-        // 1. fetchPortfolio() — GET /api/v1/portfolio/snapshot
-        // 2. fetchPositions() — GET /api/v1/positions
-        // 3. fetchOrderBook(symbol) — GET /api/v1/portfolio/risk
-        // 4. fetchMetrics() — GET /api/v1/metrics
-        // 5. Auto-refresh every 5 seconds
-        // 6. Real-time P&L chart updates
-        // 7. Order submission form
+  <section class="card" aria-labelledby="orders-heading">
+    <h2 id="orders-heading" data-i18n="ordersHeading">Active orders</h2>
+    <p class="empty-note" id="orders-empty-note" data-i18n="ordersUnavailable">Enter an API key to load active orders.</p>
+    <table id="orders-table" hidden>
+      <caption data-i18n="ordersCaption">Currently active orders submitted to the matching engine.</caption>
+      <thead>
+        <tr>
+          <th scope="col" data-i18n="ordersColId">Order ID</th>
+          <th scope="col" data-i18n="ordersColSymbol">Symbol</th>
+          <th scope="col" data-i18n="ordersColSide">Side</th>
+          <th scope="col" class="num" data-i18n="ordersColQty">Quantity</th>
+          <th scope="col" class="num" data-i18n="ordersColPrice">Price</th>
+          <th scope="col" data-i18n="ordersColStatus">Status</th>
+        </tr>
+      </thead>
+      <tbody id="orders-table-body"></tbody>
+    </table>
+  </section>
+</main>
 
-        const API_BASE = '/api/v1';
+<footer role="contentinfo">
+  <div class="disclaimer">
+    <p><strong>EN:</strong> All data shown is simulated for educational purposes only and does not constitute investment advice. Portfolio totals are nominal simulator sums; no FX conversion is performed, so mixed-currency totals are not economic valuations.</p>
+    <p><strong>DE:</strong> Alle angezeigten Daten sind simuliert und dienen ausschlie&szlig;lich Schulungszwecken. Dies stellt keine Anlageberatung dar. Portfoliosummen sind nominale Simulationswerte; es erfolgt keine W&auml;hrungsumrechnung, daher sind gemischte W&auml;hrungssummen keine wirtschaftliche Bewertung.</p>
+  </div>
+  <p class="as-of-note" id="as-of-note"></p>
+</footer>
 
-        function formatCurrency(value) {
-            return new Intl.NumberFormat('en-US', {
-                style: 'currency',
-                currency: 'USD',
-            }).format(value);
+<script>
+(function () {
+  'use strict';
+
+  var API_BASE = '/api/v1';
+  var SESSION_KEY = 'qxm.dashboard.apiKey';
+
+  var STRINGS = {
+    en: {
+      subtitle: 'Simulated trading dashboard for workshop use',
+      statusUnknown: 'Status unknown',
+      statusOnline: 'Connected',
+      statusDegraded: 'Degraded',
+      statusOffline: 'Offline',
+      statusRefreshing: 'Refreshing\u2026',
+      statusRefreshed: 'Data refreshed.',
+      lastUpdatedLabel: 'Last updated',
+      utcLabel: 'stored as UTC',
+      refreshNowBtn: 'Refresh now',
+      autoRefreshLabel: 'Auto-refresh',
+      optManual: 'Manual',
+      opt5: 'Every 5 seconds',
+      opt15: 'Every 15 seconds',
+      opt30: 'Every 30 seconds',
+      langToggleAriaToDe: 'Switch language to German',
+      langToggleAriaToEn: 'Switch language to English',
+      retryBtn: 'Retry',
+      apiKeyHeading: 'API key',
+      apiKeyPrivacyNote: "Your API key is stored only in this browser tab's session storage. It is used solely to authenticate requests to this dashboard's own API and is never sent anywhere else, logged, or persisted after you close this tab.",
+      apiKeyInputLabel: 'API key',
+      showKeyBtn: 'Show',
+      hideKeyBtn: 'Hide',
+      saveKeyBtn: 'Save',
+      clearKeyBtn: 'Clear',
+      keyStatusSaved: 'API key saved for this browser tab only.',
+      keyStatusCleared: 'API key cleared.',
+      keyStatusEmpty: 'Enter an API key before saving.',
+      keyStatusNoStorage: 'Session storage is unavailable; the key will only be kept in memory for this page view.',
+      kpiHeading: 'Key metrics',
+      kpiPortfolioValue: 'Portfolio value',
+      kpiRealised: 'Realised P&L',
+      kpiUnrealised: 'Unrealised P&L',
+      kpiVar: 'Value at Risk (95%)',
+      kpiVarSub: 'Estimated potential loss',
+      kpiActiveOrders: 'Active orders',
+      gainWord: 'gain',
+      lossWord: 'loss',
+      flatWord: 'flat',
+      pnlHeading: 'P&L trend',
+      pnlChartTitle: 'P&L history chart',
+      pnlNoData: 'No P&L history is available yet.',
+      pnlShowTable: 'Show data as table',
+      pnlColTime: 'Time (Europe/Berlin)',
+      pnlColValue: 'Value',
+      pnlSummaryTemplate: 'Chart of {count} points from {first} to {last}. Trend: {direction} of {delta}.',
+      riskHeading: 'Risk breakdown',
+      riskNoData: 'No risk data is available yet.',
+      riskVar95Label: 'VaR (95%)',
+      riskVar99Label: 'VaR (99%)',
+      riskSharpeLabel: 'Sharpe ratio',
+      riskMaxDrawdownLabel: 'Max drawdown',
+      positionsHeading: 'Positions',
+      positionsCaption: 'Open positions with quantity, average entry price, market price and profit or loss.',
+      positionsNoData: 'No open positions.',
+      positionsColSymbol: 'Symbol',
+      positionsColQty: 'Quantity',
+      positionsColAvgPrice: 'Avg. entry price',
+      positionsColMarketPrice: 'Market price',
+      positionsColPnl: 'Total P&L',
+      orderbookHeading: 'Order book',
+      orderbookSymbolLabel: 'Symbol',
+      orderbookNoData: 'No order book data available.',
+      orderbookBids: 'Bids (buy side)',
+      orderbookAsks: 'Asks (sell side)',
+      orderbookBidsCaption: 'Resting buy orders, best price first.',
+      orderbookAsksCaption: 'Resting sell orders, best price first.',
+      orderbookColPrice: 'Price',
+      orderbookColQty: 'Quantity',
+      orderbookColOrders: 'Orders',
+      ordersHeading: 'Active orders',
+      ordersCaption: 'Currently active orders submitted to the matching engine.',
+      ordersUnavailable: 'Enter an API key to load active orders.',
+      ordersNoData: 'No active orders.',
+      ordersLoadFailed: 'Active order data could not be loaded from this deployment.',
+      ordersColId: 'Order ID',
+      ordersColSymbol: 'Symbol',
+      ordersColSide: 'Side',
+      ordersColQty: 'Quantity',
+      ordersColPrice: 'Price',
+      ordersColStatus: 'Status',
+      errorMissingKey: 'Enter your API key above to load dashboard data.',
+      errorUnauthorized: 'The API rejected your API key (unauthorized). Check the key and try again.',
+      errorNetwork: 'Could not reach the API. You appear to be offline.',
+      errorMalformed: 'The API returned data that could not be read.',
+      errorHttp: 'The API returned an error (status {status}).',
+      errorEmpty: 'The API returned no dashboard data.'
+    },
+    de: {
+      subtitle: 'Simulierte Handels\u00fcbersicht f\u00fcr den Workshop',
+      statusUnknown: 'Status unbekannt',
+      statusOnline: 'Verbunden',
+      statusDegraded: 'Eingeschr\u00e4nkt',
+      statusOffline: 'Offline',
+      statusRefreshing: 'Wird aktualisiert\u2026',
+      statusRefreshed: 'Daten aktualisiert.',
+      lastUpdatedLabel: 'Zuletzt aktualisiert',
+      utcLabel: 'gespeichert als UTC',
+      refreshNowBtn: 'Jetzt aktualisieren',
+      autoRefreshLabel: 'Automatische Aktualisierung',
+      optManual: 'Manuell',
+      opt5: 'Alle 5 Sekunden',
+      opt15: 'Alle 15 Sekunden',
+      opt30: 'Alle 30 Sekunden',
+      langToggleAriaToDe: 'Sprache auf Deutsch umschalten',
+      langToggleAriaToEn: 'Sprache auf Englisch umschalten',
+      retryBtn: 'Erneut versuchen',
+      apiKeyHeading: 'API-Schl\u00fcssel',
+      apiKeyPrivacyNote: 'Ihr API-Schl\u00fcssel wird ausschlie\u00dflich im Sitzungsspeicher (sessionStorage) dieses Browser-Tabs gespeichert. Er dient nur zur Authentifizierung gegen\u00fcber der API dieses Dashboards, wird nie an Dritte gesendet, nicht protokolliert und nach dem Schlie\u00dfen des Tabs verworfen.',
+      apiKeyInputLabel: 'API-Schl\u00fcssel',
+      showKeyBtn: 'Anzeigen',
+      hideKeyBtn: 'Verbergen',
+      saveKeyBtn: 'Speichern',
+      clearKeyBtn: 'L\u00f6schen',
+      keyStatusSaved: 'API-Schl\u00fcssel nur f\u00fcr diesen Browser-Tab gespeichert.',
+      keyStatusCleared: 'API-Schl\u00fcssel gel\u00f6scht.',
+      keyStatusEmpty: 'Bitte geben Sie vor dem Speichern einen API-Schl\u00fcssel ein.',
+      keyStatusNoStorage: 'Sitzungsspeicher ist nicht verf\u00fcgbar; der Schl\u00fcssel wird nur f\u00fcr diese Seitenansicht im Arbeitsspeicher gehalten.',
+      kpiHeading: 'Kennzahlen',
+      kpiPortfolioValue: 'Portfoliowert',
+      kpiRealised: 'Realisierter G/V',
+      kpiUnrealised: 'Unrealisierter G/V',
+      kpiVar: 'Value at Risk (95 %)',
+      kpiVarSub: 'Gesch\u00e4tzter potenzieller Verlust',
+      kpiActiveOrders: 'Aktive Orders',
+      gainWord: 'Gewinn',
+      lossWord: 'Verlust',
+      flatWord: 'unver\u00e4ndert',
+      pnlHeading: 'Gewinn-/Verlustverlauf',
+      pnlChartTitle: 'Diagramm: Gewinn-/Verlustverlauf',
+      pnlNoData: 'Es sind noch keine Verlaufsdaten verf\u00fcgbar.',
+      pnlShowTable: 'Daten als Tabelle anzeigen',
+      pnlColTime: 'Zeit (Europe/Berlin)',
+      pnlColValue: 'Wert',
+      pnlSummaryTemplate: 'Diagramm mit {count} Punkten von {first} bis {last}. Trend: {direction} von {delta}.',
+      riskHeading: 'Risikoaufschl\u00fcsselung',
+      riskNoData: 'Es sind noch keine Risikodaten verf\u00fcgbar.',
+      riskVar95Label: 'VaR (95 %)',
+      riskVar99Label: 'VaR (99 %)',
+      riskSharpeLabel: 'Sharpe-Ratio',
+      riskMaxDrawdownLabel: 'Maximaler Drawdown',
+      positionsHeading: 'Positionen',
+      positionsCaption: 'Offene Positionen mit Menge, durchschnittlichem Einstiegspreis, Marktpreis und Gewinn/Verlust.',
+      positionsNoData: 'Keine offenen Positionen.',
+      positionsColSymbol: 'Symbol',
+      positionsColQty: 'Menge',
+      positionsColAvgPrice: '\u00d8 Einstiegspreis',
+      positionsColMarketPrice: 'Marktpreis',
+      positionsColPnl: 'Gesamt-G/V',
+      orderbookHeading: 'Orderbuch',
+      orderbookSymbolLabel: 'Symbol',
+      orderbookNoData: 'Keine Orderbuchdaten verf\u00fcgbar.',
+      orderbookBids: 'Geldseite (Bid)',
+      orderbookAsks: 'Briefseite (Ask)',
+      orderbookBidsCaption: 'Offene Kaufauftr\u00e4ge, bester Preis zuerst.',
+      orderbookAsksCaption: 'Offene Verkaufsauftr\u00e4ge, bester Preis zuerst.',
+      orderbookColPrice: 'Preis',
+      orderbookColQty: 'Menge',
+      orderbookColOrders: 'Auftr\u00e4ge',
+      ordersHeading: 'Aktive Orders',
+      ordersCaption: 'Derzeit aktive, an die Matching Engine \u00fcbermittelte Orders.',
+      ordersUnavailable: 'Geben Sie einen API-Schl\u00fcssel ein, um aktive Orders zu laden.',
+      ordersNoData: 'Keine aktiven Orders.',
+      ordersLoadFailed: 'Aktive Orderdaten konnten in dieser Umgebung nicht geladen werden.',
+      ordersColId: 'Order-ID',
+      ordersColSymbol: 'Symbol',
+      ordersColSide: 'Richtung',
+      ordersColQty: 'Menge',
+      ordersColPrice: 'Preis',
+      ordersColStatus: 'Status',
+      errorMissingKey: 'Geben Sie oben Ihren API-Schl\u00fcssel ein, um Dashboarddaten zu laden.',
+      errorUnauthorized: 'Die API hat Ihren API-Schl\u00fcssel abgelehnt (nicht autorisiert). Bitte pr\u00fcfen und erneut versuchen.',
+      errorNetwork: 'Die API war nicht erreichbar. M\u00f6glicherweise besteht keine Internetverbindung.',
+      errorMalformed: 'Die API hat Daten zur\u00fcckgegeben, die nicht gelesen werden konnten.',
+      errorHttp: 'Die API hat einen Fehler zur\u00fcckgegeben (Status {status}).',
+      errorEmpty: 'Die API hat keine Dashboarddaten zur\u00fcckgegeben.'
+    }
+  };
+
+  var state = {
+    lang: (navigator.language || 'en').toLowerCase().indexOf('de') === 0 ? 'de' : 'en',
+    locale: 'en-GB',
+    apiKey: '',
+    keyPersisted: true,
+    autoMs: 0,
+    timer: null,
+    controllers: {},
+    lastDashboard: null,
+    lastOrders: null,
+    selectedSymbol: null,
+    inFlight: false
+  };
+  state.locale = state.lang === 'de' ? 'de-DE' : 'en-GB';
+
+  function t(key) {
+    var dict = STRINGS[state.lang] || STRINGS.en;
+    return dict[key] || STRINGS.en[key] || key;
+  }
+
+  function el(id) { return document.getElementById(id); }
+
+  function clearChildren(node) {
+    while (node.firstChild) node.removeChild(node.firstChild);
+  }
+
+  function safeNumber(v) {
+    if (v === null || v === undefined || v === '') return null;
+    var n = typeof v === 'number' ? v : parseFloat(v);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  function fmtCurrency(value, currency) {
+    var n = safeNumber(value);
+    if (n === null) return '\u2014';
+    var cur = currency || 'EUR';
+    try {
+      return new Intl.NumberFormat(state.locale, { style: 'currency', currency: cur, signDisplay: 'exceptZero' }).format(n);
+    } catch (e) {
+      return new Intl.NumberFormat(state.locale, { style: 'currency', currency: 'EUR' }).format(n);
+    }
+  }
+
+  function fmtNumber(value, opts) {
+    var n = safeNumber(value);
+    if (n === null) return '\u2014';
+    return new Intl.NumberFormat(state.locale, opts || {}).format(n);
+  }
+
+  function berlinAbbrev(date) {
+    try {
+      var parts = new Intl.DateTimeFormat('de-DE', { timeZone: 'Europe/Berlin', timeZoneName: 'short' }).formatToParts(date);
+      var found = parts.filter(function (p) { return p.type === 'timeZoneName'; })[0];
+      var raw = found ? found.value : '';
+      if (raw.indexOf('MESZ') !== -1) return { de: 'MESZ', en: 'CEST' };
+      if (raw.indexOf('MEZ') !== -1) return { de: 'MEZ', en: 'CET' };
+      return { de: raw, en: raw };
+    } catch (e) {
+      return { de: '', en: '' };
+    }
+  }
+
+  function fmtBerlin(isoString) {
+    if (!isoString) return null;
+    var d = new Date(isoString);
+    if (Number.isNaN(d.getTime())) return null;
+    var dtf = new Intl.DateTimeFormat(state.locale, {
+      timeZone: 'Europe/Berlin', year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit'
+    });
+    var abbrev = berlinAbbrev(d);
+    var label = abbrev[state.lang] || abbrev.en;
+    return dtf.format(d) + (label ? ' (' + label + ')' : '');
+  }
+
+  function announce(msg) {
+    var region = el('live-region');
+    region.textContent = '';
+    window.setTimeout(function () { region.textContent = msg; }, 30);
+  }
+
+  function buildSignedValue(value, currency) {
+    var n = safeNumber(value);
+    var wrap = document.createElement('span');
+    wrap.className = 'signed-value';
+    if (n === null) {
+      wrap.textContent = '\u2014';
+      return wrap;
+    }
+    var sign = n > 0 ? 'pos' : (n < 0 ? 'neg' : 'flat');
+    wrap.setAttribute('data-sign', sign);
+    var icon = document.createElement('span');
+    icon.className = 'sign-icon';
+    icon.setAttribute('aria-hidden', 'true');
+    icon.textContent = n > 0 ? '\u25B2' : (n < 0 ? '\u25BC' : '\u2013');
+    var sr = document.createElement('span');
+    sr.className = 'visually-hidden';
+    sr.textContent = n > 0 ? t('gainWord') : (n < 0 ? t('lossWord') : t('flatWord'));
+    var text = document.createElement('span');
+    text.textContent = fmtCurrency(n, currency);
+    wrap.appendChild(icon);
+    wrap.appendChild(sr);
+    wrap.appendChild(text);
+    return wrap;
+  }
+
+  function loadApiKey() {
+    try {
+      state.keyPersisted = true;
+      return sessionStorage.getItem(SESSION_KEY) || '';
+    } catch (e) {
+      state.keyPersisted = false;
+      return '';
+    }
+  }
+
+  function persistApiKey(value) {
+    try {
+      sessionStorage.setItem(SESSION_KEY, value);
+      state.keyPersisted = true;
+      return true;
+    } catch (e) {
+      state.keyPersisted = false;
+      return false;
+    }
+  }
+
+  function removeApiKey() {
+    try { sessionStorage.removeItem(SESSION_KEY); } catch (e) { /* nothing to remove */ }
+  }
+
+  function classifyResponse(response) {
+    if (response.status === 401 || response.status === 403) return { type: 'unauthorized', status: response.status };
+    return { type: 'http', status: response.status };
+  }
+
+  function fetchJson(path, opts) {
+    opts = opts || {};
+    var headers = { Accept: 'application/json' };
+    if (opts.auth) {
+      if (!state.apiKey) {
+        var missing = new Error('missing-key');
+        missing.classification = { type: 'missing-key' };
+        return Promise.reject(missing);
+      }
+      headers['X-API-Key'] = state.apiKey;
+    }
+    return fetch(API_BASE + path, { headers: headers, signal: opts.signal, cache: 'no-store' })
+      .catch(function (networkErr) {
+        if (networkErr && networkErr.name === 'AbortError') throw networkErr;
+        var err = new Error('network-error');
+        err.classification = { type: 'network' };
+        throw err;
+      })
+      .then(function (response) {
+        if (!response.ok) {
+          var err = new Error('http-error-' + response.status);
+          err.classification = classifyResponse(response);
+          throw err;
         }
-
-        function initCharts() {
-            // P&L chart placeholder
-            const pnlData = [{
-                x: [],
-                y: [],
-                type: 'scatter',
-                mode: 'lines',
-                line: { color: '#58a6ff', width: 2 },
-                fill: 'tozeroy',
-                fillcolor: 'rgba(88, 166, 255, 0.1)',
-            }];
-            const pnlLayout = {
-                paper_bgcolor: 'transparent',
-                plot_bgcolor: 'transparent',
-                font: { color: '#8b949e' },
-                xaxis: { showgrid: false },
-                yaxis: { gridcolor: '#30363d' },
-                margin: { t: 10, r: 20, b: 40, l: 60 },
-                height: 280,
-            };
-            Plotly.newPlot('pnl-chart', pnlData, pnlLayout, { displayModeBar: false });
-
-            // Risk breakdown placeholder
-            const riskData = [{
-                values: [40, 30, 20, 10],
-                labels: ['Delta', 'Gamma', 'Vega', 'Theta'],
-                type: 'pie',
-                hole: 0.5,
-                marker: {
-                    colors: ['#58a6ff', '#3fb950', '#d29922', '#f85149'],
-                },
-                textfont: { color: '#e6edf3' },
-            }];
-            const riskLayout = {
-                paper_bgcolor: 'transparent',
-                font: { color: '#8b949e' },
-                margin: { t: 10, r: 20, b: 20, l: 20 },
-                height: 280,
-                showlegend: true,
-                legend: { font: { color: '#8b949e' } },
-            };
-            Plotly.newPlot('risk-chart', riskData, riskLayout, { displayModeBar: false });
-        }
-
-        async function refreshData() {
-            document.getElementById('status-text').textContent = 'Refreshing...';
-            try {
-                // TODO: Implement API calls here
-                document.getElementById('status-text').textContent = 'Connected';
-            } catch (error) {
-                document.getElementById('status-text').textContent = 'Error';
-                console.error('Failed to refresh:', error);
-            }
-        }
-
-        // Initialise
-        document.addEventListener('DOMContentLoaded', () => {
-            initCharts();
-            refreshData();
+        return response.json().catch(function () {
+          var perr = new Error('malformed-json');
+          perr.classification = { type: 'malformed' };
+          throw perr;
         });
-    </script>
+      });
+  }
+
+  function showErrorBanner(message) {
+    var banner = el('error-banner');
+    el('error-banner-text').textContent = message;
+    banner.hidden = false;
+  }
+  function hideErrorBanner() {
+    el('error-banner').hidden = true;
+  }
+
+  function messageForClassification(cls) {
+    if (!cls) return t('errorNetwork');
+    switch (cls.type) {
+      case 'missing-key': return t('errorMissingKey');
+      case 'unauthorized': return t('errorUnauthorized');
+      case 'network': return t('errorNetwork');
+      case 'malformed': return t('errorMalformed');
+      case 'http': return t('errorHttp').replace('{status}', String(cls.status));
+      default: return t('errorNetwork');
+    }
+  }
+
+  function normalizePnlHistory(history) {
+    if (!Array.isArray(history)) return [];
+    var out = [];
+    for (var i = 0; i < history.length; i++) {
+      var item = history[i];
+      if (!item || typeof item !== 'object') continue;
+      var ts = item.timestamp || item.time || item.ts || item.date || null;
+      var rawValue = item.value !== undefined ? item.value : (item.pnl !== undefined ? item.pnl : (item.total_pnl !== undefined ? item.total_pnl : item.v));
+      var v = safeNumber(rawValue);
+      if (ts === null || v === null) continue;
+      out.push({ t: ts, v: v });
+    }
+    return out;
+  }
+
+  function buildPnlChart(history) {
+    var svg = el('pnl-svg');
+    var toRemove = [];
+    for (var c = 0; c < svg.children.length; c++) {
+      var child = svg.children[c];
+      if (child.tagName !== 'title' && child.tagName !== 'desc') toRemove.push(child);
+    }
+    toRemove.forEach(function (n) { svg.removeChild(n); });
+
+    var desc = el('pnl-svg-desc');
+    var summaryEl = el('pnl-summary');
+
+    if (!history.length) {
+      desc.textContent = t('pnlNoData');
+      summaryEl.textContent = t('pnlNoData');
+      clearChildren(el('pnl-table-body'));
+      return;
+    }
+
+    var width = 400, height = 140, padX = 8, padY = 12;
+    var values = history.map(function (p) { return p.v; });
+    var min = Math.min.apply(null, values.concat([0]));
+    var max = Math.max.apply(null, values.concat([0]));
+    var range = (max - min) || 1;
+    var stepX = history.length > 1 ? (width - padX * 2) / (history.length - 1) : 0;
+    var points = history.map(function (p, i) {
+      var x = padX + i * stepX;
+      var y = height - padY - ((p.v - min) / range) * (height - padY * 2);
+      return [x, y];
+    });
+    var zeroY = height - padY - ((0 - min) / range) * (height - padY * 2);
+
+    var ns = 'http://www.w3.org/2000/svg';
+    var zeroLine = document.createElementNS(ns, 'line');
+    zeroLine.setAttribute('x1', String(padX));
+    zeroLine.setAttribute('x2', String(width - padX));
+    zeroLine.setAttribute('y1', String(zeroY));
+    zeroLine.setAttribute('y2', String(zeroY));
+    zeroLine.setAttribute('class', 'pnl-zero-line');
+    svg.appendChild(zeroLine);
+
+    var polyline = document.createElementNS(ns, 'polyline');
+    polyline.setAttribute('points', points.map(function (p) { return p[0] + ',' + p[1]; }).join(' '));
+    polyline.setAttribute('class', 'pnl-line');
+    svg.appendChild(polyline);
+
+    var last = points[points.length - 1];
+    var dot = document.createElementNS(ns, 'circle');
+    dot.setAttribute('cx', String(last[0]));
+    dot.setAttribute('cy', String(last[1]));
+    dot.setAttribute('r', '3');
+    dot.setAttribute('class', 'pnl-dot');
+    svg.appendChild(dot);
+
+    var firstV = values[0];
+    var lastV = values[values.length - 1];
+    var delta = lastV - firstV;
+    var direction = delta > 0 ? t('gainWord') : (delta < 0 ? t('lossWord') : t('flatWord'));
+    var currency = (state.lastDashboard && state.lastDashboard.currency) || 'EUR';
+    var firstLabel = fmtBerlin(history[0].t) || String(history[0].t);
+    var lastLabel = fmtBerlin(history[history.length - 1].t) || String(history[history.length - 1].t);
+
+    var summary = t('pnlSummaryTemplate')
+      .replace('{count}', String(history.length))
+      .replace('{first}', firstLabel)
+      .replace('{last}', lastLabel)
+      .replace('{direction}', direction)
+      .replace('{delta}', fmtCurrency(Math.abs(delta), currency));
+    desc.textContent = summary;
+    summaryEl.textContent = summary;
+
+    var tbody = el('pnl-table-body');
+    clearChildren(tbody);
+    history.forEach(function (p) {
+      var tr = document.createElement('tr');
+      var tdTime = document.createElement('td');
+      tdTime.textContent = fmtBerlin(p.t) || String(p.t);
+      var tdVal = document.createElement('td');
+      tdVal.className = 'num';
+      tdVal.textContent = fmtCurrency(p.v, currency);
+      tr.appendChild(tdTime);
+      tr.appendChild(tdVal);
+      tbody.appendChild(tr);
+    });
+  }
+
+  function renderRisk(risk) {
+    var barsList = el('risk-bars-list');
+    var statsList = el('risk-stats-list');
+    clearChildren(barsList);
+    clearChildren(statsList);
+
+    if (!risk || typeof risk !== 'object') {
+      var li = document.createElement('li');
+      li.className = 'empty-note';
+      li.textContent = t('riskNoData');
+      barsList.appendChild(li);
+      return;
+    }
+
+    var greeks = [
+      { key: 'delta', label: 'Delta' },
+      { key: 'gamma', label: 'Gamma' },
+      { key: 'theta', label: 'Theta' },
+      { key: 'vega', label: 'Vega' },
+      { key: 'rho', label: 'Rho' }
+    ];
+    var values = greeks.map(function (g) { return Math.abs(safeNumber(risk[g.key]) || 0); });
+    var maxAbs = Math.max.apply(null, values.concat([1e-9]));
+
+    greeks.forEach(function (g) {
+      var n = safeNumber(risk[g.key]);
+      var item = document.createElement('li');
+      var label = document.createElement('span');
+      label.textContent = g.label;
+      var track = document.createElement('span');
+      track.className = 'bar-track';
+      track.setAttribute('aria-hidden', 'true');
+      var fill = document.createElement('span');
+      fill.className = 'bar-fill';
+      var pct = n === null ? 0 : Math.min(100, (Math.abs(n) / maxAbs) * 100);
+      fill.style.width = pct + '%';
+      track.appendChild(fill);
+      var valueEl = document.createElement('span');
+      valueEl.className = 'risk-value';
+      valueEl.textContent = fmtNumber(n, { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+      item.appendChild(label);
+      item.appendChild(track);
+      item.appendChild(valueEl);
+      barsList.appendChild(item);
+    });
+
+    var currency = (state.lastDashboard && state.lastDashboard.currency) || 'EUR';
+    var stats = [
+      { label: t('riskVar95Label'), value: fmtCurrency(risk.var_95, currency) },
+      { label: t('riskVar99Label'), value: fmtCurrency(risk.var_99, currency) },
+      { label: t('riskSharpeLabel'), value: fmtNumber(risk.sharpe_ratio, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) },
+      { label: t('riskMaxDrawdownLabel'), value: fmtCurrency(risk.max_drawdown, currency) }
+    ];
+    stats.forEach(function (s) {
+      var li2 = document.createElement('li');
+      var lbl = document.createElement('span');
+      lbl.textContent = s.label;
+      var val = document.createElement('span');
+      val.className = 'risk-stat-value';
+      val.textContent = s.value;
+      li2.appendChild(lbl);
+      li2.appendChild(val);
+      statsList.appendChild(li2);
+    });
+  }
+
+  function renderPositions(positions, currency) {
+    var tbody = el('positions-table-body');
+    clearChildren(tbody);
+    if (!Array.isArray(positions) || positions.length === 0) {
+      var tr = document.createElement('tr');
+      var td = document.createElement('td');
+      td.colSpan = 5;
+      td.className = 'empty-note';
+      td.textContent = t('positionsNoData');
+      tr.appendChild(td);
+      tbody.appendChild(tr);
+      return;
+    }
+    positions.forEach(function (p) {
+      var positionCurrency = (
+        typeof p.currency === 'string' && p.currency.trim()
+      ) ? p.currency.trim().toUpperCase() : currency;
+      var row = document.createElement('tr');
+      var symbolTd = document.createElement('td');
+      symbolTd.textContent = p.symbol || '\u2014';
+      var qtyTd = document.createElement('td');
+      qtyTd.className = 'num';
+      qtyTd.textContent = fmtNumber(p.quantity);
+      var avgTd = document.createElement('td');
+      avgTd.className = 'num';
+      avgTd.textContent = fmtCurrency(p.average_entry_price !== undefined ? p.average_entry_price : p.avg_price, positionCurrency);
+      var marketTd = document.createElement('td');
+      marketTd.className = 'num';
+      var marketPrice = p.market_price !== undefined ? p.market_price : (p.mark_price !== undefined ? p.mark_price : p.last_price);
+      marketTd.textContent = fmtCurrency(marketPrice, positionCurrency);
+      var pnlTd = document.createElement('td');
+      pnlTd.className = 'num';
+      var realised = safeNumber(p.realised_pnl !== undefined ? p.realised_pnl : p.realized_pnl) || 0;
+      var unrealised = safeNumber(p.unrealised_pnl !== undefined ? p.unrealised_pnl : p.unrealized_pnl) || 0;
+      var total = p.total_pnl !== undefined ? safeNumber(p.total_pnl) : (realised + unrealised);
+      pnlTd.appendChild(buildSignedValue(total, positionCurrency));
+      row.appendChild(symbolTd);
+      row.appendChild(qtyTd);
+      row.appendChild(avgTd);
+      row.appendChild(marketTd);
+      row.appendChild(pnlTd);
+      tbody.appendChild(row);
+    });
+  }
+
+  function normalizeOrderBooks(orderBooks) {
+    var map = {};
+    if (!orderBooks) return map;
+    if (Array.isArray(orderBooks)) {
+      orderBooks.forEach(function (entry) {
+        if (entry && entry.symbol) map[entry.symbol] = { bids: entry.bids || [], asks: entry.asks || [] };
+      });
+    } else if (typeof orderBooks === 'object') {
+      Object.keys(orderBooks).forEach(function (symbol) {
+        var book = orderBooks[symbol] || {};
+        map[symbol] = { bids: book.bids || [], asks: book.asks || [] };
+      });
+    }
+    return map;
+  }
+
+  function renderBookLevels(tbodyId, levels) {
+    var tbody = el(tbodyId);
+    clearChildren(tbody);
+    if (!Array.isArray(levels) || levels.length === 0) {
+      var tr = document.createElement('tr');
+      var td = document.createElement('td');
+      td.colSpan = 3;
+      td.className = 'empty-note';
+      td.textContent = t('orderbookNoData');
+      tr.appendChild(td);
+      tbody.appendChild(tr);
+      return;
+    }
+    levels.forEach(function (level) {
+      var row = document.createElement('tr');
+      var priceTd = document.createElement('td');
+      priceTd.className = 'num';
+      priceTd.textContent = fmtNumber(level.price, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      var qtyTd = document.createElement('td');
+      qtyTd.className = 'num';
+      qtyTd.textContent = fmtNumber(level.quantity);
+      var ordersTd = document.createElement('td');
+      ordersTd.className = 'num';
+      ordersTd.textContent = level.orders !== undefined && level.orders !== null ? fmtNumber(level.orders) : '\u2014';
+      row.appendChild(priceTd);
+      row.appendChild(qtyTd);
+      row.appendChild(ordersTd);
+      tbody.appendChild(row);
+    });
+  }
+
+  function renderOrderBook(orderBooks) {
+    var map = normalizeOrderBooks(orderBooks);
+    var symbols = Object.keys(map);
+    var select = el('symbol-select');
+    var emptyNote = el('orderbook-empty-note');
+    var grid = el('orderbook-grid');
+
+    if (symbols.length === 0) {
+      clearChildren(select);
+      select.disabled = true;
+      emptyNote.hidden = false;
+      grid.hidden = true;
+      renderBookLevels('bids-table-body', []);
+      renderBookLevels('asks-table-body', []);
+      return;
+    }
+
+    emptyNote.hidden = true;
+    grid.hidden = false;
+    select.disabled = false;
+
+    var currentValues = Array.prototype.map.call(select.options, function (o) { return o.value; });
+    var sameSet = currentValues.length === symbols.length && symbols.every(function (s) { return currentValues.indexOf(s) !== -1; });
+    if (!sameSet) {
+      clearChildren(select);
+      symbols.forEach(function (symbol) {
+        var option = document.createElement('option');
+        option.value = symbol;
+        option.textContent = symbol;
+        select.appendChild(option);
+      });
+      if (!state.selectedSymbol || symbols.indexOf(state.selectedSymbol) === -1) {
+        state.selectedSymbol = symbols[0];
+      }
+      select.value = state.selectedSymbol;
+    } else if (state.selectedSymbol) {
+      select.value = state.selectedSymbol;
+    }
+
+    var book = map[state.selectedSymbol] || { bids: [], asks: [] };
+    renderBookLevels('bids-table-body', book.bids);
+    renderBookLevels('asks-table-body', book.asks);
+  }
+
+  function renderOrders(orders, note) {
+    var table = el('orders-table');
+    var emptyNote = el('orders-empty-note');
+    var tbody = el('orders-table-body');
+    clearChildren(tbody);
+
+    if (note) {
+      table.hidden = true;
+      emptyNote.hidden = false;
+      emptyNote.textContent = note;
+      return;
+    }
+    if (!Array.isArray(orders) || orders.length === 0) {
+      table.hidden = true;
+      emptyNote.hidden = false;
+      emptyNote.textContent = t('ordersNoData');
+      return;
+    }
+    emptyNote.hidden = true;
+    table.hidden = false;
+    orders.forEach(function (o) {
+      var row = document.createElement('tr');
+      var cells = [
+        o.order_id || o.id || '\u2014',
+        o.symbol || '\u2014',
+        o.side || '\u2014',
+        fmtNumber(o.quantity),
+        fmtNumber(o.price, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+        o.status || '\u2014'
+      ];
+      cells.forEach(function (val, idx) {
+        var td = document.createElement('td');
+        if (idx === 3 || idx === 4) td.className = 'num';
+        td.textContent = String(val);
+        row.appendChild(td);
+      });
+      tbody.appendChild(row);
+    });
+  }
+
+  function renderKpis(data) {
+    var kpis = (data && data.kpis) || {};
+    var risk = (data && data.risk) || {};
+    var currency = (data && data.currency) || 'EUR';
+
+    el('kpi-portfolio-value').textContent = fmtCurrency(kpis.portfolio_value, currency);
+
+    var realised = kpis.realised_pnl !== undefined ? kpis.realised_pnl : kpis.realized_pnl;
+    var unrealised = kpis.unrealised_pnl !== undefined ? kpis.unrealised_pnl : kpis.unrealized_pnl;
+    var realisedEl = el('kpi-realised-pnl');
+    clearChildren(realisedEl);
+    realisedEl.appendChild(buildSignedValue(realised, currency));
+    var unrealisedEl = el('kpi-unrealised-pnl');
+    clearChildren(unrealisedEl);
+    unrealisedEl.appendChild(buildSignedValue(unrealised, currency));
+
+    var varValue = kpis.var_95 !== undefined ? kpis.var_95 : risk.var_95;
+    el('kpi-var-value').textContent = fmtCurrency(varValue, currency);
+
+    var activeOrders = kpis.active_orders !== undefined && kpis.active_orders !== null
+      ? kpis.active_orders
+      : (Array.isArray(state.lastOrders) ? state.lastOrders.length : null);
+    el('kpi-active-orders').textContent = activeOrders === null ? '\u2014' : fmtNumber(activeOrders);
+  }
+
+  function renderDashboard(data) {
+    var currency = (data && data.currency) || 'EUR';
+    renderKpis(data);
+    renderPositions(data && data.positions, currency);
+    buildPnlChart(normalizePnlHistory(data && data.pnl_history));
+    renderRisk(data && data.risk);
+    renderOrderBook(data && data.order_books);
+
+    var asOfNote = el('as-of-note');
+    if (data && data.as_of) {
+      var berlin = fmtBerlin(data.as_of);
+      asOfNote.textContent = (state.lang === 'de' ? 'Datenstand: ' : 'Data as of: ') + (berlin || data.as_of) + ' \u2014 ' + t('utcLabel') + ': ' + data.as_of;
+      el('last-updated-value').textContent = berlin || data.as_of;
+      el('last-updated-value').title = data.as_of;
+    }
+  }
+
+  function isEmptyDashboard(data) {
+    if (!data || typeof data !== 'object') return true;
+    var hasKpis = data.kpis && Object.keys(data.kpis).length > 0;
+    var hasPositions = Array.isArray(data.positions) && data.positions.length > 0;
+    var hasHistory = Array.isArray(data.pnl_history) && data.pnl_history.length > 0;
+    var hasRisk = data.risk && Object.keys(data.risk).length > 0;
+    var hasBooks = data.order_books && Object.keys(data.order_books).length > 0;
+    return !(hasKpis || hasPositions || hasHistory || hasRisk || hasBooks);
+  }
+
+  function setConnectivity(stateName) {
+    var dot = el('connectivity-dot');
+    var text = el('connectivity-text');
+    dot.setAttribute('data-state', stateName);
+    var key = stateName === 'online' ? 'statusOnline' : (stateName === 'degraded' ? 'statusDegraded' : (stateName === 'offline' ? 'statusOffline' : 'statusUnknown'));
+    text.setAttribute('data-i18n', key);
+    text.textContent = t(key);
+  }
+
+  function abortInFlight() {
+    Object.keys(state.controllers).forEach(function (k) {
+      if (state.controllers[k]) state.controllers[k].abort();
+    });
+    state.controllers = {};
+  }
+
+  function runCycle() {
+    abortInFlight();
+    var healthCtrl = new AbortController();
+    var dashCtrl = new AbortController();
+    var ordersCtrl = new AbortController();
+    state.controllers = { health: healthCtrl, dashboard: dashCtrl, orders: ordersCtrl };
+    state.inFlight = true;
+    announce(t('statusRefreshing'));
+
+    var healthPromise = fetchJson('/health', { signal: healthCtrl.signal }).then(
+      function (data) { return { ok: true, data: data }; },
+      function (err) { return { ok: false, err: err }; }
+    );
+
+    var dashboardPromise = fetchJson('/dashboard', { auth: true, signal: dashCtrl.signal }).then(
+      function (data) { return { ok: true, data: data }; },
+      function (err) { return { ok: false, err: err }; }
+    );
+
+    var ordersPromise = state.apiKey
+      ? fetchJson('/orders', { auth: true, signal: ordersCtrl.signal }).then(
+          function (data) { return { ok: true, data: data }; },
+          function (err) { return { ok: false, err: err }; }
+        )
+      : Promise.resolve({ ok: false, err: { classification: { type: 'missing-key' } } });
+
+    return Promise.all([healthPromise, dashboardPromise, ordersPromise]).then(function (results) {
+      state.inFlight = false;
+      handleHealthResult(results[0]);
+      handleDashboardResult(results[1]);
+      handleOrdersResult(results[2]);
+    });
+  }
+
+  function handleHealthResult(result) {
+    if (result.ok) {
+      setConnectivity(result.data && result.data.status === 'healthy' ? 'online' : 'degraded');
+      return;
+    }
+    var cls = result.err && result.err.classification;
+    if (cls && cls.type === 'aborted') return;
+    setConnectivity('offline');
+  }
+
+  function handleDashboardResult(result) {
+    if (result.ok) {
+      if (isEmptyDashboard(result.data)) {
+        state.lastDashboard = result.data;
+        renderDashboard(result.data);
+        showErrorBanner(t('errorEmpty'));
+        announce(t('errorEmpty'));
+        return;
+      }
+      state.lastDashboard = result.data;
+      hideErrorBanner();
+      renderDashboard(result.data);
+      announce(t('statusRefreshed'));
+      return;
+    }
+    var cls = result.err && result.err.classification;
+    if (cls && cls.type === 'aborted') return;
+    var message = messageForClassification(cls);
+    showErrorBanner(message);
+    announce(message);
+  }
+
+  function handleOrdersResult(result) {
+    if (result.ok) {
+      state.lastOrders = Array.isArray(result.data) ? result.data : (result.data && result.data.orders) || [];
+      renderOrders(state.lastOrders, null);
+      if (state.lastDashboard) renderKpis(state.lastDashboard);
+      return;
+    }
+    var cls = result.err && result.err.classification;
+    if (cls && cls.type === 'aborted') return;
+    if (cls && cls.type === 'missing-key') {
+      renderOrders(null, t('ordersUnavailable'));
+      return;
+    }
+    renderOrders(null, t('ordersLoadFailed'));
+  }
+
+  function scheduleAutoRefresh(ms) {
+    if (state.timer) {
+      window.clearInterval(state.timer);
+      state.timer = null;
+    }
+    state.autoMs = ms;
+    if (ms > 0 && !document.hidden) {
+      state.timer = window.setInterval(runCycle, ms);
+    }
+  }
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) {
+      if (state.timer) {
+        window.clearInterval(state.timer);
+        state.timer = null;
+      }
+    } else if (state.autoMs > 0) {
+      state.timer = window.setInterval(runCycle, state.autoMs);
+      runCycle();
+    }
+  });
+
+  function applyStaticI18n() {
+    document.documentElement.lang = state.lang;
+    Array.prototype.forEach.call(document.querySelectorAll('[data-i18n]'), function (node) {
+      node.textContent = t(node.getAttribute('data-i18n'));
+    });
+    var langBtn = el('lang-toggle-btn');
+    if (state.lang === 'en') {
+      langBtn.textContent = 'Deutsch';
+      langBtn.setAttribute('aria-label', t('langToggleAriaToDe'));
+    } else {
+      langBtn.textContent = 'English';
+      langBtn.setAttribute('aria-label', t('langToggleAriaToEn'));
+    }
+    var toggleBtn = el('toggle-key-visibility');
+    var input = el('api-key-input');
+    toggleBtn.textContent = input.type === 'password' ? t('showKeyBtn') : t('hideKeyBtn');
+    if (!state.inFlight) setConnectivity(el('connectivity-dot').getAttribute('data-state'));
+  }
+
+  function reRenderAfterLanguageChange() {
+    applyStaticI18n();
+    if (state.lastDashboard) renderDashboard(state.lastDashboard);
+    if (state.lastOrders !== null) renderOrders(state.lastOrders, null);
+  }
+
+  function wireEvents() {
+    el('lang-toggle-btn').addEventListener('click', function () {
+      state.lang = state.lang === 'en' ? 'de' : 'en';
+      state.locale = state.lang === 'de' ? 'de-DE' : 'en-GB';
+      reRenderAfterLanguageChange();
+    });
+
+    el('refresh-btn').addEventListener('click', function () {
+      runCycle();
+    });
+
+    el('auto-refresh-select').addEventListener('change', function (e) {
+      var ms = parseInt(e.target.value, 10) || 0;
+      scheduleAutoRefresh(ms);
+    });
+
+    el('error-retry-btn').addEventListener('click', function () {
+      runCycle();
+    });
+
+    el('toggle-key-visibility').addEventListener('click', function () {
+      var input = el('api-key-input');
+      var showing = input.type === 'text';
+      input.type = showing ? 'password' : 'text';
+      this.setAttribute('aria-pressed', String(!showing));
+      this.textContent = showing ? t('showKeyBtn') : t('hideKeyBtn');
+    });
+
+    el('save-key-btn').addEventListener('click', function () {
+      var input = el('api-key-input');
+      var value = input.value.trim();
+      var status = el('api-key-status');
+      if (!value) {
+        status.textContent = t('keyStatusEmpty');
+        return;
+      }
+      state.apiKey = value;
+      var persisted = persistApiKey(value);
+      status.textContent = persisted ? t('keyStatusSaved') : t('keyStatusNoStorage');
+      runCycle();
+    });
+
+    el('clear-key-btn').addEventListener('click', function () {
+      state.apiKey = '';
+      removeApiKey();
+      el('api-key-input').value = '';
+      el('api-key-status').textContent = t('keyStatusCleared');
+      state.lastOrders = null;
+      runCycle();
+    });
+
+    el('symbol-select').addEventListener('change', function (e) {
+      state.selectedSymbol = e.target.value;
+      if (state.lastDashboard) renderOrderBook(state.lastDashboard.order_books);
+    });
+  }
+
+  function init() {
+    applyStaticI18n();
+    state.apiKey = loadApiKey();
+    el('api-key-input').value = state.apiKey;
+    if (state.apiKey && !state.keyPersisted) {
+      el('api-key-status').textContent = t('keyStatusNoStorage');
+    }
+    renderOrders(null, t('ordersUnavailable'));
+    wireEvents();
+    runCycle();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>
 </body>
 </html>

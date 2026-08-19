@@ -1,7 +1,13 @@
 """qxm.data — Market-data ingestion, storage, and transformation layer."""
 
 from qxm.data.feed import GBMSimulator, MarketDataFeed, WebSocketFeedAdapter
-from qxm.data.store import TimeSeriesStore
+from qxm.data.store import (
+    InstrumentRow,
+    OHLCRow,
+    TickRow,
+    TimeSeriesStore,
+    TradeRow,
+)
 from qxm.data.transform import (
     compute_returns,
     compute_twap,
@@ -19,6 +25,10 @@ __all__ = [
     "MarketDataFeed",
     "WebSocketFeedAdapter",
     "TimeSeriesStore",
+    "TickRow",
+    "OHLCRow",
+    "TradeRow",
+    "InstrumentRow",
     "ticks_to_ohlc",
     "compute_vwap",
     "compute_twap",

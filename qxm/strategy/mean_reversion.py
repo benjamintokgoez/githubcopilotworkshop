@@ -2,16 +2,18 @@
 
 from __future__ import annotations
 
-import logging
-from typing import Any, ClassVar, Dict, List, Optional
+import math
+from typing import Any, ClassVar
 
 import numpy as np
 
 from qxm.core.models import Instrument, Tick
-from qxm.data.transform import rolling_mean, rolling_std
-from qxm.strategy.base import BaseStrategy, Signal, SignalStrength
-
-logger = logging.getLogger(__name__)
+from qxm.strategy.base import (
+    BaseStrategy,
+    Signal,
+    SignalStrength,
+    _require_int_parameter,
+)
 
 
 class BollingerMeanReversion(BaseStrategy):
@@ -35,18 +37,25 @@ class BollingerMeanReversion(BaseStrategy):
 
     def __init__(
         self,
-        instruments: List[Instrument],
-        parameters: Optional[Dict[str, Any]] = None,
+        instruments: list[Instrument],
+        parameters: dict[str, Any] | None = None,
     ) -> None:
         defaults = {"window": 20, "num_std": 2.0, "min_ticks": 25}
         merged = {**defaults, **(parameters or {})}
+        window = _require_int_parameter(merged, "window", minimum=2)
+        min_ticks = _require_int_parameter(merged, "min_ticks", minimum=window + 1)
+        num_std = float(merged["num_std"])
+        if num_std <= 0 or not math.isfinite(num_std):
+            raise ValueError("num_std must be finite and positive")
+        merged["window"] = window
+        merged["min_ticks"] = min_ticks
         super().__init__(instruments, merged)
 
     def on_tick(self, tick: Tick) -> None:
         self._buffer_tick(tick, max_buffer=300)
 
-    def generate_signals(self) -> List[Signal]:
-        signals: List[Signal] = []
+    def generate_signals(self) -> list[Signal]:
+        signals: list[Signal] = []
         window = int(self.parameters["window"])
         num_std = float(self.parameters["num_std"])
         min_ticks = int(self.parameters["min_ticks"])
@@ -56,56 +65,57 @@ class BollingerMeanReversion(BaseStrategy):
                 continue
 
             prices = np.array([float(t.last) for t in buf])
-            ma = rolling_mean(prices, window)
-            std = rolling_std(prices, window)
-
-            if len(ma) == 0 or len(std) == 0:
-                continue
-
-            current = prices[-1]
-            current_ma = ma[-1]
-            current_std = std[-1]
+            if np.any(prices <= 0):
+                raise ValueError("prices must be strictly positive")
+            history = prices[-(window + 1) : -1]
+            current = float(prices[-1])
+            current_ma = float(history.mean())
+            current_std = float(history.std(ddof=1))
 
             upper_band = current_ma + num_std * current_std
             lower_band = current_ma - num_std * current_std
-
-            instrument = self.instruments[symbol]
 
             if current_std < 1e-9:
                 continue
 
             z_score = (current - current_ma) / current_std
+            confidence = min(1.0, max(0.0, abs(z_score) / (num_std * 2.0)))
+            instrument = self.instruments[symbol]
 
             if current >= upper_band:
-                confidence = min(1.0, abs(z_score) / (num_std + 1))
-                signals.append(Signal(
-                    instrument=instrument,
-                    strength=SignalStrength.SELL,
-                    target_price=current_ma,
-                    stop_loss=upper_band + current_std,
-                    confidence=confidence,
-                    metadata={
-                        "z_score": float(z_score),
-                        "upper_band": float(upper_band),
-                        "lower_band": float(lower_band),
-                        "ma": float(current_ma),
-                    },
-                ))
+                signals.append(
+                    Signal(
+                        instrument=instrument,
+                        strength=SignalStrength.SELL,
+                        target_price=current_ma,
+                        stop_loss=upper_band + current_std,
+                        confidence=confidence,
+                        metadata={
+                            "z_score": float(z_score),
+                            "upper_band": float(upper_band),
+                            "lower_band": float(lower_band),
+                            "ma": float(current_ma),
+                            "window": window,
+                        },
+                    )
+                )
             elif current <= lower_band:
-                confidence = min(1.0, abs(z_score) / (num_std + 1))
-                signals.append(Signal(
-                    instrument=instrument,
-                    strength=SignalStrength.BUY,
-                    target_price=current_ma,
-                    stop_loss=lower_band - current_std,
-                    confidence=confidence,
-                    metadata={
-                        "z_score": float(z_score),
-                        "upper_band": float(upper_band),
-                        "lower_band": float(lower_band),
-                        "ma": float(current_ma),
-                    },
-                ))
+                signals.append(
+                    Signal(
+                        instrument=instrument,
+                        strength=SignalStrength.BUY,
+                        target_price=current_ma,
+                        stop_loss=lower_band - current_std,
+                        confidence=confidence,
+                        metadata={
+                            "z_score": float(z_score),
+                            "upper_band": float(upper_band),
+                            "lower_band": float(lower_band),
+                            "ma": float(current_ma),
+                            "window": window,
+                        },
+                    )
+                )
 
         self._signals = signals
         return signals
@@ -134,24 +144,39 @@ class StatisticalArbitrage(BaseStrategy):
 
     def __init__(
         self,
-        instruments: List[Instrument],
-        parameters: Optional[Dict[str, Any]] = None,
+        instruments: list[Instrument],
+        parameters: dict[str, Any] | None = None,
     ) -> None:
         defaults = {"entry_z": 2.0, "exit_z": 0.5, "lookback": 60}
         merged = {**defaults, **(parameters or {})}
         super().__init__(instruments, merged)
         symbols = list(self.instruments.keys())
-        if len(symbols) >= 2:
-            self._pair = (symbols[0], symbols[1])
-        else:
-            self._pair = (symbols[0], symbols[0]) if symbols else ("", "")
-        self._in_trade: Optional[str] = None  # "long_spread" or "short_spread"
+        pair_value = merged.get("pair", symbols[:2])
+        if (
+            not isinstance(pair_value, (tuple, list))
+            or len(pair_value) != 2
+            or pair_value[0] == pair_value[1]
+            or any(symbol not in self.instruments for symbol in pair_value)
+        ):
+            raise ValueError("pair must contain two distinct configured symbols")
+        self._pair = (str(pair_value[0]), str(pair_value[1]))
+
+        lookback = _require_int_parameter(merged, "lookback", minimum=2)
+        entry_z = float(merged["entry_z"])
+        exit_z = float(merged["exit_z"])
+        if entry_z <= 0 or not math.isfinite(entry_z):
+            raise ValueError("entry_z must be finite and positive")
+        if exit_z < 0 or exit_z >= entry_z or not math.isfinite(exit_z):
+            raise ValueError("exit_z must satisfy 0 <= exit_z < entry_z")
+        merged["lookback"] = lookback
+        self._in_trade: str | None = None
 
     def on_tick(self, tick: Tick) -> None:
         self._buffer_tick(tick, max_buffer=200)
 
-    def generate_signals(self) -> List[Signal]:
-        signals: List[Signal] = []
+    def generate_signals(self) -> list[Signal]:
+        signals: list[Signal] = []
+        self._signals = signals
         lookback = int(self.parameters["lookback"])
         entry_z = float(self.parameters["entry_z"])
         exit_z = float(self.parameters["exit_z"])
@@ -160,64 +185,103 @@ class StatisticalArbitrage(BaseStrategy):
         buf_a = self._tick_buffer.get(sym_a, [])
         buf_b = self._tick_buffer.get(sym_b, [])
 
-        if len(buf_a) < lookback or len(buf_b) < lookback:
+        required = lookback + 1
+        if len(buf_a) < required or len(buf_b) < required:
             return signals
 
-        prices_a = np.array([float(t.last) for t in buf_a[-lookback:]])
-        prices_b = np.array([float(t.last) for t in buf_b[-lookback:]])
+        prices_a = np.array([float(t.last) for t in buf_a[-required:]], dtype=np.float64)
+        prices_b = np.array([float(t.last) for t in buf_b[-required:]], dtype=np.float64)
+        if np.any(prices_a <= 0) or np.any(prices_b <= 0):
+            raise ValueError("pair prices must be strictly positive")
 
-        # Use ratio-based spread for simplicity
-        min_len = min(len(prices_a), len(prices_b))
-        spread = prices_a[-min_len:] / prices_b[-min_len:]
-
-        spread_mean = float(spread.mean())
-        spread_std = float(spread.std(ddof=1))
+        spread = np.log(prices_a) - np.log(prices_b)
+        history = spread[:-1]
+        spread_mean = float(history.mean())
+        spread_std = float(history.std(ddof=1))
 
         if spread_std < 1e-9:
             return signals
 
-        z = (spread[-1] - spread_mean) / spread_std
+        current_spread = float(spread[-1])
+        z = float((current_spread - spread_mean) / spread_std)
 
         inst_a = self.instruments[sym_a]
         inst_b = self.instruments[sym_b]
 
         if z > entry_z and self._in_trade != "short_spread":
-            signals.append(Signal(
-                instrument=inst_a,
-                strength=SignalStrength.SELL,
-                confidence=min(1.0, abs(z) / (entry_z * 2)),
-                metadata={"z_score": z, "spread": float(spread[-1]), "pair": "sell_A"},
-            ))
-            signals.append(Signal(
-                instrument=inst_b,
-                strength=SignalStrength.BUY,
-                confidence=min(1.0, abs(z) / (entry_z * 2)),
-                metadata={"z_score": z, "spread": float(spread[-1]), "pair": "buy_B"},
-            ))
+            confidence = min(1.0, max(0.0, abs(z) / (entry_z * 2.0)))
+            signals.append(
+                Signal(
+                    instrument=inst_a,
+                    strength=SignalStrength.SELL,
+                    confidence=confidence,
+                    metadata={
+                        "z_score": z,
+                        "log_spread": current_spread,
+                        "pair": [sym_a, sym_b],
+                        "leg": "sell_first",
+                    },
+                )
+            )
+            signals.append(
+                Signal(
+                    instrument=inst_b,
+                    strength=SignalStrength.BUY,
+                    confidence=confidence,
+                    metadata={
+                        "z_score": z,
+                        "log_spread": current_spread,
+                        "pair": [sym_a, sym_b],
+                        "leg": "buy_second",
+                    },
+                )
+            )
             self._in_trade = "short_spread"
 
         elif z < -entry_z and self._in_trade != "long_spread":
-            signals.append(Signal(
-                instrument=inst_a,
-                strength=SignalStrength.BUY,
-                confidence=min(1.0, abs(z) / (entry_z * 2)),
-                metadata={"z_score": z, "spread": float(spread[-1]), "pair": "buy_A"},
-            ))
-            signals.append(Signal(
-                instrument=inst_b,
-                strength=SignalStrength.SELL,
-                confidence=min(1.0, abs(z) / (entry_z * 2)),
-                metadata={"z_score": z, "spread": float(spread[-1]), "pair": "sell_B"},
-            ))
+            confidence = min(1.0, max(0.0, abs(z) / (entry_z * 2.0)))
+            signals.append(
+                Signal(
+                    instrument=inst_a,
+                    strength=SignalStrength.BUY,
+                    confidence=confidence,
+                    metadata={
+                        "z_score": z,
+                        "log_spread": current_spread,
+                        "pair": [sym_a, sym_b],
+                        "leg": "buy_first",
+                    },
+                )
+            )
+            signals.append(
+                Signal(
+                    instrument=inst_b,
+                    strength=SignalStrength.SELL,
+                    confidence=confidence,
+                    metadata={
+                        "z_score": z,
+                        "log_spread": current_spread,
+                        "pair": [sym_a, sym_b],
+                        "leg": "sell_second",
+                    },
+                )
+            )
             self._in_trade = "long_spread"
 
         elif abs(z) < exit_z and self._in_trade is not None:
-            signals.append(Signal(
-                instrument=inst_a,
-                strength=SignalStrength.NEUTRAL,
-                confidence=0.9,
-                metadata={"z_score": z, "action": "close_spread"},
-            ))
+            for instrument in (inst_a, inst_b):
+                signals.append(
+                    Signal(
+                        instrument=instrument,
+                        strength=SignalStrength.NEUTRAL,
+                        confidence=1.0,
+                        metadata={
+                            "z_score": z,
+                            "pair": [sym_a, sym_b],
+                            "action": "close_spread",
+                        },
+                    )
+                )
             self._in_trade = None
 
         self._signals = signals

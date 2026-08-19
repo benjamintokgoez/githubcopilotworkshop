@@ -1,0 +1,190 @@
+"""Contract checks for the SIMX reference-data surface (QXM-4520).
+
+These describe what consumers already receive today. They are the definition of
+"behaviour preserving" for this migration: if they still pass afterwards, the
+external contract survived.
+
+They are in scope to read and to run, and out of scope to weaken. A migration
+that changes the checks instead of the code has not been done.
+
+Run from the repository root:
+
+    python scripts/workshop.py verify migration-legacy-models
+"""
+
+import json
+import unittest
+from datetime import UTC, datetime
+from decimal import Decimal
+from pathlib import Path
+
+import legacy_models
+import legacy_service
+from legacy_models import InstrumentRef, QuotePayload
+from legacy_service import (
+    ContractError,
+    instrument_json,
+    instrument_payload,
+    parse_quote,
+    quote_json,
+    quote_payload,
+)
+
+HERE = Path(__file__).resolve().parent
+
+VALID_INSTRUMENT = {
+    "sym": "simx",
+    "name": "  SIMX Index Future  ",
+    "tick_size": "0.01",
+    "venue": "SIMX",
+}
+
+VALID_QUOTE = {
+    "sym": "simx",
+    "bid": "101.20",
+    "ask": "101.50",
+    "as_of": "2026-08-19T09:14:31+02:00",
+}
+
+
+class SerialisedShapeTest(unittest.TestCase):
+    """Field names, order, types and defaults consumers already rely on."""
+
+    def test_instrument_payload_keys_and_values(self) -> None:
+        payload = instrument_payload(VALID_INSTRUMENT)
+        self.assertEqual(
+            list(payload), ["sym", "name", "currency", "tick_size", "venue"]
+        )
+        self.assertEqual(payload["sym"], "SIMX")
+        self.assertEqual(payload["name"], "SIMX Index Future")
+        self.assertEqual(payload["currency"], "EUR")
+        self.assertEqual(payload["tick_size"], Decimal("0.01"))
+        self.assertEqual(payload["venue"], "SIMX")
+
+    def test_optional_venue_is_present_and_null_when_absent(self) -> None:
+        raw = dict(VALID_INSTRUMENT)
+        raw.pop("venue")
+        payload = instrument_payload(raw)
+        self.assertIn("venue", payload)
+        self.assertIsNone(payload["venue"])
+
+    def test_instrument_json_uses_a_dot_decimal_separator(self) -> None:
+        body = json.loads(instrument_json(VALID_INSTRUMENT))
+        self.assertEqual(body["tick_size"], "0.01")
+        self.assertEqual(
+            body,
+            {
+                "sym": "SIMX",
+                "name": "SIMX Index Future",
+                "currency": "EUR",
+                "tick_size": "0.01",
+                "venue": "SIMX",
+            },
+        )
+
+    def test_quote_payload_normalises_to_utc(self) -> None:
+        payload = quote_payload(VALID_QUOTE)
+        self.assertEqual(list(payload), ["sym", "bid", "ask", "as_of", "venue"])
+        self.assertEqual(payload["as_of"], datetime(2026, 8, 19, 7, 14, 31, tzinfo=UTC))
+        self.assertEqual(payload["bid"], Decimal("101.20"))
+
+    def test_quote_json_timestamp_representation_is_unchanged(self) -> None:
+        body = json.loads(quote_json(VALID_QUOTE))
+        self.assertEqual(body["as_of"], "2026-08-19T07:14:31+00:00")
+        self.assertEqual(body["bid"], "101.20")
+        self.assertEqual(body["ask"], "101.50")
+
+    def test_round_trip_keeps_the_timestamp_timezone_aware_utc(self) -> None:
+        first = json.loads(quote_json(VALID_QUOTE))
+        second = parse_quote(first)
+        self.assertIsNotNone(second.as_of.tzinfo)
+        self.assertEqual(second.as_of, datetime(2026, 8, 19, 7, 14, 31, tzinfo=UTC))
+
+
+class AcceptedInputTest(unittest.TestCase):
+    """What callers may send today and must still be able to send."""
+
+    def test_alias_input_is_accepted(self) -> None:
+        self.assertEqual(instrument_payload(VALID_INSTRUMENT)["sym"], "SIMX")
+
+    def test_field_name_input_is_accepted(self) -> None:
+        raw = dict(VALID_INSTRUMENT)
+        raw["symbol"] = raw.pop("sym")
+        self.assertEqual(instrument_payload(raw)["sym"], "SIMX")
+
+    def test_currency_default_and_case_normalisation(self) -> None:
+        raw = dict(VALID_INSTRUMENT)
+        raw["currency"] = "chf"
+        self.assertEqual(instrument_payload(raw)["currency"], "CHF")
+
+
+class RejectedInputTest(unittest.TestCase):
+    """What was rejected before must still be rejected, with an actionable error."""
+
+    def _assert_rejected(self, raw: dict, kind: str) -> None:
+        parser = instrument_payload if kind == "instrument" else quote_payload
+        with self.assertRaises(ContractError) as caught:
+            parser(raw)
+        self.assertTrue(str(caught.exception).strip(), "error message must not be empty")
+
+    def test_zero_tick_size_is_rejected(self) -> None:
+        raw = dict(VALID_INSTRUMENT)
+        raw["tick_size"] = "0"
+        self._assert_rejected(raw, "instrument")
+
+    def test_unsupported_currency_is_rejected(self) -> None:
+        raw = dict(VALID_INSTRUMENT)
+        raw["currency"] = "XXX"
+        self._assert_rejected(raw, "instrument")
+
+    def test_missing_name_is_rejected(self) -> None:
+        raw = dict(VALID_INSTRUMENT)
+        raw.pop("name")
+        self._assert_rejected(raw, "instrument")
+
+    def test_naive_timestamp_is_rejected(self) -> None:
+        raw = dict(VALID_QUOTE)
+        raw["as_of"] = "2026-08-19T09:14:31"
+        self._assert_rejected(raw, "quote")
+
+    def test_crossed_quote_is_rejected(self) -> None:
+        raw = dict(VALID_QUOTE)
+        raw["ask"] = "101.00"
+        self._assert_rejected(raw, "quote")
+
+
+class MigrationCompletedTest(unittest.TestCase):
+    """The reason the ticket exists: the compatibility shim has to be gone."""
+
+    def test_in_scope_modules_do_not_use_the_compatibility_shim(self) -> None:
+        for name in ("legacy_models.py", "legacy_service.py"):
+            source = (HERE / name).read_text(encoding="utf-8")
+            self.assertFalse(
+                "pydantic.v1" in source,
+                f"{name} still reaches the surface through the 1.x compatibility shim",
+            )
+
+    def test_models_are_built_by_the_supported_major_version(self) -> None:
+        for model in (InstrumentRef, QuotePayload):
+            self.assertFalse(
+                type(model).__module__.startswith("pydantic.v1"),
+                f"{model.__name__} is still built by the 1.x model machinery",
+            )
+
+    def test_public_surface_is_still_importable_under_the_same_names(self) -> None:
+        for name in ("InstrumentRef", "QuotePayload"):
+            self.assertTrue(hasattr(legacy_models, name), f"legacy_models.{name} disappeared")
+        for name in (
+            "ContractError",
+            "parse_instrument",
+            "parse_quote",
+            "instrument_payload",
+            "instrument_json",
+            "quote_payload",
+            "quote_json",
+        ):
+            self.assertTrue(hasattr(legacy_service, name), f"legacy_service.{name} disappeared")
+
+
+if __name__ == "__main__":
+    unittest.main()

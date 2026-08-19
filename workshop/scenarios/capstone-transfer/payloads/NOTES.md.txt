@@ -1,0 +1,41 @@
+# Capstone handover
+
+Author: <your name or initials>
+Date: <date, Europe/Berlin>
+
+This note is yours. `verify` does not read it - the acceptance check is the test
+run - but the lab's evidence list does, and so would a colleague on Monday.
+
+## 1. Task in one sentence
+
+<fill in>
+
+## 2. Workflow and model choice
+
+Ask, Plan, or Agent - and why. Model: Auto or an approved model - and why.
+
+<fill in>
+
+## 3. The claim I checked
+
+The brief contains at least one confident claim that does not survive checking.
+Name the one you rejected and how you established it was wrong - or state
+honestly that you found none.
+
+<fill in>
+
+## 4. Evidence
+
+The command you ran and what it printed, before and after.
+
+<fill in>
+
+## 5. Blast radius
+
+Files touched, and what else could break.
+
+<fill in>
+
+## 6. Uncertainty (three-part sentence)
+
+I verified <fill in>. I assumed <fill in>. It could still be wrong if <fill in>.

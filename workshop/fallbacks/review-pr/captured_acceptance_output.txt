@@ -1,0 +1,41 @@
+Captured run of the acceptance check for scenario 'review-pr', in its starting
+state - that is, immediately after 'start' and before any participant work.
+Command: python scripts/workshop.py verify review-pr
+Exit code: 3
+Repository paths are replaced with <repo>; the output is truncated exactly as
+the runner truncates it. Synthetic capture for the workshop.
+------------------------------------------------------------------------------
+
+Verifying scenario: review-pr
+Acceptance contract: workshop/scenarios/review-pr/acceptance.md
+
+Evidence file: workshop/scenarios/review-pr/work/review_notes.md
+  PASS  evidence file workshop/scenarios/review-pr/work/review_notes.md is readable: ok
+  FAIL  no template placeholder is left anywhere in the file: still contains '<fill in'
+  FAIL  section '## 1. What I think the diff does': still contains the template placeholder '<fill in'
+  FAIL  section '## 2. Findings': still contains the template placeholder '<fill in'
+  FAIL  section '## 3. Comparison with the captured automated review': still contains the template placeholder '<fill in'
+  FAIL  section '## 4. Decision': still contains the template placeholder '<fill in'
+  FAIL  field '- Found by the captured review, missed by me:': still contains the template placeholder '<fill in'
+  FAIL  field '- Found by me, missed by the captured review:': still contains the template placeholder '<fill in'
+  FAIL  field '- Comment I would not forward to the author:': still contains the template placeholder '<fill in'
+  FAIL  field '- Decision:': still contains the template placeholder '<fill in'
+  FAIL  field '- Condition that would flip it:': still contains the template placeholder '<fill in'
+  PASS  blocks starting with '### Finding': found 2
+  FAIL  section '### Finding 1 (block 1)': still contains the template placeholder '<fill in'
+  FAIL  block 1: field '- Location:': still contains the template placeholder '<fill in'
+  FAIL  block 1: field '- Severity:': still contains the template placeholder '<fill in'
+  FAIL  block 1: field '- Evidence:': still contains the template placeholder '<fill in'
+  FAIL  block 1: field '- Requested change:': still contains the template placeholder '<fill in'
+  FAIL  section '### Finding 2 (block 2)': still contains the template placeholder '<fill in'
+  FAIL  block 2: field '- Location:': still contains the template placeholder '<fill in'
+  FAIL  block 2: field '- Severity:': still contains the template placeholder '<fill in'
+  FAIL  block 2: field '- Evidence:': still contains the template placeholder '<fill in'
+  FAIL  block 2: field '- Requested change:': still contains the template placeholder '<fill in'
+
+Summary: 2/22 acceptance checks passed
+
+This is the expected result before your change is complete.
+Keep this output: it is your fail-before evidence.
+
+error: acceptance not met for review-pr

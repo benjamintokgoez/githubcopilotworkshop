@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "id": "review-pr",
+  "title": "Review - a pull request nobody watched being written",
+  "kind": "evidence",
+  "lab": "Lab 4",
+  "summary": "A pre-created pull request package - issue, description, multi-file diff, session transcript, review thread and a captured automated review - plus the review-note template your findings go into.",
+  "fallback": "workshop/fallbacks/review-pr",
+  "acceptance_doc": "workshop/scenarios/review-pr/acceptance.md",
+  "required_artifacts": [
+    "workshop/scenarios/review-pr/brief.md",
+    "workshop/fallbacks/review-pr/issue.md",
+    "workshop/fallbacks/review-pr/pr_description.md",
+    "workshop/fallbacks/review-pr/pr_diff.patch",
+    "workshop/fallbacks/review-pr/session_transcript.md",
+    "workshop/fallbacks/review-pr/review_thread.md",
+    "workshop/fallbacks/review-pr/captured_code_review.md"
+  ],
+  "briefing": [
+    "workshop/scenarios/review-pr/brief.md",
+    "workshop/fallbacks/review-pr/issue.md",
+    "workshop/fallbacks/review-pr/pr_diff.patch"
+  ],
+  "stage": [
+    {
+      "payload": "workshop/scenarios/review-pr/payloads/review_notes.md.txt",
+      "target": "workshop/scenarios/review-pr/work/review_notes.md",
+      "mode": "0644",
+      "description": "Your review note. Every heading and field in it is checked by verify."
+    }
+  ],
+  "acceptance": {
+    "kind": "evidence",
+    "evidence": {
+      "path": "workshop/scenarios/review-pr/work/review_notes.md",
+      "required_headings": [
+        "## 1. What I think the diff does",
+        "## 2. Findings",
+        "## 3. Comparison with the captured automated review",
+        "## 4. Decision"
+      ],
+      "min_words_per_section": 15,
+      "placeholders": ["TODO", "TBD", "<fill in", "PLACEHOLDER"],
+      "fields": [
+        {
+          "label": "- Found by the captured review, missed by me:",
+          "min_chars": 25
+        },
+        {
+          "label": "- Found by me, missed by the captured review:",
+          "min_chars": 25
+        },
+        {
+          "label": "- Comment I would not forward to the author:",
+          "min_chars": 25
+        },
+        {
+          "label": "- Decision:",
+          "min_chars": 12,
+          "must_contain_any": ["approve", "request changes"]
+        },
+        {
+          "label": "- Condition that would flip it:",
+          "min_chars": 20
+        }
+      ],
+      "blocks": [
+        {
+          "heading_prefix": "### Finding",
+          "min_count": 2,
+          "fields": [
+            {"label": "- Location:", "min_chars": 8},
+            {
+              "label": "- Severity:",
+              "min_chars": 3,
+              "must_contain_any": ["blocking", "should-fix", "nit"]
+            },
+            {"label": "- Evidence:", "min_chars": 25},
+            {"label": "- Requested change:", "min_chars": 25}
+          ]
+        }
+      ]
+    }
+  }
+}

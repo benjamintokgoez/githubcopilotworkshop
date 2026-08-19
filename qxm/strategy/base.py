@@ -5,20 +5,40 @@ signal generation, and lifecycle management for algorithmic strategies.
 from __future__ import annotations
 
 import abc
+import inspect
+import json
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
-from typing import Any, ClassVar, Dict, List, Optional, Type
+from typing import Any, ClassVar
 
 from qxm.core.models import Instrument, Order, OrderType, Side, Tick, TimeInForce
 
 logger = logging.getLogger(__name__)
 
 
+def _require_int_parameter(
+    parameters: dict[str, Any],
+    name: str,
+    *,
+    minimum: int,
+) -> int:
+    """Return a strict integer strategy parameter at or above ``minimum``."""
+    value = parameters[name]
+    if isinstance(value, bool):
+        raise ValueError(f"{name} must be an integer")
+    if not isinstance(value, int):
+        raise ValueError(f"{name} must be an integer")
+    if value < minimum:
+        raise ValueError(f"{name} must be at least {minimum}")
+    return value
+
+
 # ---------------------------------------------------------------------------
 # Signal types
 # ---------------------------------------------------------------------------
+
 
 class SignalStrength(Enum):
     STRONG_BUY = 2
@@ -34,11 +54,23 @@ class Signal:
 
     instrument: Instrument
     strength: SignalStrength
-    target_price: Optional[float] = None
-    stop_loss: Optional[float] = None
+    target_price: float | None = None
+    stop_loss: float | None = None
     confidence: float = 0.0
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    metadata: dict[str, Any] = field(default_factory=dict)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
+
+    def __post_init__(self) -> None:
+        if not 0.0 <= self.confidence <= 1.0:
+            raise ValueError("confidence must be between 0 and 1")
+        if self.timestamp.tzinfo is None or self.timestamp.utcoffset() is None:
+            raise ValueError("signal timestamp must include an explicit timezone offset")
+        self.timestamp = self.timestamp.astimezone(UTC)
+        self.metadata = dict(self.metadata)
+        try:
+            json.dumps(self.metadata, allow_nan=False)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("metadata must contain only JSON-compatible values") from exc
 
     @property
     def is_actionable(self) -> bool:
@@ -48,6 +80,7 @@ class Signal:
 # ---------------------------------------------------------------------------
 # Strategy metaclass — auto-registration
 # ---------------------------------------------------------------------------
+
 
 class StrategyMeta(abc.ABCMeta):
     """Metaclass that automatically registers strategy subclasses.
@@ -62,48 +95,55 @@ class StrategyMeta(abc.ABCMeta):
         strat = strat_cls(instruments=[...])
     """
 
-    _registry: Dict[str, Type["BaseStrategy"]] = {}
+    _registry: dict[str, type[BaseStrategy]] = {}
 
     def __new__(
         mcs,
         name: str,
-        bases: tuple,
-        namespace: dict,
+        bases: tuple[type, ...],
+        namespace: dict[str, Any],
         **kwargs: Any,
     ) -> StrategyMeta:
         cls = super().__new__(mcs, name, bases, namespace, **kwargs)
-        # Only register concrete subclasses (skip the abstract base itself)
-        if not getattr(cls, "__abstractmethods__", frozenset()):
-            key = getattr(cls, "strategy_name", name)
-            if key in mcs._registry:
-                logger.warning(
-                    "Strategy name %r already registered — overwriting with %s",
-                    key,
-                    name,
+        if bases and not inspect.isabstract(cls):
+            # ``BaseStrategy`` is defined further down in this module and is
+            # the only class using this metaclass; this check also gives
+            # mypy a precise ``type[BaseStrategy]`` narrowing for the
+            # registry assignment below instead of an ``Any``/unchecked cast.
+            if not issubclass(cls, BaseStrategy):
+                raise TypeError(f"{name} must subclass BaseStrategy to use StrategyMeta")
+            key = namespace.get("strategy_name", name)
+            if not isinstance(key, str) or not key.strip():
+                raise ValueError(f"{name}.strategy_name must be a non-empty string")
+            existing = mcs._registry.get(key)
+            if existing is not None and existing is not cls:
+                raise ValueError(
+                    f"Strategy name {key!r} is already registered by {existing.__name__}"
                 )
-            mcs._registry[key] = cls  # type: ignore[assignment]
+            mcs._registry[key] = cls
             logger.debug("Registered strategy: %s", key)
-        return cls  # type: ignore[return-value]
+        return cls
 
     @classmethod
-    def get(mcs, name: str) -> Type["BaseStrategy"]:
+    def get(mcs, name: str) -> type[BaseStrategy]:
         """Retrieve a strategy class by name."""
         try:
             return mcs._registry[name]
-        except KeyError:
+        except KeyError as exc:
             raise KeyError(
-                f"Unknown strategy {name!r}. "
-                f"Available: {list(mcs._registry)}"
-            )
+                f"Unknown strategy {name!r}. Available: {mcs.list_strategies()}"
+            ) from exc
 
     @classmethod
-    def list_strategies(mcs) -> List[str]:
-        return list(mcs._registry.keys())
+    def list_strategies(mcs) -> list[str]:
+        """Return registered concrete strategy names in stable order."""
+        return sorted(mcs._registry)
 
 
 # ---------------------------------------------------------------------------
 # Abstract base strategy
 # ---------------------------------------------------------------------------
+
 
 class BaseStrategy(metaclass=StrategyMeta):
     """Abstract base for all trading strategies.
@@ -129,17 +169,18 @@ class BaseStrategy(metaclass=StrategyMeta):
 
     def __init__(
         self,
-        instruments: List[Instrument],
-        parameters: Optional[Dict[str, Any]] = None,
+        instruments: list[Instrument],
+        parameters: dict[str, Any] | None = None,
     ) -> None:
+        symbols = [instrument.symbol for instrument in instruments]
+        if len(symbols) != len(set(symbols)):
+            raise ValueError("instruments must have unique symbols")
         self.instruments = {inst.symbol: inst for inst in instruments}
-        self.parameters = parameters or {}
-        self._tick_buffer: Dict[str, List[Tick]] = {
-            inst.symbol: [] for inst in instruments
-        }
-        self._signals: List[Signal] = []
+        self.parameters = dict(parameters or {})
+        self._tick_buffer: dict[str, list[Tick]] = {inst.symbol: [] for inst in instruments}
+        self._signals: list[Signal] = []
         self._is_running: bool = False
-        self._position_exposure: Dict[str, float] = {}
+        self._position_exposure: dict[str, float] = {}
 
     # -- lifecycle -----------------------------------------------------------
 
@@ -161,7 +202,7 @@ class BaseStrategy(metaclass=StrategyMeta):
         ...
 
     @abc.abstractmethod
-    def generate_signals(self) -> List[Signal]:
+    def generate_signals(self) -> list[Signal]:
         """Produce trading signals based on buffered data."""
         ...
 
@@ -179,31 +220,50 @@ class BaseStrategy(metaclass=StrategyMeta):
         """Add a tick to the per-symbol buffer, evicting oldest if full."""
         buf = self._tick_buffer.get(tick.symbol)
         if buf is None:
-            return
+            raise ValueError(
+                f"Tick symbol {tick.symbol!r} is not configured for {self.strategy_name}"
+            )
         buf.append(tick)
         if len(buf) > max_buffer:
-            buf.pop(0)
+            del buf[: len(buf) - max_buffer]
 
     def create_order(
         self,
         symbol: str,
         side: Side,
         quantity: int,
-        price: Optional[float] = None,
-        order_type: OrderType = OrderType.LIMIT,
+        price: float | None = None,
+        order_type: OrderType | None = None,
         time_in_force: TimeInForce = TimeInForce.GTC,
         client_id: str = "strategy",
     ) -> Order:
-        """Convenience factory for creating orders."""
+        """Create an order, inferring MARKET without a price and LIMIT with one."""
+        normalized_symbol = symbol.strip().upper()
+        if normalized_symbol not in self.instruments:
+            raise ValueError(
+                f"Order symbol {normalized_symbol!r} is not configured for {self.strategy_name}"
+            )
+        resolved_order_type = (
+            order_type
+            if order_type is not None
+            else OrderType.LIMIT
+            if price is not None
+            else OrderType.MARKET
+        )
         return Order(
-            symbol=symbol,
+            symbol=normalized_symbol,
             side=side,
-            order_type=order_type,
+            order_type=resolved_order_type,
             quantity=quantity,
             price=price,
             client_id=client_id,
             time_in_force=time_in_force,
         )
+
+    @property
+    def is_running(self) -> bool:
+        """Whether the strategy lifecycle has been started."""
+        return self._is_running
 
     def __repr__(self) -> str:
         return (

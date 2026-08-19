@@ -1,0 +1,38 @@
+QUANTCORE SIMULATION VENUE (SIMX)          EXECUTION REPORT / AUSFUEHRUNGSANZEIGE
+Template: exec_report_v3                   Generated: 2026-08-19 09:14:31 CEST
+================================================================================
+Order reference   : ORD-2026-0819-0442
+Client reference  : SIM-CLIENT-08 (simulated account, no personal data)
+Instrument        : SIMX
+Side              : BUY
+Order type        : MARKET
+Ordered quantity  : 120
+Time received     : 2026-08-19 09:14:31 CEST (2026-08-19T07:14:31Z)
+--------------------------------------------------------------------------------
+FILLS
+  Fill        Quantity   Price        Counterparty order
+  F-0442-1         100   101,35       A1
+  F-0442-2          20   101,35       A2
+--------------------------------------------------------------------------------
+Executed quantity : 120
+Average price     : 101,35 EUR
+Consideration     : 12.162,00 EUR
+Status            : FILLED
+================================================================================
+
+FOLLOW-UP ORDER, SAME CLIENT, SAME MORNING
+
+Order reference   : ORD-2026-0819-0517
+Time received     : 2026-08-19 10:02:16 CEST (2026-08-19T08:02:16Z)
+Ordered quantity  : 200
+  Fill        Quantity   Price        Counterparty order
+  F-0517-1          30   (blank)      A2
+  F-0517-2         170   (blank)      A3
+Executed quantity : 200
+Average price     : (blank)
+Consideration     : (blank)
+Status            : FILLED
+================================================================================
+Simulation only. Prices are generated for the workshop and describe no real
+market. Amounts are displayed with a decimal comma (INV-FMT-1) and carry their
+currency (INV-FMT-2); stored values use a dot.

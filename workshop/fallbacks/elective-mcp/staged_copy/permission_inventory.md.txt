@@ -1,0 +1,59 @@
+# MCP permission inventory
+
+Author: <your name or initials>
+Date: <date, Europe/Berlin>
+Server under review: <e.g. quantcore-local>
+
+Replace every `<fill in>`. `verify` checks that each section and field is
+substantive; it does not judge whether your configuration is the right one.
+
+## 1. What this server can reach
+
+Not what you intend to use it for - what it is capable of reaching, per the tool
+inventory and the source. Include the process itself: working directory,
+environment, filesystem and network reach.
+
+<fill in>
+
+- Data that leaves this machine: <fill in - to which process, host, or vendor, and what is in it>
+
+## 2. Tools offered, enabled, disabled
+
+- Tools offered: <fill in - the tools the server actually registers>
+- Tools enabled: <fill in - what you allowed the session to pick>
+- Tools disabled: <fill in - and say whether they were deselected or never registered>
+
+One sentence per disabled tool: why it is not needed for your task.
+
+<fill in>
+
+- Where the control lives: <fill in - name the layer for each restriction: mcp.json process configuration, client tool picker and approval settings, or the server's own registration and validation>
+- Approval boundary: <fill in - is per-call confirmation still in play, or did you enable the sandbox and trade confirmations for policy rules? Say which, and what that means for the rules you wrote>
+
+## 3. Evidence the answer came from the tool
+
+State whether your evidence is live or captured, and show it: the question, the
+call, and what came back that the model could not have produced on its own.
+
+<fill in>
+
+## 4. Negative case
+
+- What I asked for outside the permission: <fill in>
+- Observed behaviour: <fill in - what happened and which layer refused: the client, the process sandbox, or the server itself>
+
+## 5. What MCP configuration does not protect against
+
+Two concrete things. A control whose boundary you cannot name is a belief. Say
+something about the platforms where the sandbox does not apply, too.
+
+<fill in>
+
+## 6. What I would ask my platform team for
+
+The paragraph you would actually send: what the server is, what it reaches, what
+you narrowed, what you need approved, and what you would monitor.
+
+- Approval owner: <fill in - the role that decides this in your organisation>
+
+<fill in>

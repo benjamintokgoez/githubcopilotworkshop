@@ -1,0 +1,66 @@
+# Terminal agent permission policy
+
+Author: <your name or initials>
+Date: <date, Europe/Berlin>
+
+Replace every `<fill in>`. `verify` checks that the sections and fields are
+substantive; it does not judge whether your policy is the right one for your
+team.
+
+- Evidence source: <fill in - live session, or captured transcript>
+
+## 1. Default posture
+
+What happens to a command that matches no rule, and why that default is the one
+you want on the machine you have in mind.
+
+- Default posture: <fill in - deny by default | ask for every command | ...>
+
+<fill in>
+
+## 2. Rules
+
+At least three. Copy the block for more.
+
+### Rule 1
+
+- Command: <fill in>
+- Verdict: <fill in - allow | ask | deny>
+- Why: <fill in>
+- Blast radius if wrong: <fill in - what this reaches if the verdict is wrong>
+
+### Rule 2
+
+- Command: <fill in>
+- Verdict: <fill in - allow | ask | deny>
+- Why: <fill in>
+- Blast radius if wrong: <fill in>
+
+### Rule 3
+
+- Command: <fill in>
+- Verdict: <fill in - allow | ask | deny>
+- Why: <fill in>
+- Blast radius if wrong: <fill in>
+
+- Broadest entry I wrote: <fill in - and what it grants beyond what you intended>
+
+## 3. Negative case
+
+- What I asked for outside the policy: <fill in>
+- Observed behaviour: <fill in - prompt, refusal, or unexpected success, as observed>
+
+## 4. What an allowlist does not protect against
+
+Name the boundary of the control. Prompt injection through file contents, a
+permitted command with hostile arguments, credentials already in the environment:
+pick the ones that are real for you and say why.
+
+<fill in>
+
+## 5. Shared machines and CI
+
+What you would allow on your own laptop, what changes on a shared machine or a CI
+runner, and what record would exist afterwards.
+
+<fill in>

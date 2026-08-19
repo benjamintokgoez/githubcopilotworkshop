@@ -1,40 +1,50 @@
 [project]
 name = "quantcore"
-version = "0.4.0"
-description = "High-performance order matching engine with risk analytics"
+version = "0.5.0"
+description = "Educational, simulation-only quantitative trading engine for workshops (order matching, risk analytics)"
 readme = "README.md"
 license = {text = "MIT"}
-requires-python = ">=3.11"
+# Workshop Python baseline: 3.12, verified against the 3.12.14 patch release.
+# `requires-python` accepts any 3.12.x/3.13.x so patch-level security updates
+# keep working. CI pins the interpreter patch (3.12.14), while dependency
+# versions remain deliberately bounded rather than lock-file pinned; every
+# delivery release therefore runs the clean-room check in RELEASE_CHECKLIST.md.
+# The devcontainer image tracks the same 3.12 line.
+# See .github/workflows/ci.yml and .devcontainer/devcontainer.json.
+requires-python = ">=3.12,<3.14"
 authors = [
     {name = "QuantCore Workshop", email = "workshop@quantcore.dev"},
 ]
 
 dependencies = [
-    "pydantic>=1.10,<2.0",
-    "fastapi>=0.104",
-    "uvicorn[standard]>=0.24",
-    "sqlalchemy>=2.0",
-    "pyyaml>=6.0",
-    "numpy>=1.24",
-    "scipy>=1.11",
-    "sortedcontainers>=2.4",
-    "websockets>=12.0",
-    "mcp>=1.0",
+    "pydantic>=2.12,<3.0",
+    "fastapi>=0.115,<1.0",
+    "uvicorn[standard]>=0.30,<1.0",
+    "sqlalchemy>=2.0.30,<2.1",
+    "pyyaml>=6.0,<7.0",
+    "numpy>=1.26,<3.0",
+    "scipy>=1.13,<2.0",
+    "sortedcontainers>=2.4,<3.0",
+    "websockets>=13.0,<18.0",
+    "mcp>=2,<3",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=7.4",
-    "pytest-asyncio>=0.21",
-    "pytest-cov>=4.1",
-    "httpx>=0.25",
-    "ruff>=0.1",
-    "mypy>=1.7",
-    "bandit>=1.7",
-]
-dashboard = [
-    "jinja2>=3.1",
-    "plotly>=5.18",
+    "pytest>=8.0,<10.0",
+    "pytest-asyncio>=0.24,<2.0",
+    "pytest-cov>=5.0,<8.0",
+    "httpx>=0.27,<0.29",
+    "ruff>=0.8,<1.0",
+    # Kept on the 1.x line for pydantic.mypy plugin compatibility.
+    "mypy>=1.10,<2.0",
+    "bandit>=1.7,<2.0",
+    "types-PyYAML>=6.0,<7.0",
+    "sortedcontainers-stubs>=2.4,<3.0",
+    # scipy-stubs versions track scipy releases (e.g. 1.18.0.1 pairs with
+    # scipy 1.18.0); bounded to the same range as the scipy runtime
+    # dependency above so mypy's scipy.stats imports stay resolvable.
+    "scipy-stubs>=1.14.1,<2.0",
 ]
 
 [project.scripts]
@@ -51,20 +61,38 @@ include = ["qxm*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "integration: integration tests requiring database",
 ]
 
 [tool.ruff]
-target-version = "py311"
+target-version = "py312"
 line-length = 100
+# Defensively excluded on top of ruff's default VCS-ignore handling: agent
+# workstreams occasionally create scratch virtualenvs under package
+# directories while iterating; these must never be linted as project code.
+extend-exclude = [
+    "**/*venv*/",
+    "**/__pycache__/",
+]
 
 [tool.ruff.lint]
-select = ["E", "W", "F", "I", "S", "B"]
-ignore = ["S101"]  # allow assert in tests
+select = ["E", "W", "F", "I", "S", "B", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+# Plain asserts are the normal, expected idiom in test files.
+"tests/*" = ["S101"]
+# These generators produce deterministic synthetic market data, never secrets
+# or security tokens; cryptographic randomness would defeat reproducibility.
+"qxm/data/feed.py" = ["S311"]
+"scripts/generate_sample_data.py" = ["S311"]
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 strict = true
 plugins = ["pydantic.mypy"]
+warn_unused_configs = true
+# Same rationale as the ruff extend-exclude above.
+exclude = "(^|/)[^/]*venv[^/]*(/|$)|(^|/)__pycache__(/|$)"

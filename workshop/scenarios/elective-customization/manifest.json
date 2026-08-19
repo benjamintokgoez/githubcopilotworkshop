@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "id": "elective-customization",
+  "title": "Elective - durable context that survives Monday",
+  "kind": "evidence",
+  "lab": "Lab 5C",
+  "summary": "A weak scenario-local instruction draft to critique and rewrite, plus the before/after note proving which rules actually changed generated output.",
+  "fallback": "workshop/fallbacks/elective-customization",
+  "acceptance_doc": "workshop/scenarios/elective-customization/acceptance.md",
+  "required_artifacts": [
+    "workshop/scenarios/elective-customization/brief.md",
+    "workshop/scenarios/elective-customization/fixtures/review_criteria.md"
+  ],
+  "briefing": [
+    "workshop/scenarios/elective-customization/brief.md",
+    "workshop/scenarios/elective-customization/fixtures/review_criteria.md"
+  ],
+  "stage": [
+    {
+      "payload": "workshop/scenarios/elective-customization/payloads/instructions_draft.md.txt",
+      "target": "workshop/scenarios/elective-customization/work/instructions_draft.md",
+      "mode": "0644",
+      "description": "A scenario-local instruction draft, written badly on purpose. Improve it here."
+    },
+    {
+      "payload": "workshop/scenarios/elective-customization/payloads/customization_notes.md.txt",
+      "target": "workshop/scenarios/elective-customization/work/customization_notes.md",
+      "mode": "0644",
+      "description": "Your before/after evidence and the rules you kept, rewrote, or deleted."
+    }
+  ],
+  "acceptance": {
+    "kind": "evidence",
+    "evidence": {
+      "path": "workshop/scenarios/elective-customization/work/customization_notes.md",
+      "required_headings": [
+        "## 1. The task I measured with",
+        "## 2. Before",
+        "## 3. After",
+        "## 4. Rules",
+        "## 5. What I deleted or rewrote",
+        "## 6. Contradiction test",
+        "## 7. What durable context cannot enforce"
+      ],
+      "min_words_per_section": 15,
+      "placeholders": ["TODO", "TBD", "<fill in", "PLACEHOLDER"],
+      "fields": [
+        {"label": "- Observable difference:", "min_chars": 25},
+        {"label": "- Rule I deleted or rewrote:", "min_chars": 20},
+        {"label": "- Why its effect was not observable:", "min_chars": 20},
+        {"label": "- What I asked for that contradicts a rule:", "min_chars": 20},
+        {"label": "- Observed behaviour:", "min_chars": 20}
+      ],
+      "blocks": [
+        {
+          "heading_prefix": "### Rule",
+          "min_count": 3,
+          "fields": [
+            {"label": "- Rule:", "min_chars": 20},
+            {"label": "- How a reviewer checks it:", "min_chars": 20},
+            {
+              "label": "- Belongs in:",
+              "min_chars": 4,
+              "must_contain_any": ["instruction", "test", "ci", "lint", "review"]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

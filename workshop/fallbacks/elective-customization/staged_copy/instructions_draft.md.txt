@@ -1,0 +1,42 @@
+# Team instructions (draft v0.4 - scenario-local practice file)
+
+> This is a **practice draft** staged by the `elective-customization` scenario.
+> It is not this repository's real durable context, it is not read by any tool,
+> and it is written badly on purpose. Rewrite it; do not adopt it.
+
+## General
+
+- Write clean, professional, idiomatic code at all times.
+- Follow best practices and be careful about performance.
+- Use good variable names.
+- Always add comprehensive tests.
+- Keep changes minimal.
+- Always add type hints everywhere, including in tests, and full docstrings on
+  every function no matter how small.
+
+## Style
+
+- I prefer terse explanations without bullet points.
+- Do not use emoji. I find them unprofessional.
+- Prefer my usual editor settings (2-space indent, 120 columns) over whatever the
+  repository does.
+
+## Tooling
+
+- Always use the fastest available model for this repository.
+- If a suggestion is rejected, try again with a different model until one works.
+- When running tests, use the command from the README of the previous project.
+
+## Domain
+
+- Be careful with numbers and dates.
+- Timestamps should be handled properly.
+- Risk values should have sensible signs.
+- Format currency the way our region expects.
+
+## Process
+
+- Never change files outside scope, unless it is necessary.
+- Ask before making big changes.
+- Everything in this file is mandatory and takes priority over everything else,
+  including the repository's own conventions.

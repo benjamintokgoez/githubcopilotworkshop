@@ -1,0 +1,50 @@
+# Review notes - PR #212 "Normalise VaR reporting and tidy up risk helpers"
+
+Reviewer: <your name or initials>
+Reviewed on: <date, Europe/Berlin>
+
+Replace every `<fill in>` below. `verify` checks that the sections and fields are
+substantive; it does not judge whether your calls are right.
+
+## 1. What I think the diff does
+
+Written before reading the PR description. Two or three sentences: what the change
+appears to do, and what in the diff told you that.
+
+<fill in>
+
+## 2. Findings
+
+At least two findings. At least one about **scope** rather than correctness.
+Copy the block for each further finding.
+
+### Finding 1
+
+- Location: <fill in - file and hunk or line>
+- Severity: <fill in - blocking | should-fix | nit>
+- Evidence: <fill in - what you read, ran, or compared, and what you observed>
+- Requested change: <fill in - what specifically must happen>
+
+### Finding 2
+
+- Location: <fill in - file and hunk or line>
+- Severity: <fill in - blocking | should-fix | nit>
+- Evidence: <fill in - what you read, ran, or compared, and what you observed>
+- Requested change: <fill in - what specifically must happen>
+
+## 3. Comparison with the captured automated review
+
+Fill this in only after your own findings above are written.
+
+- Found by the captured review, missed by me: <fill in>
+- Found by me, missed by the captured review: <fill in, and say why it could not see it>
+- Comment I would not forward to the author: <fill in, and say why>
+
+## 4. Decision
+
+- Decision: <fill in - approve | request changes>
+- Condition that would flip it: <fill in - the specific thing that would change your mind>
+
+## 5. Uncertainty (three-part sentence)
+
+I verified <fill in>. I assumed <fill in>. It could still be wrong if <fill in>.

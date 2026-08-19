@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "description": "Generated sample records for OPS-2026-118. Timestamps are timezone-aware UTC; amounts are stored with a dot decimal separator. Entirely synthetic.",
+  "currency": "EUR",
+  "records": [
+    {"record_id": "R-0001", "recorded_at": "2026-08-18T21:59:59Z", "amount": "4200.00", "kind": "transfer"},
+    {"record_id": "R-0002", "recorded_at": "2026-08-18T22:00:00Z", "amount": "1000000.00", "kind": "transfer"},
+    {"record_id": "R-0003", "recorded_at": "2026-08-19T05:31:44Z", "amount": "200000.50", "kind": "fee"},
+    {"record_id": "R-0004", "recorded_at": "2026-08-19T11:07:02Z", "amount": "34000.391", "kind": "transfer"},
+    {"record_id": "R-0005", "recorded_at": "2026-08-19T18:45:10Z", "amount": "500.00", "kind": "adjustment"},
+    {"record_id": "R-0006", "recorded_at": "2026-08-19T21:59:59Z", "amount": "67.00", "kind": "fee"},
+    {"record_id": "R-0007", "recorded_at": "2026-08-19T22:00:00Z", "amount": "9999.99", "kind": "transfer"},
+    {"record_id": "R-0008", "recorded_at": "2026-08-20T04:12:00Z", "amount": "125.75", "kind": "transfer"}
+  ]
+}

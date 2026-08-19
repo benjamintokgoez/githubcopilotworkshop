@@ -1,160 +1,308 @@
-"""Prometheus-style metrics collection for trading system observability.
+"""Thread-safe in-process metrics for application observability.
 
-Provides counters, gauges, histograms, and a registry for export.
+Snapshots are deterministic Python data structures. They are not a direct
+Prometheus exposition-format implementation.
 """
 
 from __future__ import annotations
 
+import math
 import threading
 import time
-from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
-@dataclass
+def _finite_number(value: int | float, field_name: str) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise TypeError(f"{field_name} must be a number")
+    converted = float(value)
+    if not math.isfinite(converted):
+        raise ValueError(f"{field_name} must be finite")
+    return converted
+
+
+def _validate_name(name: str) -> str:
+    if not isinstance(name, str) or not name.strip():
+        raise ValueError("metric name must be a non-empty string")
+    return name
+
+
+@dataclass(frozen=True)
 class MetricSample:
-    """A single metric observation."""
+    """An immutable metric observation."""
+
     name: str
     value: float
-    labels: Dict[str, str] = field(default_factory=dict)
+    labels: dict[str, str] = field(default_factory=dict)
     timestamp: float = field(default_factory=time.time)
+
+    def __post_init__(self) -> None:
+        _validate_name(self.name)
+        _finite_number(self.value, "value")
+        _finite_number(self.timestamp, "timestamp")
 
 
 class Counter:
-    """Monotonically increasing counter."""
+    """A thread-safe monotonically increasing value."""
 
     def __init__(self, name: str, description: str = "") -> None:
-        self.name = name
+        self.name = _validate_name(name)
         self.description = description
-        self._value: float = 0.0
+        self._value = 0.0
         self._lock = threading.Lock()
 
     def inc(self, amount: float = 1.0) -> None:
-        if amount < 0:
-            raise ValueError("Counter can only increase")
+        """Increase the counter by a finite non-negative amount."""
+        increment = _finite_number(amount, "amount")
+        if increment < 0:
+            raise ValueError("counter amount must be non-negative")
         with self._lock:
-            self._value += amount
+            new_value = self._value + increment
+            if not math.isfinite(new_value):
+                raise ValueError("counter result must be finite")
+            self._value = new_value
 
     @property
     def value(self) -> float:
-        return self._value
+        """Return an atomic counter value."""
+        with self._lock:
+            return self._value
+
+    def reset(self) -> None:
+        """Reset the counter to zero."""
+        with self._lock:
+            self._value = 0.0
 
 
 class Gauge:
-    """Value that can go up and down."""
+    """A thread-safe value that can increase or decrease."""
 
     def __init__(self, name: str, description: str = "") -> None:
-        self.name = name
+        self.name = _validate_name(name)
         self.description = description
-        self._value: float = 0.0
+        self._value = 0.0
         self._lock = threading.Lock()
 
     def set(self, value: float) -> None:
+        """Set the gauge to a finite value."""
+        new_value = _finite_number(value, "value")
         with self._lock:
-            self._value = value
+            self._value = new_value
 
     def inc(self, amount: float = 1.0) -> None:
+        """Increase the gauge by a finite amount."""
+        increment = _finite_number(amount, "amount")
         with self._lock:
-            self._value += amount
+            new_value = self._value + increment
+            if not math.isfinite(new_value):
+                raise ValueError("gauge result must be finite")
+            self._value = new_value
 
     def dec(self, amount: float = 1.0) -> None:
-        with self._lock:
-            self._value -= amount
+        """Decrease the gauge by a finite amount."""
+        decrement = _finite_number(amount, "amount")
+        self.inc(-decrement)
 
     @property
     def value(self) -> float:
-        return self._value
+        """Return an atomic gauge value."""
+        with self._lock:
+            return self._value
+
+    def reset(self) -> None:
+        """Reset the gauge to zero."""
+        with self._lock:
+            self._value = 0.0
 
 
 class Histogram:
-    """Tracks value distributions across predefined buckets."""
+    """Track finite observations in cumulative upper-bound buckets."""
 
-    DEFAULT_BUCKETS = (0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0)
+    DEFAULT_BUCKETS = (
+        0.005,
+        0.01,
+        0.025,
+        0.05,
+        0.1,
+        0.25,
+        0.5,
+        1.0,
+        2.5,
+        5.0,
+        10.0,
+    )
 
     def __init__(
         self,
         name: str,
         description: str = "",
-        buckets: Optional[tuple] = None,
+        buckets: tuple[float, ...] | None = None,
     ) -> None:
-        self.name = name
+        self.name = _validate_name(name)
         self.description = description
-        self._buckets = sorted(buckets or self.DEFAULT_BUCKETS)
-        self._counts: Dict[float, int] = {b: 0 for b in self._buckets}
-        self._counts[float("inf")] = 0
-        self._sum: float = 0.0
-        self._count: int = 0
+        raw_buckets = self.DEFAULT_BUCKETS if buckets is None else buckets
+        if not raw_buckets:
+            raise ValueError("histogram requires at least one bucket")
+        validated = tuple(sorted(_finite_number(bucket, "bucket") for bucket in raw_buckets))
+        if len(set(validated)) != len(validated):
+            raise ValueError("histogram buckets must be unique")
+        self._buckets = validated
+        self._counts = {bucket: 0 for bucket in validated}
+        self._sum = 0.0
+        self._count = 0
         self._lock = threading.Lock()
 
+    @property
+    def buckets(self) -> tuple[float, ...]:
+        """Return ordered finite bucket boundaries."""
+        return self._buckets
+
     def observe(self, value: float) -> None:
-        """Record a single observation."""
+        """Record one finite observation in every matching cumulative bucket."""
+        observation = _finite_number(value, "value")
         with self._lock:
-            self._sum += value
+            new_sum = self._sum + observation
+            if not math.isfinite(new_sum):
+                raise ValueError("histogram sum must remain finite")
+            self._sum = new_sum
             self._count += 1
             for bucket in self._buckets:
-                if value <= bucket:
+                if observation <= bucket:
                     self._counts[bucket] += 1
-            self._counts[float("inf")] += 1
+
+    def _snapshot(self) -> dict[str, Any]:
+        with self._lock:
+            count = self._count
+            total = self._sum
+            bucket_counts = {str(bucket): self._counts[bucket] for bucket in self._buckets}
+            bucket_counts["+Inf"] = count
+            return {
+                "buckets": bucket_counts,
+                "count": count,
+                "mean": total / count if count else 0.0,
+                "sum": total,
+            }
 
     @property
     def count(self) -> int:
-        return self._count
+        """Return the number of observations."""
+        with self._lock:
+            return self._count
 
     @property
     def sum(self) -> float:
-        return self._sum
+        """Return the sum of observations."""
+        with self._lock:
+            return self._sum
 
     @property
     def mean(self) -> float:
-        if self._count == 0:
-            return 0.0
-        return self._sum / self._count
+        """Return the arithmetic mean, or zero when empty."""
+        with self._lock:
+            return self._sum / self._count if self._count else 0.0
+
+    def reset(self) -> None:
+        """Remove all observations while preserving bucket configuration."""
+        with self._lock:
+            self._counts = {bucket: 0 for bucket in self._buckets}
+            self._sum = 0.0
+            self._count = 0
 
 
 class MetricsRegistry:
-    """Central registry for all application metrics."""
+    """Race-safe registry for counters, gauges, and histograms."""
 
     def __init__(self) -> None:
-        self._counters: Dict[str, Counter] = {}
-        self._gauges: Dict[str, Gauge] = {}
-        self._histograms: Dict[str, Histogram] = {}
+        self._counters: dict[str, Counter] = {}
+        self._gauges: dict[str, Gauge] = {}
+        self._histograms: dict[str, Histogram] = {}
+        self._lock = threading.RLock()
+
+    def _ensure_kind(self, name: str, expected: str) -> None:
+        kinds = (
+            ("counter", self._counters),
+            ("gauge", self._gauges),
+            ("histogram", self._histograms),
+        )
+        for kind, metrics in kinds:
+            if kind != expected and name in metrics:
+                raise ValueError(f"metric {name!r} is already registered as a {kind}")
 
     def counter(self, name: str, description: str = "") -> Counter:
-        if name not in self._counters:
-            self._counters[name] = Counter(name, description)
-        return self._counters[name]
+        """Return the named counter, creating it atomically if necessary."""
+        name = _validate_name(name)
+        with self._lock:
+            self._ensure_kind(name, "counter")
+            metric = self._counters.get(name)
+            if metric is None:
+                metric = Counter(name, description)
+                self._counters[name] = metric
+            return metric
 
     def gauge(self, name: str, description: str = "") -> Gauge:
-        if name not in self._gauges:
-            self._gauges[name] = Gauge(name, description)
-        return self._gauges[name]
+        """Return the named gauge, creating it atomically if necessary."""
+        name = _validate_name(name)
+        with self._lock:
+            self._ensure_kind(name, "gauge")
+            metric = self._gauges.get(name)
+            if metric is None:
+                metric = Gauge(name, description)
+                self._gauges[name] = metric
+            return metric
 
-    def histogram(self, name: str, description: str = "", **kwargs: Any) -> Histogram:
-        if name not in self._histograms:
-            self._histograms[name] = Histogram(name, description, **kwargs)
-        return self._histograms[name]
+    def histogram(
+        self,
+        name: str,
+        description: str = "",
+        *,
+        buckets: tuple[float, ...] | None = None,
+    ) -> Histogram:
+        """Return the named histogram, creating it atomically if necessary."""
+        name = _validate_name(name)
+        with self._lock:
+            self._ensure_kind(name, "histogram")
+            metric = self._histograms.get(name)
+            if metric is None:
+                metric = Histogram(name, description, buckets)
+                self._histograms[name] = metric
+            elif buckets is not None and metric.buckets != tuple(sorted(buckets)):
+                raise ValueError(f"histogram {name!r} already has different buckets")
+            return metric
 
-    def snapshot(self) -> Dict[str, Any]:
-        """Return current values for all registered metrics."""
-        snap: Dict[str, Any] = {"counters": {}, "gauges": {}, "histograms": {}}
-        for name, c in self._counters.items():
-            snap["counters"][name] = c.value
-        for name, g in self._gauges.items():
-            snap["gauges"][name] = g.value
-        for name, h in self._histograms.items():
-            snap["histograms"][name] = {
-                "count": h.count,
-                "sum": h.sum,
-                "mean": h.mean,
-            }
-        return snap
+    def snapshot(self) -> dict[str, Any]:
+        """Return a deterministic point-in-time snapshot of registered metrics."""
+        with self._lock:
+            counters = sorted(self._counters.items())
+            gauges = sorted(self._gauges.items())
+            histograms = sorted(self._histograms.items())
+        return {
+            "counters": {name: metric.value for name, metric in counters},
+            "gauges": {name: metric.value for name, metric in gauges},
+            "histograms": {name: metric._snapshot() for name, metric in histograms},
+        }
+
+    def reset(self) -> None:
+        """Reset all registered metric values without invalidating references."""
+        with self._lock:
+            metrics: tuple[Counter | Gauge | Histogram, ...] = (
+                *self._counters.values(),
+                *self._gauges.values(),
+                *self._histograms.values(),
+            )
+        for metric in metrics:
+            metric.reset()
+
+    def clear(self) -> None:
+        """Remove every metric, providing an isolated empty test registry."""
+        with self._lock:
+            self._counters.clear()
+            self._gauges.clear()
+            self._histograms.clear()
 
 
-# Global registry instance
 REGISTRY = MetricsRegistry()
 
-# Pre-defined trading metrics
 orders_submitted = REGISTRY.counter("qxm_orders_submitted", "Total orders submitted")
 orders_filled = REGISTRY.counter("qxm_orders_filled", "Total orders fully filled")
 orders_cancelled = REGISTRY.counter("qxm_orders_cancelled", "Total orders cancelled")

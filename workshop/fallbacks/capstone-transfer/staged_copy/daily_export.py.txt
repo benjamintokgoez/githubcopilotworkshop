@@ -1,0 +1,57 @@
+"""Daily export helper for the reconciliation hand-off (OPS-2026-118).
+
+Four callables, nothing more. The acceptance checks in `test_daily_export.py`
+define exactly what each one has to return; the ticket in `issue.md` explains why
+operations wants it.
+
+Everything here is standard library. No dependency is needed, and none should be
+added.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Iterable, Sequence
+from datetime import date, datetime
+from decimal import Decimal
+
+# Carried over from the ticket, in the words of the person who filed it:
+# "Berlin is UTC+2, so in practice the window is simply 22:00 to 22:00 UTC.
+#  We have used that for years and it has been fine."
+BERLIN_UTC_OFFSET_HOURS = 2
+
+EXPORT_PREFIX = "daily_export"
+
+
+def selection_window(business_date: date) -> tuple[datetime, datetime]:
+    """UTC interval covering ``business_date`` as a half-open ``[start, end)``.
+
+    Returns timezone-aware UTC datetimes.
+    """
+    raise NotImplementedError("selection_window")
+
+
+def records_in_window(
+    records: Iterable[dict[str, str]], business_date: date
+) -> list[dict[str, str]]:
+    """The records whose ``recorded_at`` falls inside the window for the date.
+
+    ``records`` are the entries from ``data/records_2026-08-19.json``: each has a
+    ``record_id``, a ``recorded_at`` UTC timestamp, and an ``amount`` string.
+    Order is preserved.
+    """
+    raise NotImplementedError("records_in_window")
+
+
+def export_filename(business_date: date) -> str:
+    """Deterministic, sortable, ISO-dated export filename."""
+    raise NotImplementedError("export_filename")
+
+
+def display_total(amount: Decimal, currency: str = "EUR") -> str:
+    """The summed amount formatted for a German-language reader."""
+    raise NotImplementedError("display_total")
+
+
+def total_of(records: Sequence[dict[str, str]]) -> Decimal:
+    """Sum the ``amount`` field of ``records`` without losing precision."""
+    return sum((Decimal(record["amount"]) for record in records), Decimal("0"))

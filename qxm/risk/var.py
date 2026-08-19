@@ -1,30 +1,85 @@
-"""Value at Risk (VaR) computation using both parametric (variance-covariance)
-and historical simulation methods.
+"""Validated Value at Risk, expected shortfall, and stress-test analytics.
 
-Parametric VaR assumes normally distributed returns and uses the z-score
-corresponding to the desired confidence level to estimate the maximum
-expected loss over a given holding period.
-
-Historical VaR uses the empirical distribution of past P&L to determine
-the loss threshold at the desired percentile.
+All VaR-family results use one convention: they are non-negative loss
+magnitudes in the portfolio's base currency.  Numerical routines intentionally
+use ``float``/NumPy; callers should convert monetary ``Decimal`` values at the
+domain boundary and retain Decimal values in the domain model.
 """
 
 from __future__ import annotations
 
-import logging
 import math
-from decimal import Decimal
-from typing import List, Optional, Sequence, Tuple
+from collections.abc import Iterator, Sequence
+from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
+from numpy.typing import NDArray
 from scipy.stats import norm
 
-logger = logging.getLogger(__name__)
+FloatArray = NDArray[np.float64]
 
 
-# ---------------------------------------------------------------------------
-# Parametric VaR
-# ---------------------------------------------------------------------------
+def _finite_float(value: Any, name: str) -> float:
+    """Convert a scalar numerical input to a finite float."""
+    if isinstance(value, bool):
+        raise ValueError(f"{name} must be a finite number")
+    try:
+        result = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{name} must be a finite number") from exc
+    if not math.isfinite(result):
+        raise ValueError(f"{name} must be finite")
+    return result
+
+
+def _validate_confidence(confidence: float) -> float:
+    result = _finite_float(confidence, "confidence")
+    if not 0.0 < result < 1.0:
+        raise ValueError("confidence must be strictly between 0 and 1")
+    return result
+
+
+def _validate_horizon(holding_period: int) -> int:
+    if isinstance(holding_period, bool) or not isinstance(holding_period, int):
+        raise ValueError("holding_period must be a positive integer")
+    if holding_period <= 0:
+        raise ValueError("holding_period must be a positive integer")
+    return holding_period
+
+
+def _validate_portfolio_value(portfolio_value: float) -> float:
+    result = _finite_float(portfolio_value, "portfolio_value")
+    if result < 0:
+        raise ValueError("portfolio_value must be non-negative")
+    return result
+
+
+def _losses(pnl_series: Sequence[float]) -> FloatArray:
+    """Return finite, non-negative loss magnitudes from historical P&L."""
+    if len(pnl_series) == 0:
+        raise ValueError("pnl_series must not be empty")
+    try:
+        pnl = np.asarray(pnl_series, dtype=np.float64)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("pnl_series must contain finite numeric values") from exc
+    if pnl.ndim != 1 or pnl.size == 0 or not np.isfinite(pnl).all():
+        raise ValueError("pnl_series must contain finite numeric values")
+    # ``np.maximum`` is typed as a ufunc whose ``__call__`` overloads return
+    # ``NDArray[Incomplete]`` (numpy's internal alias for ``Any``) for the
+    # ndarray/scalar combination used here, so ``np.clip`` (which has
+    # precise generic overloads) is used instead for the same elementwise
+    # "loss, or zero" semantics.
+    return np.clip(-pnl, 0.0, None)
+
+
+def _percentile(values: FloatArray, confidence: float) -> float:
+    """Use an observed order statistic so historical VaR is reproducible."""
+    # ``method=`` has been supported since NumPy 1.22; the project's floor
+    # (numpy>=1.26) always has it, so no ``interpolation=`` fallback for
+    # pre-1.22 NumPy is needed.
+    return float(np.quantile(values, confidence, method="higher"))
+
 
 def parametric_var(
     portfolio_value: float,
@@ -32,44 +87,21 @@ def parametric_var(
     confidence: float = 0.95,
     holding_period: int = 1,
 ) -> float:
-    r"""Compute parametric (variance-covariance) Value at Risk.
+    """Return normal-distribution VaR as a non-negative loss magnitude.
 
-    .. math::
-
-        \text{VaR}_{\alpha} = z_{\alpha} \cdot \sigma \cdot V \cdot \sqrt{T}
-
-    where :math:`z_{\alpha}` is the z-score for the left tail,
-    :math:`\sigma` is the daily volatility, :math:`V` is the portfolio
-    value, and :math:`T` is the holding period in days.
-
-    Parameters
-    ----------
-    portfolio_value : float
-        Current portfolio value in base currency.
-    daily_volatility : float
-        Annualised or daily standard deviation of portfolio returns.
-    confidence : float
-        Confidence level (e.g. 0.95 for 95% VaR).
-    holding_period : int
-        Number of trading days.
-
-    Returns
-    -------
-    float
-        The VaR estimate (positive number representing potential loss).
-
-    .. note::
-        **BUG (Challenge 3)** — The z-score is computed as
-        ``norm.ppf(confidence)`` which yields a *positive* z-score
-        (right-tail).  For a loss measure we need the *left-tail*
-        z-score: ``norm.ppf(1 - confidence)``.  The current
-        implementation returns a negative VaR (i.e. a "gain"), which is
-        incorrect.
+    ``portfolio_value`` is a non-negative exposure basis, so zero exposure
+    has zero VaR. ``daily_volatility`` is a decimal return standard
+    deviation. The confidence quantile is ``norm.ppf(confidence)``.
+    Confidence below 50% corresponds to a gain-side normal quantile, so its
+    loss magnitude is zero.
     """
-    # BUG: should be norm.ppf(1 - confidence) for left-tail loss
-    z_score = norm.ppf(confidence)
-    var = z_score * daily_volatility * portfolio_value * math.sqrt(holding_period)
-    return var
+    value = _validate_portfolio_value(portfolio_value)
+    volatility = _finite_float(daily_volatility, "daily_volatility")
+    if volatility < 0:
+        raise ValueError("daily_volatility must be non-negative")
+    conf = _validate_confidence(confidence)
+    horizon = _validate_horizon(holding_period)
+    return float(max(norm.ppf(conf) * volatility * value * math.sqrt(horizon), 0.0))
 
 
 def parametric_var_portfolio(
@@ -78,143 +110,134 @@ def parametric_var_portfolio(
     cov_matrix: np.ndarray,
     confidence: float = 0.95,
     holding_period: int = 1,
+    psd_tolerance: float = 1e-10,
 ) -> float:
-    """Multi-asset parametric VaR using the covariance matrix.
+    """Return covariance-based parametric VaR with PSD matrix validation."""
+    value = _validate_portfolio_value(portfolio_value)
+    conf = _validate_confidence(confidence)
+    horizon = _validate_horizon(holding_period)
+    tolerance = _finite_float(psd_tolerance, "psd_tolerance")
+    if tolerance < 0:
+        raise ValueError("psd_tolerance must be non-negative")
 
-    .. math::
+    try:
+        vector = np.asarray(weights, dtype=float)
+        covariance = np.asarray(cov_matrix, dtype=float)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("weights and cov_matrix must be numeric arrays") from exc
+    if vector.ndim != 1 or vector.size == 0:
+        raise ValueError("weights must be a non-empty one-dimensional array")
+    if covariance.ndim != 2 or covariance.shape != (vector.size, vector.size):
+        raise ValueError("cov_matrix dimensions must match the weights vector")
+    if not np.isfinite(vector).all() or not np.isfinite(covariance).all():
+        raise ValueError("weights and cov_matrix must contain finite values")
+    if not np.allclose(covariance, covariance.T, rtol=0.0, atol=tolerance):
+        raise ValueError("cov_matrix must be symmetric")
 
-        \\sigma_p = \\sqrt{w^T \\Sigma w}
+    min_eigenvalue = float(np.linalg.eigvalsh(covariance).min())
+    if min_eigenvalue < -tolerance:
+        raise ValueError("cov_matrix must be positive semidefinite")
+    variance = float(vector @ covariance @ vector)
+    return parametric_var(value, math.sqrt(max(variance, 0.0)), conf, horizon)
 
-    Then VaR is computed as for the single-asset case using the portfolio
-    volatility :math:`\\sigma_p`.
+
+def historical_var(pnl_series: Sequence[float], confidence: float = 0.95) -> float:
+    """Return historical VaR as a non-negative loss magnitude.
+
+    The percentile is selected from an observed loss using NumPy's ``higher``
+    method, avoiding interpolation that can understate a sparse loss tail.
     """
-    portfolio_variance = float(weights.T @ cov_matrix @ weights)
-    portfolio_vol = math.sqrt(portfolio_variance)
-    return parametric_var(portfolio_value, portfolio_vol, confidence, holding_period)
+    return _percentile(_losses(pnl_series), _validate_confidence(confidence))
 
 
-# ---------------------------------------------------------------------------
-# Historical VaR
-# ---------------------------------------------------------------------------
-
-def historical_var(
-    pnl_series: Sequence[float],
-    confidence: float = 0.95,
-) -> float:
-    """Compute historical VaR from an empirical P&L distribution.
-
-    Sorts past P&L observations and returns the loss at the
-    ``(1 - confidence)`` percentile.
-
-    Parameters
-    ----------
-    pnl_series : sequence of float
-        Historical daily P&L values.
-    confidence : float
-        Confidence level (e.g. 0.95).
-
-    Returns
-    -------
-    float
-        The historical VaR estimate.
-    """
-    if len(pnl_series) < 2:
-        return 0.0
-    sorted_pnl = sorted(pnl_series)
-    index = int((1 - confidence) * len(sorted_pnl))
-    index = max(0, min(index, len(sorted_pnl) - 1))
-    return -sorted_pnl[index]  # Return as positive loss number
+def conditional_var(pnl_series: Sequence[float], confidence: float = 0.95) -> float:
+    """Return historical expected shortfall as a non-negative loss magnitude."""
+    losses = _losses(pnl_series)
+    threshold = _percentile(losses, _validate_confidence(confidence))
+    return float(losses[losses >= threshold].mean())
 
 
-# ---------------------------------------------------------------------------
-# Conditional VaR (Expected Shortfall)
-# ---------------------------------------------------------------------------
+@dataclass(frozen=True)
+class StressResult:
+    """Named stress-test outcome with an unpackable legacy value surface."""
 
-def conditional_var(
-    pnl_series: Sequence[float],
-    confidence: float = 0.95,
-) -> float:
-    """Conditional VaR (CVaR / Expected Shortfall) — the expected loss
-    *given* that the loss exceeds VaR.
+    name: str
+    stressed_value: float
+    change: float
+    loss: float
 
-    .. math::
+    def as_tuple(self) -> tuple[str, float]:
+        """Return the former ``(name, stressed_value)`` representation."""
+        return (self.name, self.stressed_value)
 
-        \\text{CVaR}_{\\alpha} = \\mathbb{E}[L \\mid L > \\text{VaR}_{\\alpha}]
-    """
-    if len(pnl_series) < 2:
-        return 0.0
-    sorted_pnl = sorted(pnl_series)
-    cutoff = int((1 - confidence) * len(sorted_pnl))
-    cutoff = max(1, cutoff)
-    tail = sorted_pnl[:cutoff]
-    return -float(np.mean(tail))
+    def __iter__(self) -> Iterator[object]:
+        """Allow existing two-value unpacking code to keep working."""
+        return iter(self.as_tuple())
 
-
-# ---------------------------------------------------------------------------
-# Stress testing
-# ---------------------------------------------------------------------------
 
 def stress_test(
     portfolio_value: float,
-    scenarios: Sequence[Tuple[str, float]],
-) -> List[Tuple[str, float]]:
-    """Apply a set of shock scenarios to a portfolio value.
-
-    Parameters
-    ----------
-    portfolio_value : float
-        Current portfolio value.
-    scenarios : sequence of (name, shock_pct)
-        Named scenarios where ``shock_pct`` is the fractional change
-        (e.g. -0.10 for a 10% decline).
-
-    Returns
-    -------
-    list of (name, stressed_value)
-    """
-    results = []
-    for name, shock in scenarios:
-        stressed = portfolio_value * (1 + shock)
-        results.append((name, stressed))
+    scenarios: Sequence[tuple[str, float]],
+) -> list[StressResult]:
+    """Apply fractional shocks and report value change and loss explicitly."""
+    value = _validate_portfolio_value(portfolio_value)
+    results: list[StressResult] = []
+    for scenario in scenarios:
+        if len(scenario) != 2:
+            raise ValueError("each scenario must be a (name, shock) pair")
+        name, shock = scenario
+        if not isinstance(name, str) or not name.strip():
+            raise ValueError("scenario name must be a non-empty string")
+        shock_value = _finite_float(shock, f"shock for {name}")
+        if shock_value < -1.0:
+            raise ValueError("shock must not be less than -100%")
+        stressed_value = value * (1.0 + shock_value)
+        change = stressed_value - value
+        results.append(
+            StressResult(
+                name=name,
+                stressed_value=stressed_value,
+                change=change,
+                loss=max(-change, 0.0),
+            )
+        )
     return results
 
 
-# ---------------------------------------------------------------------------
-# VaR engine — aggregates multiple methods
-# ---------------------------------------------------------------------------
-
 class VaREngine:
-    """Facade that wraps parametric and historical VaR with caching and
-    configurable defaults."""
+    """Facade for validated parametric and historical VaR calculations."""
 
     def __init__(
         self,
         default_confidence: float = 0.95,
         default_holding_period: int = 1,
     ) -> None:
-        self._confidence = default_confidence
-        self._holding_period = default_holding_period
-        self._cache: dict = {}
+        self._confidence = _validate_confidence(default_confidence)
+        self._holding_period = _validate_horizon(default_holding_period)
 
     def compute(
         self,
         portfolio_value: float,
-        daily_volatility: Optional[float] = None,
-        pnl_history: Optional[Sequence[float]] = None,
-        confidence: Optional[float] = None,
-        holding_period: Optional[int] = None,
-    ) -> dict:
-        conf = confidence or self._confidence
-        hp = holding_period or self._holding_period
-        result = {}
+        daily_volatility: float | None = None,
+        pnl_history: Sequence[float] | None = None,
+        confidence: float | None = None,
+        holding_period: int | None = None,
+    ) -> dict[str, float]:
+        """Compute every requested VaR measure using shared conventions.
 
+        Historical methods need only P&L history; a portfolio value is
+        therefore validated as finite here but required to be non-negative
+        only when a value-based parametric calculation is requested.
+        """
+        value = _finite_float(portfolio_value, "portfolio_value")
+        conf = self._confidence if confidence is None else _validate_confidence(confidence)
+        horizon = (
+            self._holding_period if holding_period is None else _validate_horizon(holding_period)
+        )
+        result: dict[str, float] = {}
         if daily_volatility is not None:
-            result["parametric_var"] = parametric_var(
-                portfolio_value, daily_volatility, conf, hp
-            )
-
-        if pnl_history is not None and len(pnl_history) >= 2:
+            result["parametric_var"] = parametric_var(value, daily_volatility, conf, horizon)
+        if pnl_history is not None:
             result["historical_var"] = historical_var(pnl_history, conf)
             result["conditional_var"] = conditional_var(pnl_history, conf)
-
         return result

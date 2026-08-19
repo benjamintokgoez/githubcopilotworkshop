@@ -1,0 +1,69 @@
+# Customization notes
+
+Author: <your name or initials>
+Date: <date, Europe/Berlin>
+
+Replace every `<fill in>`. `verify` checks that the sections and fields are
+substantive; it does not judge whether your rules are the right ones.
+
+## 1. The task I measured with
+
+The small, repeatable task you ran before and after. Name it precisely enough
+that someone else could run the same one.
+
+<fill in>
+
+## 2. Before
+
+What the output looked like with no extra context. Paste the relevant part, not
+the whole thing.
+
+<fill in>
+
+## 3. After
+
+The same task with your rewritten context applied.
+
+- Observable difference: <fill in - what changed in the output, concretely>
+
+<fill in>
+
+## 4. Rules
+
+Three to five rules, each one specific enough that a reviewer could check it.
+Copy the block for more.
+
+### Rule 1
+
+- Rule: <fill in>
+- How a reviewer checks it: <fill in>
+- Belongs in: <fill in - instruction | test | CI check | lint | review checklist>
+
+### Rule 2
+
+- Rule: <fill in>
+- How a reviewer checks it: <fill in>
+- Belongs in: <fill in>
+
+### Rule 3
+
+- Rule: <fill in>
+- How a reviewer checks it: <fill in>
+- Belongs in: <fill in>
+
+## 5. What I deleted or rewrote
+
+- Rule I deleted or rewrote: <fill in - quote the original>
+- Why its effect was not observable: <fill in>
+
+## 6. Contradiction test
+
+- What I asked for that contradicts a rule: <fill in>
+- Observed behaviour: <fill in - did the rule hold, as observed rather than as hoped>
+
+## 7. What durable context cannot enforce
+
+Which of your rules need a test, a linter, or a CI check to be guaranteed, and
+what you would add to this repository on Monday.
+
+<fill in>

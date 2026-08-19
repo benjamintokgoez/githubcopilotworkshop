@@ -1,54 +1,97 @@
-# Copilot Instructions — QuantCore
+# Copilot instructions - QuantCore
 
-## Project Overview
+## Mission and baseline
 
-This is **QuantCore** (`qxm`), a quantitative trading engine written in Python 3.11+. It simulates order matching, risk analytics, and portfolio management for educational purposes.
+QuantCore (`qxm`) is a Python 3.12 educational trading simulation and the
+substrate for a supervised GitHub Copilot workshop. It is not connected to live
+markets, is not production trading software, and must not be presented as
+investment advice.
 
-## Key Architecture
+A clean checkout is healthy. Deliberate defects and legacy code belong only in
+the isolated scenario payloads under `workshop/scenarios/`; do not plant defects
+in `qxm/` or the baseline tests.
 
-- **qxm/core/**: Domain models (Pydantic v1), order book (SortedDict + FIFO deque), matching engine (FIFO), event sourcing (EventBus/EventLog)
-- **qxm/risk/**: Value at Risk (parametric/historical/CVaR), Black-Scholes Greeks with descriptor caching, portfolio analytics with operator overloading
-- **qxm/data/**: GBM-simulated async market data feed, SQLAlchemy time-series store, OHLC/VWAP transforms
-- **qxm/strategy/**: Metaclass-based strategy framework with auto-registration, momentum and mean-reversion implementations
-- **qxm/auth/**: HMAC-SHA256 request signing, API key lifecycle management
-- **qxm/api/**: FastAPI REST API with authentication middleware
-- **qxm/mcp_server/**: Model Context Protocol server with trading tools
-- **qxm/utils/**: JSON serialisation, decorators (timed/retry/rate-limit), Prometheus-style metrics
+## Architecture
 
-## Important Patterns
+- `qxm/core/`: Pydantic v2 domain models, Decimal-based FIFO order book,
+  asynchronous matching engine, positions, and event log/bus.
+- `qxm/risk/`: non-negative VaR/CVaR loss magnitudes, stress tests,
+  Black-Scholes-Merton pricing and Greeks, and portfolio algebra.
+- `qxm/data/`: deterministic simulated feeds, a reconnecting WebSocket adapter,
+  SQLAlchemy 2 storage, and OHLC/VWAP/TWAP transforms.
+- `qxm/strategy/`: metaclass-registered momentum and mean-reversion strategies.
+- `qxm/auth/`: HMAC-SHA256 request signing and in-memory API-key lifecycle.
+- `qxm/api/`: per-application FastAPI services and typed `/api/v1` routes.
+- `qxm/mcp_server/`: official MCP Python SDK v2 server; read-only by default.
+- `qxm/utils/`: strict JSON, sync/async decorators, metrics, and security checks.
+- `dashboard/`: self-contained DE/EN dashboard with no CDN or telemetry.
+- `scripts/workshop.py`: transactional scenario start/verify/reset/fallback tool.
 
-- **Pydantic v1** is used throughout (`@validator`, `class Config:`, `.dict()`, `__get_validators__`, `update_forward_refs()`) — not v2
-- **StrategyMeta** metaclass in `strategy/base.py` auto-registers any `BaseStrategy` subclass into `_registry`
-- **CachedGreek** descriptor in `risk/greeks.py` caches expensive BSM calculations, invalidating when `_param_hash` changes
-- **PreTradeRiskCheck** is a `Protocol` class (structural subtyping) in `core/engine.py`
-- **Tick** uses `__slots__` for memory efficiency
-- **PortfolioAnalytics** overloads `+`, `-`, `*` operators for portfolio algebra
-- **EventBus** supports both callback and async generator consumption
+## Contracts that must remain consistent
 
-## Financial Domain Context
+- Use Pydantic v2 APIs: `ConfigDict`, `field_validator`, `model_validator`,
+  `model_validate()`, and `model_dump()`. Do not add v1 compatibility idioms.
+- Prices, quantities, and monetary values use `Decimal`; do not introduce binary
+  float at storage or API boundaries.
+- Persist and exchange timezone-aware UTC. Convert to `Europe/Berlin` only at the
+  presentation edge; never hard-code CET or CEST offsets.
+- Bids are ordered highest first, asks lowest first, with FIFO within a price
+  level. A fill executes at the resting maker's price.
+- `MatchingEngine.submit_order()` and `cancel_order()` are async. Order IDs are
+  permanently reserved on first submission attempt; duplicates are conflicts.
+- The engine supports LIMIT/MARKET with GTC, IOC, and FOK. STOP/STOP_LIMIT and
+  DAY/GTD are represented by the domain model but rejected until their required
+  trigger/session subsystems exist.
+- VaR and CVaR are non-negative loss magnitudes. Empty portfolios return zero;
+  short books use gross exposure.
+- Position fields use `average_entry_price`, `realized_pnl`, and
+  `unrealized_pnl`.
+- REST routes use `/api/v1` and `X-API-Key`. Client identity comes from the key,
+  never from an order body. Missing keys are 401; invalid, expired, revoked, or
+  under-permissioned keys are 403.
+- The MCP server uses `MCPServer` from SDK v2. Read-only tools are the default;
+  mutation tools are registered only through explicit construction-time opt-in
+  with a bound client identity. Tool annotations are metadata, not authorization.
+- Machine JSON uses a dot decimal separator. DACH formatting (`de-DE`, 24-hour
+  time, decimal comma) belongs only in human-facing output. Currency must be
+  explicit; do not imply an FX conversion that did not happen.
 
-- **Order Book**: Bids sorted descending (negated keys in SortedDict), asks sorted ascending
-- **Matching**: FIFO at each price level; market orders cross at resting price
-- **VaR**: Measures potential portfolio loss at a given confidence level
-- **Greeks**: Delta, gamma, theta, vega, rho — option price sensitivities
-- **BSM**: Black-Scholes-Merton option pricing model
+## Workshop content
 
-## Configuration
+- Preserve the loop: `Understand/Plan -> Implement/Test -> Review -> Explain`.
+- Keep Supported, Core, Extension, Solo, and captured/offline routes usable.
+- Do not add answer keys, solution maps, revealing comments, or test names that
+  disclose a scenario's repair.
+- Scenario payloads stay inert as `*.txt`; `start` creates working copies under a
+  scenario's `work/` directory. Reset must not use destructive Git commands.
+- Use synthetic, non-sensitive data only. Do not add credentials, personal data,
+  private URLs, telemetry, or network-only critical paths.
+- Use plain international English. Apply the privacy, accessibility, and DACH
+  conventions in `challenges/reference/` and `workshop/ops/`.
 
-- `settings.yaml`: Server and application configuration
-- `instruments.json`: Tradeable instrument definitions
-- `pyproject.toml`: Project metadata, dependencies, tool configs
+## Development
 
-## Testing
+- Type all public functions and follow the existing module conventions.
+- Reuse domain validators and serializers instead of duplicating boundary logic.
+- New strategies subclass `BaseStrategy`; `StrategyMeta` handles registration.
+- New API endpoints use the router/dependency/service pattern and remain
+  application-instance isolated.
+- New MCP tools use typed parameters, bounded outputs, explicit annotations,
+  in-memory `Client(server)` tests, and a real stdio smoke path. Never print to
+  stdout in stdio server code.
+- Add deterministic tests for behavior changes and keep failure handling explicit;
+  do not use broad catches or success-shaped fallbacks.
 
-- Tests in `tests/` using pytest
-- Fixtures in `tests/conftest.py`
-- Run with: `pytest tests/ -v`
+Run the smallest relevant checks first, then the release baseline:
 
-## When Generating Code
-
-- Follow existing naming conventions (see CONTRIBUTING.md)
-- Use type hints on all public functions
-- New strategies should subclass `BaseStrategy` — metaclass handles registration
-- New MCP tools should follow the `@mcp.tool()` decorator pattern in `mcp_server/server.py`
-- API endpoints use FastAPI router pattern in `api/routes.py`
+```bash
+python -m compileall -q qxm main.py scripts security_check.py tests
+python -m pytest tests/ -v
+python -m ruff check .
+python -m ruff format --check .
+python -m mypy qxm main.py scripts
+python -m pip check
+python -m bandit -r qxm main.py -ll
+python security_check.py
+python scripts/workshop_doctor.py --strict
+```

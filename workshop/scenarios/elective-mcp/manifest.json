@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "id": "elective-mcp",
+  "title": "Elective - secure MCP context with the narrowest useful permissions",
+  "kind": "evidence",
+  "lab": "Lab 5A",
+  "summary": "The repository's own MCP tool surface, an over-broad sample configuration to reduce, a captured tool-call log, and the permission inventory you produce.",
+  "fallback": "workshop/fallbacks/elective-mcp",
+  "acceptance_doc": "workshop/scenarios/elective-mcp/acceptance.md",
+  "required_artifacts": [
+    "workshop/scenarios/elective-mcp/brief.md",
+    "workshop/scenarios/elective-mcp/fixtures/tool_inventory.md",
+    "workshop/scenarios/elective-mcp/fixtures/mcp_config_sample.json",
+    "workshop/scenarios/elective-mcp/fixtures/config_notes.md",
+    "workshop/scenarios/elective-mcp/fixtures/tool_call_log.md"
+  ],
+  "briefing": [
+    "workshop/scenarios/elective-mcp/brief.md",
+    "workshop/scenarios/elective-mcp/fixtures/tool_inventory.md",
+    "workshop/scenarios/elective-mcp/fixtures/config_notes.md",
+    "workshop/scenarios/elective-mcp/fixtures/mcp_config_sample.json"
+  ],
+  "stage": [
+    {
+      "payload": "workshop/scenarios/elective-mcp/payloads/permission_inventory.md.txt",
+      "target": "workshop/scenarios/elective-mcp/work/permission_inventory.md",
+      "mode": "0644",
+      "description": "Your permission inventory and governance note."
+    },
+    {
+      "payload": "workshop/scenarios/elective-mcp/payloads/mcp_config_reduced.json.txt",
+      "target": "workshop/scenarios/elective-mcp/work/mcp_config_reduced.json",
+      "mode": "0644",
+      "description": "A copy of the over-broad sample configuration for you to narrow."
+    }
+  ],
+  "acceptance": {
+    "kind": "evidence",
+    "evidence": {
+      "path": "workshop/scenarios/elective-mcp/work/permission_inventory.md",
+      "required_headings": [
+        "## 1. What this server can reach",
+        "## 2. Tools offered, enabled, disabled",
+        "## 3. Evidence the answer came from the tool",
+        "## 4. Negative case",
+        "## 5. What MCP configuration does not protect against",
+        "## 6. What I would ask my platform team for"
+      ],
+      "min_words_per_section": 15,
+      "placeholders": ["TODO", "TBD", "<fill in", "PLACEHOLDER"],
+      "fields": [
+        {"label": "- Tools offered:", "min_chars": 15},
+        {"label": "- Tools enabled:", "min_chars": 8},
+        {"label": "- Tools disabled:", "min_chars": 8},
+        {
+          "label": "- Where the control lives:",
+          "min_chars": 25,
+          "must_contain_any": ["mcp.json", "client", "server"]
+        },
+        {
+          "label": "- Approval boundary:",
+          "min_chars": 30,
+          "must_contain_any": ["sandbox", "confirmation", "approval", "prompt"]
+        },
+        {"label": "- Data that leaves this machine:", "min_chars": 20},
+        {"label": "- What I asked for outside the permission:", "min_chars": 20},
+        {"label": "- Observed behaviour:", "min_chars": 20},
+        {
+          "label": "- Approval owner:",
+          "min_chars": 10
+        }
+      ]
+    }
+  }
+}

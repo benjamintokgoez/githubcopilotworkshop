@@ -1,0 +1,46 @@
+{
+  "name": "QuantCore Workshop (DACH)",
+  // Python baseline: 3.12, verified against the 3.12.14 patch release (see
+  // pyproject.toml `requires-python` and .github/workflows/ci.yml
+  // PYTHON_VERSION). This base image only publishes major.minor tags, so it
+  // tracks the latest 3.12.x patch available at build time; CI pins the
+  // interpreter to the verified 3.12.14 patch. Dependencies remain bounded
+  // rather than locked, so release readiness still requires a clean-room run.
+  "image": "mcr.microsoft.com/devcontainers/python:3.12-bookworm",
+
+  // Europe/Berlin timezone for a DACH/European audience; application
+  // timestamps remain UTC internally (see settings.yaml).
+  "containerEnv": {
+    "TZ": "Europe/Berlin",
+    "PYTHONUTF8": "1",
+    "PIP_DISABLE_PIP_VERSION_CHECK": "1"
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "charliermarsh.ruff",
+        "ms-python.mypy-type-checker",
+        "GitHub.copilot",
+        "GitHub.copilot-chat"
+      ],
+      "settings": {
+        // Disable VS Code product telemetry where this client setting applies.
+        // Copilot processing remains governed by the participant's plan and
+        // organization policies; this setting does not override those terms.
+        "telemetry.telemetryLevel": "off",
+        "python.analysis.typeCheckingMode": "basic",
+        "editor.formatOnSave": true,
+        "[python]": {
+          "editor.defaultFormatter": "charliermarsh.ruff"
+        }
+      }
+    }
+  },
+
+  "postCreateCommand": "python -m pip install -e '.[dev]' && python scripts/workshop_doctor.py",
+
+  "forwardPorts": [8443],
+  "remoteUser": "vscode"
+}

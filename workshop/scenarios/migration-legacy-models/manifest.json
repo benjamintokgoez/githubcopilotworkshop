@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "id": "migration-legacy-models",
+  "title": "Migration - a legacy model surface off its compatibility shim",
+  "kind": "code",
+  "lab": "Lab 3",
+  "summary": "A bounded reference-data model surface still written against the 1.x validation idioms, its consumer, and the contract checks a behaviour-preserving migration has to satisfy.",
+  "fallback": "workshop/fallbacks/migration-legacy-models",
+  "acceptance_doc": "workshop/scenarios/migration-legacy-models/acceptance.md",
+  "required_artifacts": [
+    "workshop/scenarios/migration-legacy-models/issue.md",
+    "workshop/scenarios/migration-legacy-models/inventory.md"
+  ],
+  "required_imports": ["pydantic"],
+  "briefing": [
+    "workshop/scenarios/migration-legacy-models/issue.md",
+    "workshop/scenarios/migration-legacy-models/inventory.md"
+  ],
+  "stage": [
+    {
+      "payload": "workshop/scenarios/migration-legacy-models/payloads/legacy_models.py.txt",
+      "target": "workshop/scenarios/migration-legacy-models/work/legacy_models.py",
+      "mode": "0644",
+      "description": "In-scope: reference-data models on the 1.x compatibility shim."
+    },
+    {
+      "payload": "workshop/scenarios/migration-legacy-models/payloads/legacy_service.py.txt",
+      "target": "workshop/scenarios/migration-legacy-models/work/legacy_service.py",
+      "mode": "0644",
+      "description": "In-scope: the consumer that serialises the models for downstream systems."
+    },
+    {
+      "payload": "workshop/scenarios/migration-legacy-models/payloads/test_contract.py.txt",
+      "target": "workshop/scenarios/migration-legacy-models/work/test_contract.py",
+      "mode": "0644",
+      "description": "Contract checks. In scope to read, out of scope to weaken."
+    }
+  ],
+  "acceptance": {
+    "kind": "command",
+    "commands": [
+      {
+        "label": "External contract unchanged and the shim is gone",
+        "argv": [
+          "{python}",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "workshop/scenarios/migration-legacy-models/work",
+          "-t",
+          "workshop/scenarios/migration-legacy-models/work",
+          "-p",
+          "test_*.py"
+        ],
+        "timeout_seconds": 180
+      }
+    ]
+  }
+}

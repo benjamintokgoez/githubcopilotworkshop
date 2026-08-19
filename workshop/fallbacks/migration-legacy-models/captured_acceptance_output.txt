@@ -1,0 +1,56 @@
+Captured run of the acceptance check for scenario 'migration-legacy-models', in its starting
+state - that is, immediately after 'start' and before any participant work.
+Command: python scripts/workshop.py verify migration-legacy-models
+Exit code: 3
+Repository paths are replaced with <repo>; the output is truncated exactly as
+the runner truncates it. Synthetic capture for the workshop.
+------------------------------------------------------------------------------
+
+Verifying scenario: migration-legacy-models
+Acceptance contract: workshop/scenarios/migration-legacy-models/acceptance.md
+
+Check 1/1: External contract unchanged and the shim is gone
+  command: python -m unittest discover -s workshop/scenarios/migration-legacy-models/work -t workshop/scenarios/migration-legacy-models/work -p 'test_*.py'
+  result:  FAIL (exit 1)
+  | ...FF............
+  | ======================================================================
+  | FAIL: test_in_scope_modules_do_not_use_the_compatibility_shim (test_contract.MigrationCompletedTest.test_in_scope_modules_do_not_use_the_compatibility_shim)
+  | ----------------------------------------------------------------------
+  | Traceback (most recent call last):
+  |   File "<repo>/workshop/scenarios/migration-legacy-models/work/test_contract.py", line 162, in test_in_scope_modules_do_not_use_the_compatibility_shim
+  |     self.assertFalse(
+  |     ~~~~~~~~~~~~~~~~^
+  |         "pydantic.v1" in source,
+  |         ^^^^^^^^^^^^^^^^^^^^^^^^
+  |         f"{name} still reaches the surface through the 1.x compatibility shim",
+  |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |     )
+  |     ^
+  | AssertionError: True is not false : legacy_models.py still reaches the surface through the 1.x compatibility shim
+  | 
+  | ======================================================================
+  | FAIL: test_models_are_built_by_the_supported_major_version (test_contract.MigrationCompletedTest.test_models_are_built_by_the_supported_major_version)
+  | ----------------------------------------------------------------------
+  | Traceback (most recent call last):
+  |   File "<repo>/workshop/scenarios/migration-legacy-models/work/test_contract.py", line 169, in test_models_are_built_by_the_supported_major_version
+  |     self.assertFalse(
+  |     ~~~~~~~~~~~~~~~~^
+  |         type(model).__module__.startswith("pydantic.v1"),
+  |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |         f"{model.__name__} is still built by the 1.x model machinery",
+  |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |     )
+  |     ^
+  | AssertionError: True is not false : InstrumentRef is still built by the 1.x model machinery
+  | 
+  | ----------------------------------------------------------------------
+  | Ran 17 tests in 0.002s
+  | 
+  | FAILED (failures=2)
+
+Summary: 0/1 acceptance checks passed
+
+This is the expected result before your change is complete.
+Keep this output: it is your fail-before evidence.
+
+error: acceptance not met for migration-legacy-models

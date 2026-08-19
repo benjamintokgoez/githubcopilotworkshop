@@ -1,207 +1,235 @@
-"""Market data transformations — OHLC resampling, VWAP/TWAP computation,
-normalisation, and return series generation for risk analytics.
-"""
+"""Market-data transformations for educational analytics."""
 
 from __future__ import annotations
 
-import logging
-from datetime import datetime, timedelta
+import math
+from collections.abc import Sequence
+from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Dict, List, Optional, Tuple
+from typing import TypedDict
 
 import numpy as np
+from numpy.typing import NDArray
 
 from qxm.core.models import Tick
 
-logger = logging.getLogger(__name__)
+FloatArray = NDArray[np.float64]
 
 
-# ---------------------------------------------------------------------------
-# OHLC aggregation
-# ---------------------------------------------------------------------------
+class OHLCBar(TypedDict):
+    """JSON-friendly OHLC bar representation."""
+
+    symbol: str
+    open: float
+    high: float
+    low: float
+    close: float
+    volume: int
+    timestamp: datetime
+
+
+def _as_utc(timestamp: datetime) -> datetime:
+    if timestamp.tzinfo is None or timestamp.utcoffset() is None:
+        raise ValueError("tick timestamps must include an explicit timezone offset")
+    return timestamp.astimezone(UTC)
+
+
+def _float_array(values: Sequence[float] | FloatArray) -> FloatArray:
+    array = np.asarray(values, dtype=np.float64)
+    if array.ndim != 1:
+        raise ValueError("values must be one-dimensional")
+    if not np.all(np.isfinite(array)):
+        raise ValueError("values must contain only finite numbers")
+    return array
+
+
+def _validate_window(window: int) -> None:
+    if isinstance(window, bool) or not isinstance(window, int) or window <= 0:
+        raise ValueError("window must be a positive integer")
+
 
 def ticks_to_ohlc(
-    ticks: List[Tick],
+    ticks: Sequence[Tick],
     interval_seconds: int = 60,
-) -> List[Dict]:
-    """Aggregate a sequence of ticks into OHLC bars.
-
-    Parameters
-    ----------
-    ticks : list of Tick
-        Sorted by timestamp (ascending).
-    interval_seconds : int
-        Bar duration in seconds.
-
-    Returns
-    -------
-    list of dict
-        Each dict has keys: symbol, open, high, low, close, volume, timestamp.
-    """
+) -> list[OHLCBar]:
+    """Sort ticks and aggregate independent symbols into epoch-aligned bars."""
+    if (
+        isinstance(interval_seconds, bool)
+        or not isinstance(interval_seconds, int)
+        or interval_seconds <= 0
+    ):
+        raise ValueError("interval_seconds must be a positive integer")
     if not ticks:
         return []
 
-    bars = []
-    current_bar: Optional[Dict] = None
-    bar_end: Optional[datetime] = None
+    sorted_ticks = sorted(
+        ticks,
+        key=lambda tick: (_as_utc(tick.timestamp), tick.symbol),
+    )
+    bars_by_bucket: dict[tuple[str, int], OHLCBar] = {}
 
-    for tick in ticks:
+    for tick in sorted_ticks:
+        timestamp = _as_utc(tick.timestamp)
+        epoch_seconds = math.floor(timestamp.timestamp())
+        bucket = epoch_seconds // interval_seconds
+        key = (tick.symbol, bucket)
         price = float(tick.last)
-        if current_bar is None or tick.timestamp >= bar_end:
-            if current_bar is not None:
-                bars.append(current_bar)
-            bar_start = tick.timestamp.replace(
-                second=(tick.timestamp.second // interval_seconds) * min(interval_seconds, 60),
-                microsecond=0,
+        if not math.isfinite(price):
+            raise ValueError("tick prices must be finite")
+
+        bar = bars_by_bucket.get(key)
+        if bar is None:
+            bucket_start = datetime.fromtimestamp(
+                bucket * interval_seconds,
+                tz=UTC,
             )
-            bar_end = bar_start + timedelta(seconds=interval_seconds)
-            current_bar = {
+            bars_by_bucket[key] = {
                 "symbol": tick.symbol,
                 "open": price,
                 "high": price,
                 "low": price,
                 "close": price,
                 "volume": tick.volume,
-                "timestamp": bar_start,
+                "timestamp": bucket_start,
             }
         else:
-            current_bar["high"] = max(current_bar["high"], price)
-            current_bar["low"] = min(current_bar["low"], price)
-            current_bar["close"] = price
-            current_bar["volume"] += tick.volume
+            bar["high"] = max(bar["high"], price)
+            bar["low"] = min(bar["low"], price)
+            bar["close"] = price
+            bar["volume"] += tick.volume
 
-    if current_bar is not None:
-        bars.append(current_bar)
+    return sorted(
+        bars_by_bucket.values(),
+        key=lambda bar: (bar["timestamp"], bar["symbol"]),
+    )
 
-    return bars
 
-
-# ---------------------------------------------------------------------------
-# VWAP / TWAP
-# ---------------------------------------------------------------------------
-
-def compute_vwap(ticks: List[Tick]) -> Optional[Decimal]:
-    """Volume-Weighted Average Price.
-
-    .. math::
-
-        \\text{VWAP} = \\frac{\\sum_i P_i \\cdot V_i}{\\sum_i V_i}
-    """
+def compute_vwap(ticks: Sequence[Tick]) -> Decimal | None:
+    """Return the volume-weighted average last price."""
     if not ticks:
         return None
-    total_pv = sum(float(t.last) * t.volume for t in ticks)
-    total_v = sum(t.volume for t in ticks)
-    if total_v == 0:
+    if any(tick.volume < 0 for tick in ticks):
+        raise ValueError("tick volumes must be non-negative")
+    total_volume = sum(tick.volume for tick in ticks)
+    if total_volume == 0:
         return None
-    return Decimal(str(round(total_pv / total_v, 6)))
+    total_price_volume = sum(
+        (tick.last * tick.volume for tick in ticks),
+        start=Decimal("0"),
+    )
+    return (total_price_volume / total_volume).quantize(Decimal("0.000001"))
 
 
-def compute_twap(ticks: List[Tick]) -> Optional[Decimal]:
-    """Time-Weighted Average Price — simple arithmetic mean of prices."""
+def compute_twap(ticks: Sequence[Tick]) -> Decimal | None:
+    """Return the arithmetic mean last price."""
     if not ticks:
         return None
-    prices = [float(t.last) for t in ticks]
-    return Decimal(str(round(sum(prices) / len(prices), 6)))
+    total = sum((tick.last for tick in ticks), start=Decimal("0"))
+    return (total / len(ticks)).quantize(Decimal("0.000001"))
 
 
-# ---------------------------------------------------------------------------
-# Return series
-# ---------------------------------------------------------------------------
-
-def compute_returns(prices: List[float], log_returns: bool = True) -> np.ndarray:
-    """Compute a return series from a price series.
-
-    Parameters
-    ----------
-    prices : list of float
-        Chronologically ordered prices.
-    log_returns : bool
-        If True, compute log returns; otherwise simple returns.
-
-    Returns
-    -------
-    np.ndarray
-        Array of returns (length = len(prices) - 1).
-    """
-    arr = np.array(prices, dtype=np.float64)
+def compute_returns(
+    prices: Sequence[float] | FloatArray,
+    log_returns: bool = True,
+) -> FloatArray:
+    """Compute log or simple returns from finite, strictly positive prices."""
+    array = _float_array(prices)
+    if array.size < 2:
+        return np.empty(0, dtype=np.float64)
+    if np.any(array <= 0):
+        raise ValueError("prices must be strictly positive")
     if log_returns:
-        return np.diff(np.log(arr))
-    return np.diff(arr) / arr[:-1]
+        return np.diff(np.log(array))
+    return np.diff(array) / array[:-1]
 
 
-def compute_volatility(returns: np.ndarray, annualise: bool = True) -> float:
-    """Compute the standard deviation of returns.
+def compute_volatility(
+    returns: Sequence[float] | FloatArray,
+    annualise: bool = True,
+) -> float:
+    """Compute sample volatility, returning zero for fewer than two returns."""
+    array = _float_array(returns)
+    if array.size < 2:
+        return 0.0
+    volatility = float(np.std(array, ddof=1))
+    return volatility * math.sqrt(252.0) if annualise else volatility
 
-    If ``annualise`` is True, scales by :math:`\\sqrt{252}` (trading days).
-    """
-    vol = float(np.std(returns, ddof=1))
-    if annualise:
-        vol *= np.sqrt(252)
-    return vol
-
-
-# ---------------------------------------------------------------------------
-# Price normalisation
-# ---------------------------------------------------------------------------
 
 def normalise_prices(
-    prices: List[float],
+    prices: Sequence[float] | FloatArray,
     method: str = "minmax",
-) -> np.ndarray:
-    """Normalise a price series.
-
-    Methods:
-    - ``minmax``: Scale to [0, 1] range.
-    - ``zscore``: Standardise to zero mean, unit variance.
-    - ``returns``: Convert to cumulative return from first price.
-    """
-    arr = np.array(prices, dtype=np.float64)
-    if method == "minmax":
-        mn, mx = arr.min(), arr.max()
-        if mx == mn:
-            return np.zeros_like(arr)
-        return (arr - mn) / (mx - mn)
-    elif method == "zscore":
-        mean, std = arr.mean(), arr.std(ddof=1)
-        if std == 0:
-            return np.zeros_like(arr)
-        return (arr - mean) / std
-    elif method == "returns":
-        return arr / arr[0] - 1
-    else:
+) -> FloatArray:
+    """Normalize prices using min-max, z-score, or cumulative-return scaling."""
+    array = _float_array(prices)
+    if method not in {"minmax", "zscore", "returns"}:
         raise ValueError(f"Unknown normalisation method: {method}")
+    if array.size == 0:
+        return np.empty(0, dtype=np.float64)
+
+    if method == "minmax":
+        minimum = float(array.min())
+        maximum = float(array.max())
+        if maximum == minimum:
+            return np.zeros_like(array)
+        return (array - minimum) / (maximum - minimum)
+
+    if method == "zscore":
+        if array.size < 2:
+            return np.zeros_like(array)
+        standard_deviation = float(array.std(ddof=1))
+        if standard_deviation == 0.0:
+            return np.zeros_like(array)
+        return (array - float(array.mean())) / standard_deviation
+
+    if np.any(array <= 0):
+        raise ValueError("prices must be strictly positive for return normalization")
+    baseline = float(array[0])
+    return array / baseline - 1.0
 
 
-# ---------------------------------------------------------------------------
-# Rolling statistics
-# ---------------------------------------------------------------------------
+def rolling_mean(
+    values: Sequence[float] | FloatArray,
+    window: int,
+) -> FloatArray:
+    """Compute a valid-window simple moving average."""
+    _validate_window(window)
+    array = _float_array(values)
+    if array.size < window:
+        return np.empty(0, dtype=np.float64)
+    cumulative = np.cumsum(np.insert(array, 0, 0.0))
+    return (cumulative[window:] - cumulative[:-window]) / window
 
-def rolling_mean(values: np.ndarray, window: int) -> np.ndarray:
-    """Simple rolling mean (moving average)."""
-    if len(values) < window:
-        return np.array([])
-    cumsum = np.cumsum(np.insert(values, 0, 0))
-    return (cumsum[window:] - cumsum[:-window]) / window
 
-
-def rolling_std(values: np.ndarray, window: int) -> np.ndarray:
-    """Rolling standard deviation."""
-    if len(values) < window:
-        return np.array([])
-    result = []
-    for i in range(len(values) - window + 1):
-        result.append(float(np.std(values[i:i + window], ddof=1)))
-    return np.array(result)
+def rolling_std(
+    values: Sequence[float] | FloatArray,
+    window: int,
+) -> FloatArray:
+    """Compute valid-window sample standard deviation."""
+    _validate_window(window)
+    array = _float_array(values)
+    if array.size < window:
+        return np.empty(0, dtype=np.float64)
+    if window == 1:
+        return np.zeros(array.size, dtype=np.float64)
+    return np.array(
+        [np.std(array[index : index + window], ddof=1) for index in range(array.size - window + 1)],
+        dtype=np.float64,
+    )
 
 
 def exponential_moving_average(
-    values: np.ndarray,
+    values: Sequence[float] | FloatArray,
     span: int,
-) -> np.ndarray:
-    """Exponential moving average (EMA) with given span."""
-    alpha = 2.0 / (span + 1)
-    ema = np.zeros_like(values, dtype=np.float64)
-    ema[0] = values[0]
-    for i in range(1, len(values)):
-        ema[i] = alpha * values[i] + (1 - alpha) * ema[i - 1]
+) -> FloatArray:
+    """Compute an EMA aligned one-to-one with the input values."""
+    _validate_window(span)
+    array = _float_array(values)
+    if array.size == 0:
+        return np.empty(0, dtype=np.float64)
+
+    alpha = 2.0 / (span + 1.0)
+    ema = np.empty(array.size, dtype=np.float64)
+    ema[0] = array[0]
+    for index in range(1, array.size):
+        ema[index] = alpha * array[index] + (1.0 - alpha) * ema[index - 1]
     return ema

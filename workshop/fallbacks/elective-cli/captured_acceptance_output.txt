@@ -1,0 +1,47 @@
+Captured run of the acceptance check for scenario 'elective-cli', in its starting
+state - that is, immediately after 'start' and before any participant work.
+Command: python scripts/workshop.py verify elective-cli
+Exit code: 3
+Repository paths are replaced with <repo>; the output is truncated exactly as
+the runner truncates it. Synthetic capture for the workshop.
+------------------------------------------------------------------------------
+
+Verifying scenario: elective-cli
+Acceptance contract: workshop/scenarios/elective-cli/acceptance.md
+
+Evidence file: workshop/scenarios/elective-cli/work/permission_policy.md
+  PASS  evidence file workshop/scenarios/elective-cli/work/permission_policy.md is readable: ok
+  FAIL  no template placeholder is left anywhere in the file: still contains '<fill in'
+  FAIL  section '## 1. Default posture': still contains the template placeholder '<fill in'
+  FAIL  section '## 2. Rules': still contains the template placeholder '<fill in'
+  FAIL  section '## 3. Negative case': still contains the template placeholder '<fill in'
+  FAIL  section '## 4. What an allowlist does not protect against': still contains the template placeholder '<fill in'
+  FAIL  section '## 5. Shared machines and CI': still contains the template placeholder '<fill in'
+  FAIL  field '- Default posture:': still contains the template placeholder '<fill in'
+  FAIL  field '- Broadest entry I wrote:': still contains the template placeholder '<fill in'
+  FAIL  field '- What I asked for outside the policy:': still contains the template placeholder '<fill in'
+  FAIL  field '- Observed behaviour:': still contains the template placeholder '<fill in'
+  FAIL  field '- Evidence source:': still contains the template placeholder '<fill in'
+  PASS  blocks starting with '### Rule': found 3
+  FAIL  section '### Rule 1 (block 1)': still contains the template placeholder '<fill in'
+  FAIL  block 1: field '- Command:': still contains the template placeholder '<fill in'
+  FAIL  block 1: field '- Verdict:': still contains the template placeholder '<fill in'
+  FAIL  block 1: field '- Why:': still contains the template placeholder '<fill in'
+  FAIL  block 1: field '- Blast radius if wrong:': still contains the template placeholder '<fill in'
+  FAIL  section '### Rule 2 (block 2)': still contains the template placeholder '<fill in'
+  FAIL  block 2: field '- Command:': still contains the template placeholder '<fill in'
+  FAIL  block 2: field '- Verdict:': still contains the template placeholder '<fill in'
+  FAIL  block 2: field '- Why:': still contains the template placeholder '<fill in'
+  FAIL  block 2: field '- Blast radius if wrong:': still contains the template placeholder '<fill in'
+  FAIL  section '### Rule 3 (block 3)': still contains the template placeholder '<fill in'
+  FAIL  block 3: field '- Command:': still contains the template placeholder '<fill in'
+  FAIL  block 3: field '- Verdict:': still contains the template placeholder '<fill in'
+  FAIL  block 3: field '- Why:': still contains the template placeholder '<fill in'
+  FAIL  block 3: field '- Blast radius if wrong:': still contains the template placeholder '<fill in'
+
+Summary: 2/28 acceptance checks passed
+
+This is the expected result before your change is complete.
+Keep this output: it is your fail-before evidence.
+
+error: acceptance not met for elective-cli

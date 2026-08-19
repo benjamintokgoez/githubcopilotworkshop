@@ -1,0 +1,117 @@
+"""Acceptance checks for incident QXM-4471.
+
+These assert the invariants named in `invariants.md` against the book state from
+the ticket's depth snapshot. They are the contract, not a hint: they say what
+must be true, never where to change anything.
+
+Read them before you change code. Do not relax them to make them pass - `reset`
+records that you edited them, and a weakened check is a failed lab.
+
+Run from the repository root:
+
+    python scripts/workshop.py verify incident-fill-price
+"""
+
+import unittest
+from datetime import UTC, datetime
+from decimal import Decimal
+
+from fill_engine import (
+    SELL,
+    MarketOrder,
+    RestingBook,
+    RestingOrder,
+    average_fill_price,
+    filled_quantity,
+    match_market_order,
+)
+
+
+def utc(hour: int, minute: int, second: int) -> datetime:
+    return datetime(2026, 8, 19, hour, minute, second, tzinfo=UTC)
+
+
+def desk_book() -> RestingBook:
+    """The book from the depth snapshot attached to QXM-4471."""
+    book = RestingBook()
+    book.add(RestingOrder("A3", SELL, Decimal("101.50"), Decimal("200"), utc(7, 13, 55)))
+    book.add(RestingOrder("A1", SELL, Decimal("101.20"), Decimal("100"), utc(7, 14, 2)))
+    book.add(RestingOrder("A2", SELL, Decimal("101.20"), Decimal("50"), utc(7, 14, 9)))
+    return book
+
+
+class MakerPriceTest(unittest.TestCase):
+    """INV-MATCH-2 - a market order fills at the resting order's price."""
+
+    def test_market_buy_fills_at_the_prices_that_were_resting(self) -> None:
+        book = desk_book()
+        fills = match_market_order(
+            book,
+            MarketOrder("ORD-2026-0819-0442", "BUY", Decimal("120"), Decimal("101.35")),
+        )
+        self.assertEqual(
+            [(fill.maker_order_id, fill.price, fill.quantity) for fill in fills],
+            [
+                ("A1", Decimal("101.20"), Decimal("100")),
+                ("A2", Decimal("101.20"), Decimal("20")),
+            ],
+        )
+        self.assertEqual(average_fill_price(fills), Decimal("101.20"))
+
+    def test_sweep_across_two_levels_averages_101_455(self) -> None:
+        book = desk_book()
+        match_market_order(
+            book,
+            MarketOrder("ORD-2026-0819-0442", "BUY", Decimal("120"), Decimal("101.35")),
+        )
+        fills = match_market_order(
+            book,
+            MarketOrder("ORD-2026-0819-0517", "BUY", Decimal("200")),
+        )
+        self.assertEqual(
+            [(fill.maker_order_id, fill.price, fill.quantity) for fill in fills],
+            [
+                ("A2", Decimal("101.20"), Decimal("30")),
+                ("A3", Decimal("101.50"), Decimal("170")),
+            ],
+        )
+        self.assertEqual(average_fill_price(fills), Decimal("101.455"))
+
+    def test_a_fill_price_is_never_none(self) -> None:
+        book = desk_book()
+        fills = match_market_order(
+            book,
+            MarketOrder("ORD-2026-0819-0517", "BUY", Decimal("200")),
+        )
+        self.assertTrue(fills)
+        for fill in fills:
+            self.assertIsNotNone(fill.price, f"{fill.fill_id} has no price")
+
+
+class PriorityAndConservationTest(unittest.TestCase):
+    """INV-MATCH-1 and INV-MATCH-3 - priority and quantity conservation."""
+
+    def test_better_price_is_served_before_earlier_arrival(self) -> None:
+        book = desk_book()
+        fills = match_market_order(
+            book,
+            MarketOrder("ORD-2026-0819-0442", "BUY", Decimal("120"), Decimal("101.35")),
+        )
+        self.assertNotIn("A3", [fill.maker_order_id for fill in fills])
+        self.assertEqual(book.remaining("A3"), Decimal("200"))
+
+    def test_quantity_is_conserved_across_the_sweep(self) -> None:
+        book = desk_book()
+        before = book.depth(SELL)
+        fills = match_market_order(
+            book,
+            MarketOrder("ORD-2026-0819-0442", "BUY", Decimal("120"), Decimal("101.35")),
+        )
+        self.assertEqual(filled_quantity(fills), Decimal("120"))
+        self.assertEqual(before - book.depth(SELL), Decimal("120"))
+        self.assertEqual(book.remaining("A1"), Decimal("0"))
+        self.assertEqual(book.remaining("A2"), Decimal("30"))
+
+
+if __name__ == "__main__":
+    unittest.main()

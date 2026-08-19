@@ -1,18 +1,18 @@
 """Limit order book (LOB) implementation using sorted containers for
 O(log n) insert/remove and O(1) best-bid/best-ask retrieval.
 
-Each price level maintains a FIFO queue of orders at that price.
-Bid levels are sorted descending (best bid = highest price first),
-ask levels are sorted ascending (best ask = lowest price first).
+Each price level maintains a FIFO queue of orders at that price.  Bid levels
+are sorted descending (best bid = highest price first) by storing *negated*
+keys in the ``SortedDict``; ask levels use natural ascending order (best ask =
+lowest price first).
 """
 
 from __future__ import annotations
 
 import logging
 import threading
-from collections import defaultdict, deque
+from collections import deque
 from decimal import Decimal
-from typing import Deque, Dict, Iterator, List, Optional, Tuple
 
 from sortedcontainers import SortedDict
 
@@ -25,44 +25,42 @@ logger = logging.getLogger(__name__)
 # Price Level
 # ---------------------------------------------------------------------------
 
-class PriceLevel:
-    """A single price level in the order book containing a FIFO queue of
-    orders at an identical price.
 
-    Attributes:
-        price:  The price represented by this level.
-        orders: FIFO queue of orders resting at this price.
+class PriceLevel:
+    """A single price level containing a FIFO queue of orders at one price.
+
+    ``total_quantity`` is computed from the live ``remaining_quantity`` of the
+    resting orders, so it stays accurate even after a resting order is
+    partially filled in place.
     """
 
-    __slots__ = ("price", "orders", "_total_quantity")
+    __slots__ = ("price", "orders")
 
     def __init__(self, price: Decimal) -> None:
         self.price = price
-        self.orders: Deque[Order] = deque()
-        self._total_quantity = Decimal("0")
+        self.orders: deque[Order] = deque()
 
     def add(self, order: Order) -> None:
         self.orders.append(order)
-        self._total_quantity += order.remaining_quantity
 
-    def remove_front(self) -> Optional[Order]:
+    def remove_front(self) -> Order | None:
         if not self.orders:
             return None
-        order = self.orders.popleft()
-        self._total_quantity -= order.remaining_quantity
-        return order
+        return self.orders.popleft()
 
-    def remove_order(self, order_id: str) -> Optional[Order]:
-        for i, order in enumerate(self.orders):
+    def peek_front(self) -> Order | None:
+        return self.orders[0] if self.orders else None
+
+    def remove_order(self, order_id: str) -> Order | None:
+        for order in self.orders:
             if order.order_id == order_id:
                 self.orders.remove(order)
-                self._total_quantity -= order.remaining_quantity
                 return order
         return None
 
     @property
     def total_quantity(self) -> Decimal:
-        return self._total_quantity
+        return sum((o.remaining_quantity for o in self.orders), Decimal("0"))
 
     @property
     def order_count(self) -> int:
@@ -74,9 +72,7 @@ class PriceLevel:
 
     def __repr__(self) -> str:
         return (
-            f"PriceLevel(price={self.price}, "
-            f"qty={self._total_quantity}, "
-            f"orders={len(self.orders)})"
+            f"PriceLevel(price={self.price}, qty={self.total_quantity}, orders={len(self.orders)})"
         )
 
 
@@ -84,36 +80,37 @@ class PriceLevel:
 # Order Book
 # ---------------------------------------------------------------------------
 
+
 class OrderBook:
     """Two-sided limit order book for a single instrument.
 
-    Internally uses ``SortedDict`` from the ``sortedcontainers`` library:
-    - **Bids** are stored with *negated* keys so that the highest bid
-      appears first (index 0) in the sorted structure.
-    - **Asks** use natural ordering — the lowest ask appears first.
-
-    Thread-safety is achieved via a reentrant lock; however, for maximum
-    throughput the matching engine should serialise access per symbol.
+    Thread-safety is provided via a reentrant lock; for maximum throughput the
+    matching engine serialises access per symbol.
     """
 
     def __init__(self, symbol: str) -> None:
         self.symbol = symbol
-        self._bids: SortedDict = SortedDict()   # key = -price
-        self._asks: SortedDict = SortedDict()   # key = +price
-        self._order_index: Dict[str, Tuple[Side, Decimal]] = {}
+        self._bids: SortedDict[Decimal, PriceLevel] = SortedDict()  # key = -price -> PriceLevel
+        self._asks: SortedDict[Decimal, PriceLevel] = SortedDict()  # key = +price -> PriceLevel
+        self._order_index: dict[str, tuple[Side, Decimal]] = {}
         self._lock = threading.RLock()
+
+    def _side_book(self, side: Side) -> SortedDict[Decimal, PriceLevel]:
+        return self._bids if side is Side.BUY else self._asks
+
+    @staticmethod
+    def _key(side: Side, price: Decimal) -> Decimal:
+        return -price if side is Side.BUY else price
 
     # -- Insertion ------------------------------------------------------
 
     def add_order(self, order: Order) -> None:
+        """Rest a limit order on the book.  ``order.price`` must be set."""
+        if order.price is None:
+            raise ValueError("Cannot rest an order without a price")
         with self._lock:
-            if order.side == Side.BUY:
-                key = -order.price
-                book = self._bids
-            else:
-                key = order.price
-                book = self._asks
-
+            book = self._side_book(order.side)
+            key = self._key(order.side, order.price)
             if key not in book:
                 book[key] = PriceLevel(order.price)
             book[key].add(order)
@@ -121,19 +118,15 @@ class OrderBook:
 
     # -- Cancellation ---------------------------------------------------
 
-    def cancel_order(self, order_id: str) -> Optional[Order]:
+    def cancel_order(self, order_id: str) -> Order | None:
         with self._lock:
-            if order_id not in self._order_index:
+            entry = self._order_index.pop(order_id, None)
+            if entry is None:
                 return None
-            side, price = self._order_index.pop(order_id)
-            if side == Side.BUY:
-                key = -price
-                book = self._bids
-            else:
-                key = price
-                book = self._asks
-
-            level: Optional[PriceLevel] = book.get(key)
+            side, price = entry
+            book = self._side_book(side)
+            key = self._key(side, price)
+            level: PriceLevel | None = book.get(key)
             if level is None:
                 return None
             order = level.remove_order(order_id)
@@ -141,31 +134,35 @@ class OrderBook:
                 del book[key]
             return order
 
+    def contains(self, order_id: str) -> bool:
+        with self._lock:
+            return order_id in self._order_index
+
     # -- Best price queries ---------------------------------------------
 
     @property
-    def best_bid(self) -> Optional[Decimal]:
+    def best_bid(self) -> Decimal | None:
         with self._lock:
             if not self._bids:
                 return None
             return self._bids.peekitem(0)[1].price
 
     @property
-    def best_ask(self) -> Optional[Decimal]:
+    def best_ask(self) -> Decimal | None:
         with self._lock:
             if not self._asks:
                 return None
             return self._asks.peekitem(0)[1].price
 
     @property
-    def spread(self) -> Optional[Decimal]:
+    def spread(self) -> Decimal | None:
         bb, ba = self.best_bid, self.best_ask
         if bb is not None and ba is not None:
             return ba - bb
         return None
 
     @property
-    def midpoint(self) -> Optional[Decimal]:
+    def midpoint(self) -> Decimal | None:
         bb, ba = self.best_bid, self.best_ask
         if bb is not None and ba is not None:
             return (bb + ba) / 2
@@ -173,18 +170,18 @@ class OrderBook:
 
     # -- Level iteration ------------------------------------------------
 
-    def bid_levels(self, depth: int = 10) -> List[PriceLevel]:
+    def bid_levels(self, depth: int = 10) -> list[PriceLevel]:
         with self._lock:
-            levels = []
+            levels: list[PriceLevel] = []
             for _, level in self._bids.items():
                 levels.append(level)
                 if len(levels) >= depth:
                     break
             return levels
 
-    def ask_levels(self, depth: int = 10) -> List[PriceLevel]:
+    def ask_levels(self, depth: int = 10) -> list[PriceLevel]:
         with self._lock:
-            levels = []
+            levels: list[PriceLevel] = []
             for _, level in self._asks.items():
                 levels.append(level)
                 if len(levels) >= depth:
@@ -193,56 +190,57 @@ class OrderBook:
 
     # -- Consume liquidity (called by matching engine) ------------------
 
-    def pop_best_bid(self) -> Optional[Order]:
-        """Remove and return the highest-priority bid order."""
+    def pop_best_bid(self) -> Order | None:
+        """Remove and return the highest-priority resting bid order."""
+        with self._lock:
+            return self._pop_best(self._bids)
+
+    def pop_best_ask(self) -> Order | None:
+        """Remove and return the highest-priority resting ask order."""
+        with self._lock:
+            return self._pop_best(self._asks)
+
+    def _pop_best(self, book: SortedDict[Decimal, PriceLevel]) -> Order | None:
+        if not book:
+            return None
+        key, level = book.peekitem(0)
+        order = level.remove_front()
+        if order is not None:
+            self._order_index.pop(order.order_id, None)
+        if level.is_empty:
+            del book[key]
+        return order
+
+    def peek_best_bid_order(self) -> Order | None:
         with self._lock:
             if not self._bids:
                 return None
-            key, level = self._bids.peekitem(0)
-            order = level.remove_front()
-            if order:
-                self._order_index.pop(order.order_id, None)
-            if level.is_empty:
-                del self._bids[key]
-            return order
+            return self._bids.peekitem(0)[1].peek_front()
 
-    def pop_best_ask(self) -> Optional[Order]:
-        """Remove and return the highest-priority ask order."""
+    def peek_best_ask_order(self) -> Order | None:
         with self._lock:
             if not self._asks:
                 return None
-            key, level = self._asks.peekitem(0)
-            order = level.remove_front()
-            if order:
-                self._order_index.pop(order.order_id, None)
-            if level.is_empty:
-                del self._asks[key]
-            return order
-
-    def peek_best_bid_order(self) -> Optional[Order]:
-        with self._lock:
-            if not self._bids:
-                return None
-            _, level = self._bids.peekitem(0)
-            return level.orders[0] if level.orders else None
-
-    def peek_best_ask_order(self) -> Optional[Order]:
-        with self._lock:
-            if not self._asks:
-                return None
-            _, level = self._asks.peekitem(0)
-            return level.orders[0] if level.orders else None
+            return self._asks.peekitem(0)[1].peek_front()
 
     # -- Depth snapshot --------------------------------------------------
 
-    def depth_snapshot(self, levels: int = 20) -> Dict[str, List[Dict]]:
+    def depth_snapshot(self, levels: int = 20) -> dict[str, list[dict[str, object]]]:
         with self._lock:
             bids = [
-                {"price": str(lvl.price), "quantity": str(lvl.total_quantity), "orders": lvl.order_count}
+                {
+                    "price": str(lvl.price),
+                    "quantity": str(lvl.total_quantity),
+                    "orders": lvl.order_count,
+                }
                 for lvl in self.bid_levels(levels)
             ]
             asks = [
-                {"price": str(lvl.price), "quantity": str(lvl.total_quantity), "orders": lvl.order_count}
+                {
+                    "price": str(lvl.price),
+                    "quantity": str(lvl.total_quantity),
+                    "orders": lvl.order_count,
+                }
                 for lvl in self.ask_levels(levels)
             ]
         return {"bids": bids, "asks": asks}
@@ -268,3 +266,6 @@ class OrderBook:
             f"asks={self.ask_depth} levels, "
             f"orders={self.total_orders})"
         )
+
+
+__all__ = ["PriceLevel", "OrderBook"]
