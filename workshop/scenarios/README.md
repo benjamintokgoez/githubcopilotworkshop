@@ -9,6 +9,7 @@ to stage, how to check acceptance, and how to restore the previous state exactly
 python scripts/workshop.py list
 python scripts/workshop.py start <scenario-id>
 python scripts/workshop.py status
+python scripts/workshop.py resync <scenario-id> --blocked-at <phase>
 python scripts/workshop.py verify <scenario-id>
 python scripts/workshop.py reset <scenario-id>
 python scripts/workshop.py fallback <scenario-id>
@@ -20,6 +21,10 @@ python scripts/workshop.py fallback <scenario-id>
 - `start` is the only command that stages a failing or questionable state, and it
   prints exactly what it changed.
 - `reset` restores the exact pre-start bytes, after archiving anything you wrote.
+
+`resync` changes nothing. It prints a phase-specific route that lets a participant
+continue to Review and Explain, preserve a failing result honestly, and reset in
+time for the next lab without exposing a solution.
 
 ## Layout of a scenario
 

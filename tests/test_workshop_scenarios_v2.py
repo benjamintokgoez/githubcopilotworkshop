@@ -701,7 +701,7 @@ class TestCommandSurface:
     def test_help_lists_every_documented_command(self, sandbox: Path) -> None:
         result = run(sandbox, "--help")
         assert result.returncode == EXIT_OK
-        for command in ("list", "start", "status", "verify", "reset", "fallback"):
+        for command in ("list", "start", "status", "resync", "verify", "reset", "fallback"):
             assert command in result.stdout
 
     def test_help_documents_exit_codes(self, sandbox: Path) -> None:
@@ -1068,6 +1068,31 @@ class TestScenarioLifecycle:
         assert "README.md" in result.stdout
         assert "Inventory" in result.stdout
 
+    @pytest.mark.parametrize(
+        ("blocked_at", "expected"),
+        [
+            ("tooling", "captured route"),
+            ("understand-plan", "smallest testable claim"),
+            ("implement-test", "incomplete attempt"),
+            ("review", "six checks"),
+            ("explain", "what you verified"),
+        ],
+    )
+    def test_resync_prints_an_answer_neutral_route_without_changing_state(
+        self, sandbox: Path, scenario_id: str, blocked_at: str, expected: str
+    ) -> None:
+        skip_without_prerequisites(scenario_id)
+        run(sandbox, "start", scenario_id)
+        before = tree_state(sandbox)
+        state_before = state_json(sandbox)
+        result = run(sandbox, "resync", scenario_id, "--blocked-at", blocked_at)
+        assert result.returncode == EXIT_OK, result.stderr
+        assert expected in result.stdout
+        assert "does not solve the task" in result.stdout
+        assert f"reset {scenario_id}" in result.stdout
+        assert tree_state(sandbox) == before
+        assert state_json(sandbox) == state_before
+
 
 # ---------------------------------------------------------------------------
 # Fail-before / pass-after
@@ -1259,6 +1284,11 @@ class TestStateConflicts:
         assert result.returncode == EXIT_STATE_CONFLICT
         assert "nothing to reset" in result.stderr
 
+    def test_resync_without_an_active_scenario(self, sandbox: Path) -> None:
+        result = run(sandbox, "resync", "review-pr", "--blocked-at", "implement-test")
+        assert result.returncode == EXIT_STATE_CONFLICT
+        assert "not active" in result.stderr
+
     def test_status_without_an_active_scenario(self, sandbox: Path) -> None:
         result = run(sandbox, "status")
         assert result.returncode == EXIT_OK
@@ -1270,6 +1300,12 @@ class TestStateConflicts:
         assert result.returncode == EXIT_ERROR
         assert "unknown scenario id" in result.stderr
         assert "incident-fill-price" in result.stderr
+
+    def test_resync_refuses_a_scenario_that_is_not_active(self, sandbox: Path) -> None:
+        run(sandbox, "start", "review-pr")
+        result = run(sandbox, "resync", "elective-cli", "--blocked-at", "review")
+        assert result.returncode == EXIT_STATE_CONFLICT
+        assert "not the active scenario" in result.stderr
 
     def test_corrupt_state_is_reported_with_recovery_advice(self, sandbox: Path) -> None:
         run(sandbox, "start", "review-pr")

@@ -62,10 +62,9 @@ you the specifics:
    took effect.
 3. **Review (5 min)** - try the thing the configuration should prevent. A
    control whose negative case you have not tested is a belief.
-4. **Explain (5 min)** - write the team-facing paragraph required by the shared
-   acceptance list.
 4. **Explain (5 min)** - what you would take to your team, and what you would need
-   permission for.
+   permission for, using the team-facing paragraph required by the shared
+   acceptance list.
 
 ---
 

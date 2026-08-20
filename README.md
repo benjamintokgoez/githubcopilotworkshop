@@ -343,9 +343,10 @@ curriculum. Start with `workshop/ops/FACILITATOR_GUIDE.md` and
 
 ## Start here
 
-1. Read the [labs index](challenges/README.md).
-2. Complete [Lab 0 - Preflight](challenges/lab_00_preflight.md) **before** the day.
-3. Skim
+1. Read the [one-day competency map](challenges/overview.md).
+2. Read the [labs index](challenges/README.md).
+3. Complete [Lab 0 - Preflight](challenges/lab_00_preflight.md) **before** the day.
+4. Skim
    [challenges/reference/invariants.md](challenges/reference/invariants.md) so you
    know where the numbers live. You are not expected to memorise them.
 

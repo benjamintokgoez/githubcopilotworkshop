@@ -13,12 +13,34 @@ the same starting state and can return to it.
 | `python scripts/workshop.py list` | List available scenarios and their state |
 | `python scripts/workshop.py start <scenario-id>` | Stage a scenario: artifacts, working tree state, checkpoint |
 | `python scripts/workshop.py status` | Show the active scenario and the last checkpoint |
+| `python scripts/workshop.py resync <scenario-id> --blocked-at <phase>` | Print an answer-neutral route around a blocked phase without changing files |
 | `python scripts/workshop.py verify <scenario-id>` | Run the scenario's acceptance checks |
 | `python scripts/workshop.py reset <scenario-id>` | Archive participant additions and restore the exact pre-start files and modes |
 | `python scripts/workshop.py fallback <scenario-id>` | Print the path to the captured, non-live artifacts |
 
 `reset` is the safety net that makes the resync checkpoints work. Use it without
 embarrassment: rejoining the room is worth more than salvaging a tangled tree.
+
+## Phase recovery without an answer key
+
+Do not require completion of one phase before a participant may practise the
+next. If a scenario lab is blocked, run:
+
+```bash
+python scripts/workshop.py resync <scenario-id> --blocked-at <phase>
+```
+
+`<phase>` is one of `tooling`, `understand-plan`, `implement-test`, `review`, or
+`explain`. The command is deliberately non-mutating. It does not install a
+solution, mark acceptance as passed, or reveal the defect. Instead, it gives a
+short continuation route such as reviewing the incomplete diff, recording the
+failing verifier honestly, writing the uncertainty statement, and resetting at
+the checkpoint.
+
+This distinction matters. Auto-completing a repair would turn the repository into
+an answer key and would teach participants to trust a hidden patch. Continuing
+with an incomplete artifact still teaches review, evidence, explanation, and
+time-bounded recovery.
 
 ## The healthy-baseline contract
 
@@ -70,6 +92,8 @@ outcome, not a degraded workshop.
 4. **Paired observation.** Work with someone whose environment is healthy. Being
    the reviewer in a pair is a full-value role in this workshop, and Lab 4 is built
    on exactly that skill.
+5. **Phase resync.** Use the runner's `resync` command, finish the remaining loop
+   stages on the incomplete attempt, then archive/reset and join the next lab.
 
 ## Offline and restricted networks
 

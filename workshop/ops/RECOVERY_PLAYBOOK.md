@@ -9,6 +9,15 @@ Recovery is part of the design, not a failure of the participant. Name the issue
 3. Return to the current lab’s evidence checkpoint: **Understand/Plan -> Implement/Test -> Review -> Explain**.
 4. Log only aggregate issue type, status, lane, and time.
 
+For an active scenario, use the runner to print the matching participant route:
+
+```bash
+python scripts/workshop.py resync <scenario-id> --blocked-at <phase>
+```
+
+The command is non-mutating and answer-neutral. It helps the participant practise
+the remaining phases on incomplete work; it does not complete the repair.
+
 ## Incident matrix
 
 | Situation | Immediate response | Reset / fallback path |

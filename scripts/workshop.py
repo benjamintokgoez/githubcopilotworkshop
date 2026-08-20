@@ -10,6 +10,7 @@ Usage:
     python scripts/workshop.py list
     python scripts/workshop.py start <scenario-id>
     python scripts/workshop.py status
+    python scripts/workshop.py resync <scenario-id> --blocked-at <phase>
     python scripts/workshop.py verify <scenario-id>
     python scripts/workshop.py reset <scenario-id>
     python scripts/workshop.py fallback <scenario-id>
@@ -55,7 +56,7 @@ from typing import Any, Final
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 TOOL_NAME: Final = "workshop.py"
-TOOL_VERSION: Final = "1.0.0"
+TOOL_VERSION: Final = "1.1.0"
 STATE_SCHEMA_VERSION: Final = 1
 MANIFEST_SCHEMA_VERSION: Final = 1
 
@@ -140,6 +141,19 @@ VALID_KINDS: Final = (KIND_CODE, KIND_EVIDENCE)
 
 PHASE_STAGING: Final = "staging"
 PHASE_ACTIVE: Final = "active"
+
+BLOCKED_TOOLING: Final = "tooling"
+BLOCKED_UNDERSTAND_PLAN: Final = "understand-plan"
+BLOCKED_IMPLEMENT_TEST: Final = "implement-test"
+BLOCKED_REVIEW: Final = "review"
+BLOCKED_EXPLAIN: Final = "explain"
+RESYNC_PHASES: Final = (
+    BLOCKED_TOOLING,
+    BLOCKED_UNDERSTAND_PLAN,
+    BLOCKED_IMPLEMENT_TEST,
+    BLOCKED_REVIEW,
+    BLOCKED_EXPLAIN,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -2135,6 +2149,81 @@ def cmd_status(root: Path, _args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def cmd_resync(root: Path, args: argparse.Namespace) -> int:
+    """Print an answer-neutral route around a blocked lab phase."""
+    scenario_id = str(args.scenario_id)
+    blocked_at = str(args.blocked_at)
+    catalogue = load_catalogue(root)
+    manifest = catalogue.require(scenario_id)
+    state = load_state(root)
+    if state is None:
+        raise StateConflictError(
+            f"scenario {scenario_id!r} is not active",
+            hint=f"Start it first: {command_hint('start', scenario_id)}",
+        )
+    if state.scenario_id != scenario_id:
+        raise StateConflictError(
+            f"scenario {scenario_id!r} is not the active scenario ({state.scenario_id!r})",
+            hint=(
+                f"Resync the active one: "
+                f"{command_hint('resync', state.scenario_id, '--blocked-at', blocked_at)}"
+            ),
+        )
+    if state.phase != PHASE_ACTIVE:
+        raise StateConflictError(
+            f"scenario {scenario_id!r} is not fully staged (phase: {state.phase})",
+            hint=f"Run {command_hint('reset', scenario_id)} and start again.",
+        )
+
+    routes: dict[str, tuple[str, ...]] = {
+        BLOCKED_TOOLING: (
+            "Stop after two retries or five minutes; do not repair the machine during lab time.",
+            f"Open the captured route: {command_hint('fallback', scenario_id)}",
+            "Continue with the same evidence question as reader, navigator, or reviewer.",
+        ),
+        BLOCKED_UNDERSTAND_PLAN: (
+            "Write only the observable symptom, the invariant, and one unknown.",
+            "Take the next hint level or ask a helper for a five-minute orientation reset.",
+            "Choose the Supported lane and continue with the smallest testable claim.",
+        ),
+        BLOCKED_IMPLEMENT_TEST: (
+            "Stop changing code. Keep the incomplete attempt; it is still reviewable evidence.",
+            f"Run {command_hint('verify', scenario_id)} once and record the honest result.",
+            "Continue to Review and Explain: identify scope, risk, what failed, "
+            "and the next safe action.",
+        ),
+        BLOCKED_REVIEW: (
+            "Use the six checks in challenges/reference/evidence.md: scope, invariant, tests, "
+            "contracts, non-functional concerns, and explanation.",
+            "Document one high-confidence finding with location, evidence, and requested action.",
+            "Continue to Explain even if the implementation remains incomplete.",
+        ),
+        BLOCKED_EXPLAIN: (
+            "Use three sentences: what you verified, what you assumed, and what "
+            "could still be wrong.",
+            "State whether acceptance passed; do not turn an incomplete result "
+            "into a success claim.",
+            "Name the next safe action and the rollback or reset route.",
+        ),
+    }
+
+    out(f"Resync route: {scenario_id} ({manifest.lab})")
+    out(f"Blocked at:    {blocked_at}")
+    out("")
+    out("This command does not solve the task, edit files, or weaken acceptance.")
+    out("It preserves the remaining learning steps without pretending the blocked step passed.")
+    out("")
+    for index, instruction in enumerate(routes[blocked_at], start=1):
+        out(f"{index}. {instruction}")
+    out("")
+    out("At the room checkpoint:")
+    out(f"  Verify once: {command_hint('verify', scenario_id)}")
+    out(f"  Archive and restore: {command_hint('reset', scenario_id)}")
+    out("A failing verifier is an honest outcome. Reset archives the attempt before")
+    out("restoring the pre-start state, so you can rejoin the next lab on time.")
+    return EXIT_OK
+
+
 def cmd_verify(root: Path, args: argparse.Namespace) -> int:
     scenario_id = str(args.scenario_id)
     catalogue = load_catalogue(root)
@@ -2306,6 +2395,15 @@ def build_parser() -> argparse.ArgumentParser:
     ):
         sub = subparsers.add_parser(name, help=help_text)
         sub.add_argument("scenario_id", metavar="<scenario-id>", help="Scenario identifier")
+
+    resync = subparsers.add_parser("resync", help="Continue learning when one lab phase is blocked")
+    resync.add_argument("scenario_id", metavar="<scenario-id>", help="Scenario identifier")
+    resync.add_argument(
+        "--blocked-at",
+        required=True,
+        choices=RESYNC_PHASES,
+        help="Phase that cannot be completed in the available time",
+    )
     return parser
 
 
@@ -2313,6 +2411,7 @@ HANDLERS: Final[dict[str, Any]] = {
     "list": cmd_list,
     "start": cmd_start,
     "status": cmd_status,
+    "resync": cmd_resync,
     "verify": cmd_verify,
     "reset": cmd_reset,
     "fallback": cmd_fallback,

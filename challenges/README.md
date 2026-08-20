@@ -36,6 +36,10 @@ By 17:15 you should be able to:
 
 ## Lab sequence
 
+Start with the [one-day competency map](overview.md). It shows how responsibility
+progresses from workflow choice, through supervised implementation and review, to
+independent transfer. The table below is the timed delivery sequence.
+
 | Time | Lab | Focus | Mode |
 |---|---|---|---|
 | before the day | [Lab 0 - Preflight](lab_00_preflight.md) | Environment, access, policy | Individual |
@@ -53,6 +57,11 @@ Full timing, including breaks and the 60 minutes of protected slack, is in the
 
 Extension material that is deliberately **out of scope** for the one-day core is
 in [appendix_two_day.md](appendix_two_day.md). Do not start it during the core day.
+
+If one phase blocks progress, do not spend the rest of the lab rescuing it. For
+Labs 2-6, use `python scripts/workshop.py resync <scenario-id> --blocked-at
+<phase>` to continue with the remaining loop stages, then verify and reset at the
+room checkpoint. The route preserves honest evidence and never inserts a solution.
 
 ## Three lanes, one bar
 
