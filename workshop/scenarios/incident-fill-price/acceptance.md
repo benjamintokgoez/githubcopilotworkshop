@@ -24,6 +24,10 @@ The scenario stages the failing state; your checkout was green before `start`.
 Run the check now, while the code is untouched, and keep the output. That is your
 fail-before evidence, and no evidence you collect later can replace it.
 
+Treat the supplied acceptance file as read-only. Add your own focused regression
+check in a separate participant-added file so that its fail-before/pass-after
+evidence is independent of this contract.
+
 ## What the check asserts
 
 | Check | Invariant |
@@ -36,9 +40,9 @@ fail-before evidence, and no evidence you collect later can replace it.
 ## What the check is not
 
 - It is not a file list. It never names the function you have to change.
-- It is not editable. Weakening an assertion, deleting a case, or making the
-  expected value follow the observed one is a failed lab, and `reset` will show
-  the difference.
+- It is not participant implementation space. Weakening an assertion, deleting a
+  case, or making the expected value follow the observed one invalidates the
+  evidence, and `reset` will archive the difference.
 - It is not sufficient on its own. Acceptance is the floor: the lab also asks for
   a regression test you can defend and a handover the desk can read.
 
@@ -47,6 +51,10 @@ fail-before evidence, and no evidence you collect later can replace it.
 `verify` prints a `Summary: 1/1 acceptance checks passed` line and exits 0. Paste
 the fail-before and the pass-after output into your evidence note, in that order,
 with the command above.
+
+Passing is required for Core. A Supported result may remain red, but must record
+the actual result, the bounded next action, and the uncertainty without implying
+that acceptance passed.
 
 ## Restore
 

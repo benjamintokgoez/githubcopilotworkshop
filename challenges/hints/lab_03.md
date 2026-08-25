@@ -1,54 +1,64 @@
 # Hints - Lab 3 (plan-driven migration)
 
-<details>
-<summary><strong>L1 - Orientation</strong> (where to look, what to ask first)</summary>
+Open only the next level you need. A hint should restore the method, not disclose
+the migration.
 
-- The manifest is the scope. If you are looking at a file that is not in it, ask
-  why before you edit it.
-- The first thing to produce is not a plan. It is a **baseline**: what the code
-  emits today, captured so you can compare later.
-- The request is underspecified in one respect. Read it twice and ask: "what would
-  two reasonable engineers do differently here?"
+<details>
+<summary><strong>L1 - Orientation</strong> (recover scope and evidence)</summary>
+
+- Stop editing. Read `issue.md`, `inventory.md`, and `acceptance.md` in that
+  order.
+- The baseline is not only the initial test output. Capture representative valid
+  output and rejected-input behaviour through the public boundary before a code
+  change.
+- In a pair, ask the contract reviewer to state the file scope and the current
+  stop time. Solo, write those two lines before continuing.
+- If it is already 12:55 and no edited plan exists, take the Supported route:
+  plan and verify one batch rather than rushing the whole migration.
 
 </details>
 
 <details>
-<summary><strong>L2 - Method</strong> (which step you are skipping)</summary>
+<summary><strong>L2 - Method</strong> (recover a supervisable batch)</summary>
 
-- If you cannot verify a batch in under five minutes, the batch is too big. Split
-  by module, not by idiom.
-- If you are repeating a constraint in prompts, you have skipped the durable
-  context step. Move it into a file and test that it is applied by omitting it from
-  your next message.
-- Happy-path tests do not prove a migration. The things that break silently are:
-  inputs that used to be rejected, optional fields, aliases, and defaults.
-- When a session says a change outside scope is "required", treat that as a claim
-  to investigate. Sometimes it is true, and then it belongs in the plan.
+- Split by a dependency boundary that can be checked independently. If its diff
+  cannot be read in two minutes or its check cannot run in five, split again.
+- For every batch, write four lines before execution: files, intended contract,
+  exact check, and rollback point.
+- A task note becomes agent context only when you explicitly attach, reference,
+  or hand it off. Do not assume every Markdown file is discovered automatically.
+- Compare accepted and rejected behaviour. Happy-path output alone misses
+  defaults, aliases, validation, and error translation.
+- A proposed out-of-inventory edit is a question to investigate. It is never an
+  automatic expansion of scope.
 
 </details>
 
 <details>
-<summary><strong>L3 - Structure</strong> (the shape of a good plan)</summary>
+<summary><strong>L3 - Recovery</strong> (finish honestly when time is short)</summary>
 
-A supervisable migration plan has, per batch:
+Use this structure in `MIGRATION_NOTES.md`:
 
+```text
+Baseline:
+  command and observed result
+  valid public outputs
+  rejected public inputs and error boundary
+
+Plan edits:
+  generated draft assumption -> my change -> risk removed
+
+Batch N:
+  files -> diff reviewed -> exact check -> observed result
+
+Final state:
+  verified complete / verified incomplete / not checked
+  next bounded action
+  I verified ... I assumed ... It could still be wrong if ...
 ```
-Batch N
-  Files:            <from the manifest, explicit list>
-  Idioms mapped:    <old -> new, one line each>
-  Verification:     <exact command, expected result>
-  Rollback point:   <how to get back if this batch goes wrong>
-  Risk:             <what could silently change>
-```
 
-Plus, once, at the top:
-
-```
-Contract that must not change: <field names, types, error behaviour, units, timezones>
-Ambiguity in the request:      <what it was, what I decided, why>
-Out of scope:                  <explicitly listed>
-```
-
-If your plan has no "out of scope" section, it has no scope.
+At 13:16, start no new batch. At 13:26, stop editing and record the real verifier
+result before reset. A useful incomplete handover is a Supported outcome; changing tests,
+inventing evidence, or skipping reset is not.
 
 </details>

@@ -14,9 +14,16 @@ python scripts/workshop.py reset elective-customization
 | `work/instructions_draft.md` | Created by `start`: a badly written draft, for you to rewrite |
 | `work/customization_notes.md` | Created by `start`: your before/after evidence |
 
-The staged draft is a practice file. It is not read by any tool, and this
-scenario never touches `.github/copilot-instructions.md` - the repository's real
-durable context belongs to everyone working in it today.
+The staged draft is a practice file. It is not at a recognised Copilot discovery
+path, and this scenario never touches `.github/copilot-instructions.md` or
+`.github/instructions/`.
 
-Offline-friendly and self-contained: an editor and this repository are the only
-requirements.
+- **Local-analysis mode:** edit and score the draft, then produce a labelled local
+  before/after and deletion-case comparison.
+- **Optional live addition:** only with a preflight-Green Copilot surface, explicitly attach
+  the draft to one stable review prompt and compare it with an unattached
+  baseline. This tests the content, not repository discovery or `applyTo`
+  matching.
+
+Both modes require an edited artifact and evidence, and either can support the
+selected achievement lane. Reading the draft is not a complete run.

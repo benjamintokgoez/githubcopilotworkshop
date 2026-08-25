@@ -39,19 +39,29 @@ Capture this first run. It is the only honest "before".
 | Rejected input | Everything rejected today is still rejected, through the same public exception, with a non-empty message |
 | Migration completed | The in-scope modules no longer reach the surface through the 1.x compatibility shim, at import level and at runtime, and the public names still exist |
 
-## What the check is not
+## What passing does and does not prove
 
-- It is not a migration recipe. It says what must hold, never how to get there.
-- It does not grade your plan, your batching, or your handover - the lab does,
-  and those are where most of the marks live.
-- It cannot see a decision you made silently. The ambiguity in the ticket is real;
-  resolving it explicitly is your job, not the checker's.
+| A passing verifier proves | It does not prove |
+|---|---|
+| The supplied contract checks are green | You captured public output before editing |
+| The compatibility shim is gone from the staged surface | You edited and challenged the generated plan |
+| Public names covered by the checks still exist | The intended context source was actually loaded |
+| Covered accepted and rejected inputs still behave as asserted | You read each batch diff or made a sound ambiguity decision |
+
+This is not a migration recipe. It states what must hold, never how to achieve
+it. Save the baseline, final plan, context-loading route, per-batch command and
+observed result, before/after comparison, and handover in `MIGRATION_NOTES.md`.
+
+A red final verifier can accompany a complete Supported outcome when one batch is
+well evidenced and the remaining work is handed over honestly. Core requires the
+green verifier **and** the manual evidence. Never present structural completion
+as proof of the process that produced it.
 
 ## Passing
 
 `Summary: 1/1 acceptance checks passed`, exit code 0. Attach the before and after
 runs to your handover, plus your own serialised baseline diff - the check proves
-the contract held, your baseline proves you knew what it was.
+the covered contract held; your baseline proves you observed it before editing.
 
 ## Restore
 

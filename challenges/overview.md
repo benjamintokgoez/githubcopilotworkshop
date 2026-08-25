@@ -24,16 +24,22 @@ review evidence,           test one          run the       choose a safe
 not confidence             control boundary  loop alone    Monday action
 ```
 
-| Lab | New responsibility | Minimum useful evidence |
-|---|---|---|
-| [0 - Preflight](lab_00_preflight.md) | Know the environment and policy boundary | Green baseline or a named fallback |
-| [1 - Operator model](lab_01_operator_model.md) | Choose Ask, Plan, or Agent deliberately | Verified claims and an uncertainty statement |
-| [2 - Incident](lab_02_incident_triage.md) | Supervise a bounded repair | Reproduction, focused evidence, reviewed handover |
-| [3 - Migration](lab_03_plan_driven_migration.md) | Control multi-file work | Edited plan, verified batches, contract comparison |
-| [4 - Review](lab_04_review_and_delegation.md) | Judge work you did not watch being produced | Prioritised findings and a decision |
-| [5 - Elective](lab_05_elective.md) | Test one control boundary | Positive and negative observations |
-| [6 - Capstone](lab_06_capstone_transfer.md) | Run the loop independently | Small change, tests, review, honest uncertainty |
-| [7 - Close](lab_07_close_and_adoption.md) | Transfer the method to work | One bounded action and its approval path |
+| Lab | New responsibility | Developer and architect application | Minimum useful evidence |
+|---|---|---|---|
+| [0 - Preflight](lab_00_preflight.md) | Know environment and policy boundary | Developer: executable route. Architect: owner/control route. | Green baseline or named fallback |
+| [1 - Operator model](lab_01_operator_model.md) | Choose Ask, Plan, or Agent deliberately | Developer: safe next action. Architect: authority and review cost. | Verified claims and uncertainty |
+| [2 - Incident](lab_02_incident_triage.md) | Supervise a bounded repair | Developer: localise/test repair. Architect: assess invariant, blast radius, handover. | Reproduction, focused evidence, reviewed handover |
+| [3 - Migration](lab_03_plan_driven_migration.md) | Control multi-file work | Developer: verified batches. Architect: contract, ordering, rollback. | Edited plan, verified batch, contract comparison |
+| [4 - Review](lab_04_review_and_delegation.md) | Judge unattended work | Developer: actionable findings. Architect: scope, control, merge accountability. | Prioritised findings, comparison, decision |
+| [5 - Elective](lab_05_elective.md) | Test one control boundary | Developer: predict/run behavior. Architect: policy owner and residual risk. | Positive and negative observations |
+| [6 - Capstone](lab_06_capstone_transfer.md) | Run the loop independently | Builder or supervising architect; both change/test/review concrete artifacts. | Tested slice, review, private self-score, uncertainty |
+| [7 - Close](lab_07_close_and_adoption.md) | Transfer the method to work | One shared habit plus team/owner decisions. | Dated action, decision, externally owned ask |
+
+Developers and architects follow the same sequence and produce the same evidence.
+Developers usually emphasise implementation correctness and operability;
+architects usually emphasise contracts, authority, reversibility, and review
+load. Neither role has a prose-only exemption: both perform an Implement/Test
+action, review concrete evidence, and explain uncertainty.
 
 ## The run card for every timed lab
 
@@ -59,9 +65,11 @@ and reset in time for the next lab.
 
 ## What remains constant
 
-- Supported, Core, and Extension are routes through the same objective.
-- Captured/offline work replaces unavailable product behavior, not engineering
-  judgement.
+- Supported, Core, and Extension are achievement lanes through the same
+  objective; each has its own evidence boundary.
+- Live, local, and captured/offline are delivery modes orthogonal to achievement.
+  Captured work can preserve engineering judgement but never counts as operating
+  a live product surface.
 - A failing verifier can be honest evidence; weakening acceptance cannot.
 - No participant should miss the next lab while trying to rescue a low-value
   environment or tooling problem.

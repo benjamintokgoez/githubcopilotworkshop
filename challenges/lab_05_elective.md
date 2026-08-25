@@ -1,43 +1,54 @@
 # Lab 5 - Elective (choose exactly one)
 
-**Block:** 15:15-15:55 (40 minutes) - **Mode:** pairs or solo
+**Block:** 15:00-15:35 (35 minutes) - **Mode:** pairs or solo
 **Loop stages:** Understand/Plan -> Implement/Test -> Review -> Explain
 
 ---
 
-## Choose one. Not two.
+## Choose one outcome, one route, and one lane
 
-Forty minutes is enough for one elective done properly and not enough for two done
-badly. Half-finished configuration is worse than none, because it looks
-configured.
+Thirty-five minutes means **one** bounded elective. It does not include product
+installation, sign-in, registry approval, or enterprise configuration. Those are
+preflight activities. Do not spend the block trying to turn a red preflight check
+green.
 
-| Elective | Choose it if | Scenario id |
+| Elective | Best fit | Scenario id | Honest default |
+|---|---|---|---|
+| **5A - [Secure MCP context](lab_05a_secure_mcp.md)** | Developers who integrate tools; architects or platform owners who approve data access | `elective-mcp` | Analyse and reduce the local configuration, then trace captured tool evidence |
+| **5B - [CLI permissions and confinement](lab_05b_cli_permissions.md)** | Terminal-heavy developers; platform, CI, and security architects | `elective-cli` | Build and test a permission policy against the captured session |
+| **5C - [Customization that survives Monday](lab_05c_customization.md)** | Maintainers and architects who want shared standards to travel with the repository | `elective-customization` | Rewrite and test a scenario-local instruction proposal |
+
+If you cannot decide, choose **5C**. It has no installation prerequisite and its
+scope decisions transfer across Copilot surfaces.
+
+### Pick the route before the timer starts
+
+| Route | Use it only when | Evidence label |
 |---|---|---|
-| **5A - [Secure MCP context](lab_05a_secure_mcp.md)** | Your team wants an assistant that can see your systems (issues, telemetry, docs) and you own the decision about what it may reach | `elective-mcp` |
-| **5B - [CLI permissions and sandboxing](lab_05b_cli_permissions.md)** | You work in terminals, run agents on servers or in CI, and need deny-by-default to be real rather than aspirational | `elective-cli` |
-| **5C - [Customization that survives Monday](lab_05c_customization.md)** | Your team keeps re-explaining the same standards in every prompt and every review | `elective-customization` |
+| **Live** | The required client is Green in the T-72 capability matrix: installed, authenticated, policy-enabled, and smoke-tested | `live` |
+| **Captured/local** | Any live prerequisite is amber or red, or you prefer a deterministic exercise | `captured` or `local analysis` |
+| **Solo** | You are working alone; use the same artifact and write both the operator and reviewer observations | Add `solo` to the evidence label |
 
-If you cannot decide: **5C** transfers to the widest range of teams, works with no
-extra tooling, and has the fewest policy blockers.
+The captured/local route is not a consolation route. It must still produce an
+edited artifact, an evidence trace, a negative case, and a decision a team could
+review. It must not claim that a configuration ran when it did not.
 
-### Policy check before you choose
+**Preflight gates:**
 
-All three electives can be blocked by organisation policy. Check your Lab 0 policy
-answers before you commit 40 minutes:
-
-- 5A needs MCP servers to be permitted. Some organisations restrict them to a
-  registry or allowlist.
-- 5B needs Copilot CLI to be installable on your machine.
-- 5C needs nothing beyond an editor and this repository.
-
-If your chosen elective is blocked, that finding is worth writing down - and then
-switch to 5C.
+- **5A live:** an approved MCP host/server pair and disposable configuration are
+  already tested. Policy may disable MCP or restrict supported clients through
+  managed settings; cloud-agent MCP is a separate boundary.
+- **5B live:** GitHub Copilot CLI is already installed and authenticated, the
+  account has an active Copilot subscription, and organisation policy permits
+  the CLI. The sandboxing documentation is public preview; both local and cloud
+  CLI sandbox experiences currently require experimental features. Neither is
+  required for this lab.
+- **5C live comparison:** a Copilot chat surface is already working. The local
+  analysis route needs only an editor and the scenario.
 
 ---
 
-## Start the scenario
-
-Run exactly one command for the elective you chose:
+## Start exactly one scenario
 
 ```bash
 python scripts/workshop.py start elective-mcp            # 5A
@@ -45,56 +56,83 @@ python scripts/workshop.py start elective-cli            # 5B
 python scripts/workshop.py start elective-customization  # 5C
 ```
 
-Do not run all three. If staging is unavailable, replace `start` with `fallback`
-and work from the captured directory the command prints.
+If staging is unavailable, use the matching fallback:
+
+```bash
+python scripts/workshop.py fallback <your-elective-scenario-id>
+```
+
+Do not start another elective. The room report provides measured awareness, not
+competency, in the other two.
 
 ---
 
-## Shared structure
+## The 35-minute block
 
-The work stops at 15:50 so the final five minutes remain a room-wide resync.
-Every elective follows the same 35-minute shape, and each elective file gives
-you the specifics:
+Work stops at 15:29 so verification, reset, and the awareness report stay inside
+the block.
 
-1. **Understand/Plan (7 min)** - what the mechanism actually controls, what it
-   does not, and what evidence will be enough.
-2. **Implement/Test (18 min)** - configure the smallest useful thing and prove it
-   took effect.
-3. **Review (5 min)** - try the thing the configuration should prevent. A
-   control whose negative case you have not tested is a belief.
-4. **Explain (5 min)** - what you would take to your team, and what you would need
-   permission for, using the team-facing paragraph required by the shared
-   acceptance list.
+| Clock | Phase | Required result |
+|---|---|---|
+| 15:00-15:05 | **Understand/Plan (5 min)** | Name the control, non-goal, mode, lane, and evidence |
+| 15:05-15:18 | **Implement/Test (13 min)** | Produce the smallest useful artifact and one positive trace |
+| 15:18-15:25 | **Review (7 min)** | Run or trace one negative case and identify the enforcing layer |
+| 15:25-15:29 | **Explain (4 min)** | Write the team-facing decision and approval owner |
+| 15:29-15:33 | **Verify/reset (4 min)** | Record the actual verifier result and reset |
+| 15:33-15:35 | **Awareness report (2 min)** | Control, negative case, limitation |
+
+**Mandatory cut at 15:18:** stop adding configuration. If live work has not
+produced evidence, move to the supplied capture and finish the same reasoning
+there. Never cut the negative case or explanation to preserve setup work.
+
+### Lane cuts
+
+- **Supported:** complete the full loop on one positive event, one negative
+  event, and one control decision. The full scenario verifier may remain red if
+  Core-only fields are incomplete.
+- **Core:** complete the shared and branch-specific evidence contract and the
+  structural verifier. Either live or captured/local mode can demonstrate Core
+  engineering judgement.
+- **Extension:** only after Core. During this block, record one follow-up
+  question; do not add a second mechanism.
 
 ---
 
 ## Shared acceptance
 
-- [ ] The configuration exists as a file or setting you can point at
-- [ ] You demonstrated that it took effect - observed behaviour, not the presence
-      of a config file
-- [ ] You tested the negative case: the thing it should prevent was prevented, or
-      you discovered it was not
-- [ ] You wrote one paragraph you could send to your team, including the
-      permission or approval you would need
-- [ ] Your evidence note records the workflow and model choice, as in every lab
+| Evidence | Supported | Core |
+|---|:---:|:---:|
+| Elective, lane, delivery mode, and live surface operated (`none` if captured/local) | Required | Required |
+| One bounded configuration, policy, or instruction artifact | Required | Required |
+| Positive event or comparison attributed to a control | 1 | Complete branch trace |
+| Negative event or comparison attributed to a control | 1 | Complete branch trace |
+| What the control enforces and cannot enforce | Required | Required |
+| Team decision, owner, policy dependency, and next test | Bounded decision | Complete branch template |
+| Branch-specific evidence checklist and structural verifier | Actual result recorded | Pass required |
+
+The positive evidence must be behavioural: a live observation, a captured event
+traced to its control, or a repeatable rule-quality comparison. File presence
+alone is not evidence. Predicted results remain labelled predictions.
 
 ---
 
-## Resync checkpoint - 15:50
+## Resync checkpoint - 15:33
 
-Everyone stops. One person per elective gives a 60-second report:
+One person per represented elective gives a 30-second report:
 
-- What the control actually protects.
-- What surprised them.
-- One thing they would **not** recommend to their team, and why.
+1. What control was tested, and at which layer?
+2. What evidence changed your confidence?
+3. What does the control **not** protect?
+4. Is the product capability GA, preview, experimental, optional, or
+   policy-dependent?
 
-You will hear about the two electives you did not take. That is the design: the
-report is the coverage.
+This is **cross-elective awareness**, not competency or coverage in an unchosen
+elective. If an elective is unrepresented, the facilitator reads its captured
+report card with the same three fields: control, negative case, limitation. Lab
+7 checks recall of one control and one limitation from an unchosen elective.
 
-Before Lab 6 starts, verify and then reset the one active elective scenario.
-Reset archives your attempt and prints its location before restoring the pre-start
-tree:
+Verify and reset before the report. Reset archives the attempt before restoring
+the pre-start tree.
 
 ```bash
 python scripts/workshop.py verify <your-elective-scenario-id>
@@ -105,20 +143,18 @@ python scripts/workshop.py reset <your-elective-scenario-id>
 
 ## Hints
 
-[hints/lab_05.md](hints/lab_05.md) - three collapsed levels, with a section per
-elective.
+[hints/lab_05.md](hints/lab_05.md) contains an answer-neutral three-level ladder
+for each elective.
 
 ---
 
 ## Reflection and retrieval
 
-1. What is the smallest version of your elective you could ship to your team next
-   week without asking anyone's permission?
-2. What is the version that needs a decision from someone else, and who is that
-   person?
-3. Retrieval: name one thing your elective's mechanism does **not** protect
-   against. Every control has a boundary; knowing it is the difference between
-   security and theatre.
+1. What is the smallest version of your elective you could propose next week
+   without changing enterprise policy?
+2. Which next step needs a decision from someone else, and which role owns it?
+3. Name one thing your elective's control does **not** protect. A control without
+   a stated boundary is security theatre.
 
 ---
 

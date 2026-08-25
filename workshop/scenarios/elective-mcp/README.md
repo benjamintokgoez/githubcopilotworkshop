@@ -16,11 +16,21 @@ python scripts/workshop.py reset elective-mcp
 | `acceptance.md` | What `verify` checks |
 | `work/` | Created by `start`: your narrowed configuration and your inventory |
 
-Nothing here requires a live server, a registry entry, or network access. If MCP
-is blocked for your organisation, the understanding questions and the governance
-note are the elective, and they are the part that transfers anyway.
+The **captured/local delivery mode** requires no live server, registry entry,
+authentication, or network access. You still edit the reduced
+configuration, trace positive and negative events to their controlling layers,
+and write the platform decision. Label sandbox outcomes you did not run as
+predicted.
+
+Either mode can support Supported or Core evidence; record the achievement lane
+separately. Use a live server only if it was approved, connected, and smoke-tested before
+Lab 5. Do not spend the elective installing or authenticating one.
 
 The tool surface described here is the one this repository ships today: a
 read-only server with `list_instruments`, `get_order_book` and `calculate_risk`,
 plus `submit_order` and `cancel_order` that are only registered when a server is
 deliberately constructed with writes enabled and a bound client identity.
+
+This is the QuantCore training server, not the GitHub MCP Server. Product status,
+GitHub toolsets, registry governance, and VS Code sandbox boundaries are recorded
+in `brief.md` and `fixtures/config_notes.md`.

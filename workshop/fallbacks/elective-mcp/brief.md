@@ -1,90 +1,90 @@
 # Brief - secure MCP context (elective 5A)
 
 You are deciding what an assistant may reach on your behalf. The mechanism is
-MCP; the exercise is data minimisation, confinement, and approval - which is the
-part that transfers to whatever your organisation adopts next.
+MCP; the transferable work is data minimisation, process confinement, tool
+capability, upstream authorization, and evidence.
 
-Everything here works locally and offline. No registry entry, no hosted server,
-and no network access beyond the Copilot connection your organisation already
-permits is required.
+**Default route:** captured/local. No live server, registry entry, authentication,
+or network access is required. A live call is optional and only for a server
+approved and tested before this block.
 
-## The material
+## Material
 
-| File | What it is |
+| File | Purpose |
 |---|---|
-| `fixtures/tool_inventory.md` | The tool surface this repository's MCP server actually exposes, and where each control lives |
-| `fixtures/mcp_config_sample.json` | A real, current VS Code stdio configuration - and a deliberately broad one |
-| `fixtures/config_notes.md` | What each key in that file does, and which keys it is not using yet |
-| `fixtures/tool_call_log.md` | A captured session: bounded results, a rejected argument, and a tool that does not exist |
-| `work/mcp_config_reduced.json` | Your copy of the configuration, to narrow |
-| `work/permission_inventory.md` | Your inventory and governance note |
+| `fixtures/tool_inventory.md` | QuantCore's actual server capability and the layer for each control |
+| `fixtures/mcp_config_sample.json` | A current but deliberately broad VS Code local stdio configuration |
+| `fixtures/config_notes.md` | Documented VS Code fields and the sandbox approval trade-off |
+| `fixtures/tool_call_log.md` | Captured positive and negative events |
+| `staged_copy/mcp_config_reduced.json.txt` | Configuration proposal to copy and reduce |
+| `staged_copy/permission_inventory.md.txt` | Evidence trace and platform decision template |
 
-## The task
+## 29-minute working task
 
-1. **Read the surface first.** Go through `fixtures/tool_inventory.md` against
-   the source and answer, per tool: what could this reach, and what could a buggy
-   or hostile version of it do? Not what you intend to use it for - what it is
-   capable of.
-2. **Narrow the configuration.** Edit `work/mcp_config_reduced.json` from broad
-   to least-privilege using only keys the VS Code MCP configuration reference
-   documents: turn on `sandboxEnabled`, add a top-level `sandbox` object with
-   `filesystem` and `network` rules, and cut anything the server does not need -
-   starting with an `envFile` that hands it your whole environment file.
-   Every removal is a decision you should be able to defend in one sentence.
+| Time | Work | Evidence |
+|---|---|---|
+| 5 min | Separate enterprise/client, host process, client approval, and server/upstream controls | Four-layer plan |
+| 13 min | Reduce the configuration and trace captured or live events | Edited configuration plus positive trace |
+| 7 min | Trace one failed request to the enforcing layer | Negative-case record |
+| 4 min | Write the platform-team paragraph | Owner, non-goals, and next decision |
 
-   Read `fixtures/config_notes.md` before you flip `sandboxEnabled` to `true`.
-   Enabling the sandbox **auto-approves tool confirmations for that server**,
-   because the confinement is what is protecting you instead of the prompt. You
-   are not adding a layer, you are swapping one: your `sandbox` rules become the
-   approval boundary, and they are only as good as you wrote them.
-3. **Say where each control lives.** For every restriction you claim, name the
-   layer that enforces it: the process configuration in `mcp.json`, the client's
-   tool picker and approval settings, or the server's own registration and
-   argument validation. A control you attribute to the wrong layer is a control
-   you do not have. State explicitly whether per-call confirmation is still part
-   of your setup, or whether you traded it for the sandbox.
-4. **Prove an answer came from the tool.** If you have a server connected, ask
-   something that cannot be answered without it and record what came back. If you
-   do not, use `fixtures/tool_call_log.md` and say in your note that your
-   evidence is captured rather than live. Both are honest; pretending is not.
-5. **Break it on purpose.** Ask for something outside what you granted - a write
-   on a read-only server, or an argument outside the documented bounds. Record
-   what actually happened, including *which layer* refused - and note whether you
-   were asked to confirm anything at all, which will depend on whether that
-   server is sandboxed.
-6. **Write the governance note.** Who approves this in your organisation, what
-   data leaves the machine, and what the configuration does *not* protect
-   against.
+At minute 18, stop changing configuration. Finish the trace and explanation.
 
-## Design rules worth applying while you narrow
+## Work sequence
 
-- **Capability beats configuration.** A tool that is never registered cannot be
-  approved by mistake. Prefer a server built without the dangerous tool over a
-  server whose dangerous tool you promise not to select.
-- **Least privilege in the process, too.** Sandbox the process, deny reads of
-  anything holding credentials, and allow writes only where the task needs them.
-  Sandboxing is macOS and Linux only - write that limitation down.
-- **A sandbox moves the approval boundary; it does not add to it.** With
-  `sandboxEnabled` on, confirmations for that server are auto-approved, so every
-  path and domain you allow is a standing grant nobody will be asked about again.
-  Write the rules as if no human will ever see another prompt for that server,
-  because none will.
-- **No secrets in configuration.** Reference an input or the environment, never a
-  value, and never point `envFile` at a file with more in it than the server
-  needs.
-- **Validate at the boundary.** Every argument from a model is untrusted input:
-  bound sizes and ranges, constrain types, reject unknown identifiers. That is
-  server-side work and nothing else can do it for you.
-- **Bound the output.** A tool that can return an unbounded blob can exfiltrate
-  one, and it will also destroy your context window.
-- **Annotations are not authorization.** `readOnlyHint` and its siblings are
-  metadata a server asserts about itself, for the client's user interface. A tool
-  that lies still runs.
-- **Log what was called.** Traceability is not optional when something goes wrong
-  at 03:00.
+1. **Inventory capability before intent.** For each tool, record maximum data and
+   side-effect reach. Include the server process's working directory,
+   environment, filesystem, and network reach.
+2. **State the approval and confinement boundary.** Record the per-call approval
+   and host process-confinement assumptions. Treat the edited policy as a
+   proposal unless that exact client/version was preflight-tested.
+3. **Reduce the process.** Remove environment, development, filesystem, or network
+   access the server does not need. Defend each retained grant.
+4. **Trace evidence.** For each event, distinguish tool selection, user approval,
+   process sandboxing, server registration, server input validation, and upstream
+   authorization. The capture proves only the layers it exercised.
+5. **Trace one negative case.** An unknown tool and an invalid argument fail at
+   different server layers. A sandbox prediction is not an observed sandbox
+   denial.
+6. **Write the governance decision.** State data flow, policy owner, operating
+   system limitation, residual risk, and what would be monitored.
 
-## Policy is part of the lesson
+## Current product status - as of 2026-08-25
 
-If your organisation restricts MCP servers to a registry or an allowlist, that
-restriction **is** the lesson. Document it as a finding and name the approval
-owner; do not work around it.
+- GitHub MCP Registry discovery is public preview.
+- GitHub documents enterprise `managed-settings.json` MCP allowlists as generally
+  available and more strongly enforced than private-registry restriction.
+- GitHub MCP Server toolsets reduce the offered surface. Its `--read-only` mode
+  removes write tools. Neither is upstream authorization.
+- `managed-settings.json` allowlists are the GA enterprise reference for
+  supported IDE/CLI clients. Private registries are preview and weaker
+  enforcement. Cloud-agent MCP uses separate repository/custom-agent
+  configuration and is not governed by that client registry boundary.
+- VS Code documents `sandboxEnabled` plus top-level filesystem/network rules for
+  local stdio servers on macOS and Linux. Enabling it auto-approves tool
+  confirmations, so it trades per-call prompts for standing policy rules. That
+  host confinement is not server authorization and is not portable to every
+  MCP client.
+
+References:
+
+- <https://docs.github.com/en/copilot/concepts/context/mcp>
+- <https://docs.github.com/en/copilot/concepts/mcp-management>
+- <https://docs.github.com/en/copilot/how-tos/provide-context/use-mcp-in-your-ide/configure-toolsets>
+- <https://github.com/github/github-mcp-server#read-only-mode>
+- <https://code.visualstudio.com/docs/agent-customization/mcp-servers>
+- <https://code.visualstudio.com/docs/agents/reference/mcp-configuration>
+
+## Design checks
+
+- A tool never registered cannot be selected by mistake.
+- Tool selection and annotations are not server authorization.
+- The process receives every environment value you pass, whether a tool uses it
+  or not.
+- Model-supplied arguments require server-side validation.
+- Valid but excessive output is still a data-minimisation failure.
+- A record of tool, arguments, result, approval route, and policy version is
+  needed for traceability.
+
+If policy blocks MCP, do not work around it. Record the policy owner, complete the
+configuration review and captured trace, and label the result accurately.

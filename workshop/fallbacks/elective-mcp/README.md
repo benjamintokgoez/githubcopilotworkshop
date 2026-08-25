@@ -1,7 +1,9 @@
 # Offline fallback - elective-mcp (Lab 5A)
 
-Everything needed for the secure-MCP elective without a connected server, a
-registry entry, or network access.
+This is the captured/local mode for secure MCP analysis. It needs no connected
+server, registry entry, authentication, or network access. You still produce a
+reduced configuration, a positive and negative event trace, and a governance
+decision.
 
 ## Inventory
 
@@ -21,18 +23,19 @@ registry entry, or network access.
 > contains half-finished code that linting or test collection would pick up.
 > Drop that suffix when you copy them into your working directory.
 
-## Working without the tooling
+## Working mode
 
-1. Copy `staged_copy/` somewhere you can edit.
-2. Narrow the configuration using only keys the VS Code MCP configuration
-   reference documents - `sandboxEnabled` plus a top-level `sandbox` object with
-   `filesystem` and `network` rules - and record each removal.
-3. Use `fixtures/tool_call_log.md` as your captured evidence: it contains a tool
-   that was never registered, an argument the server rejected, an auto-approved
-   call nobody read, and a response that returned more than the question needed.
-   Label your evidence as captured in the note.
-4. Fill in the inventory template. The headings in it are exactly what the
-   evidence check looks for, so a complete note passes whether or not you ran it.
+1. Copy the two files from `staged_copy/` into a directory you can edit.
+2. In five minutes, separate process, client, server, and upstream controls.
+3. Reduce the configuration using documented keys. State approval and
+   confinement assumptions, and label the unrun policy proposed.
+4. Trace at least three events in `fixtures/tool_call_log.md` to their controlling
+   layers. Include one successful result and one refusal.
+5. Mark any sandbox behavior not shown in the capture as predicted.
+6. Complete the inventory and platform paragraph. Label the evidence captured.
+
+The captured trace proves server registration and argument validation. It does
+not prove that your edited sandbox rules ran.
 
 ## Note on secrets
 

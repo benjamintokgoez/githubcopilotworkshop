@@ -40,15 +40,23 @@ python -m pip install -r requirements.txt
 
 ## Working notes
 
-- Capture the baseline **before** the first edit. `inventory.md` lists exactly
-  which callables to capture.
+- Create `work/MIGRATION_NOTES.md`. Capture the initial verifier run, one valid
+  instrument and quote through their public parser/payload/JSON paths, and one
+  invalid case per model family **before** the first edit.
+- Save the edited plan, how task context was loaded, each batch's diff/check
+  result, the contract comparison, and handover in that note. An arbitrary note
+  is not automatic agent context; explicitly attach, reference, or hand it off.
 - Diff against the pristine starting point at any time:
   `git diff --no-index workshop/scenarios/migration-legacy-models/payloads/legacy_models.py.txt
   workshop/scenarios/migration-legacy-models/work/legacy_models.py`
 - The request is underspecified in one place. Finding it is part of the planning
   work, and nothing in this folder tells you where it is.
+- Lab cuts are deliberate: start no new batch after 13:16, freeze edits at
+  13:26, and reset by 13:35. A verified partial migration is preferable to an
+  unread complete diff.
 
 ## Offline
 
 `workshop/fallbacks/migration-legacy-models/` carries the ticket, the inventory,
 copies of all three staged files, and a captured run of the acceptance check.
+Mark captured results as captured rather than personally executed.

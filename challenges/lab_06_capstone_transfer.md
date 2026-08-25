@@ -1,6 +1,6 @@
 # Lab 6 - Capstone: transfer under mild adversity
 
-**Block:** 15:55-16:35 (40 minutes) - **Mode:** individual
+**Block:** 15:45-16:35 (50 minutes) - **Mode:** individual
 **Loop stages:** all four
 **Scenario:** `capstone-transfer`
 
@@ -8,86 +8,113 @@
 
 ## Outcome
 
-You run the whole loop alone, on a task you have not seen, in an area of the
-system nobody touched today, with a brief that contains at least one confident
-claim that does not survive checking.
+You run the whole loop alone on an unseen, domain-light task. Treat every
+supplied claim as something to check against the acceptance evidence.
 
-This is the only individual assessment of the day, and it assesses **transfer**,
-not speed. Finishing early is not a result. Producing a small, correct, well
-evidenced change with an honest uncertainty statement is.
+This is an assessment of **transfer**, not typing speed or feature access. A
+small, reviewed result with honest evidence is stronger than a rushed full
+implementation. Your work and self-assessment remain private: facilitators do not
+collect code, prompts, notes, transcripts, or scores. You may choose to show an
+artifact for feedback.
 
----
-
-## Why it looks easy
-
-The task is deliberately **domain-light**. There is no options maths, no order
-book, no risk model. It is date handling, windows, and formatting - the kind of
-work every team has, and the kind that produces production incidents twice a year
-in every DACH company.
-
-If it feels straightforward, that is the point. The difficulty is not the domain.
-It is staying disciplined when the task looks small.
+Live Copilot features are optional. The scenario, tests, standard library, and
+captured fallback are enough.
 
 ---
 
-## Set up
+## What fits in 50 minutes
+
+The scenario supplies:
+
+- a four-operation utility skeleton;
+- a complete standard-library acceptance suite;
+- synthetic sample data; and
+- a short handover template.
+
+For Core, you implement the four missing operations, run the supplied tests, add
+one participant-owned check for a material assumption, review the diff, complete
+the handover, and use the private rubric. You do **not** need another test suite
+or dependency. A helper that sums stored amount strings with `Decimal` is already
+implemented.
+
+The four operations are:
+
+1. calculate the UTC selection window for a Berlin business date;
+2. select the records in that half-open window;
+3. produce the ISO-dated filename; and
+4. format the display total with an explicit currency.
+
+That is the entire scope.
+
+---
+
+## Set up and establish the baseline - 4 minutes
 
 ```bash
 python scripts/workshop.py start capstone-transfer
+python scripts/workshop.py verify capstone-transfer
 ```
 
-Work in `workshop/scenarios/capstone-transfer/work/`, where the scenario stages
-the utility skeleton, its tests, and `NOTES.md`. Each participant works in their
-own checkout, so no initials-based directory is needed. Nothing from earlier labs
-is required.
+Work only in `workshop/scenarios/capstone-transfer/work/`. The first verification
+is expected to fail because the staged operations are not implemented. Record
+the command and the first useful failure; do not diagnose every downstream
+failure.
+
+If `start` is unavailable, move immediately to
+`workshop/fallbacks/capstone-transfer/README.md`. Do not spend the capstone
+troubleshooting workshop tooling.
 
 ---
 
-## Artifacts you are working from
+## Read these artifacts in order
 
-| Artifact | What it is |
+| Artifact | What to take from it |
 |---|---|
-| `issue.md` | A request from an operations colleague for a daily export utility, with a deadline and an opinion |
-| Sample input | A small set of timestamped records, stored in UTC |
-| `acceptance.md` | The expected outputs, restated from this page |
+| `issue.md` | The requested behaviour, supplied claims, and explicit non-goals |
+| `acceptance.md` | The authority when the issue and expected behaviour disagree |
+| `data/records_2026-08-19.json` | UTC timestamps and dot-decimal amount strings |
+| `work/test_daily_export.py` | The supplied observable checks; read before editing |
+| `work/daily_export.py` | Four missing operations and one supplied Decimal helper |
+| `work/NOTES.md` | The handover you must finish even if code is incomplete |
 
-> **The brief contains at least one confident claim that is wrong.** It may be in
-> the ticket, in a colleague's comment, or in the first suggestion your assistant
-> offers. It will sound reasonable and it will be easy to implement. Finding it is
-> part of the task, and nobody will tell you which claim it is.
+Do not ask an assistant to summarise these before you read them. Independent
+transfer includes deciding which source is authoritative.
 
----
+## Choose a role-equivalent route
 
-## The task
+Both routes perform the same loop and use the same lane and rubric.
 
-Build a small utility that, given a **business date** and a set of UTC-timestamped
-records, produces:
+| Route | Substantive Implement/Test evidence |
+|---|---|
+| **Builder** | Implement the selected-lane operations and add one participant-owned adversarial check for a material assumption not safely left implicit |
+| **Supervising architect** | Turn one material assumption into a participant-owned adversarial check, request or produce a candidate for the selected lane, inspect the complete diff, make at least one bounded correction, and run the focused checks |
 
-1. **The selection window.** The UTC interval covering that business date in
-   `Europe/Berlin`, as a half-open interval `[start, end)`.
-2. **The export filename.** Deterministic, sortable, ISO-dated.
-3. **A display total.** The summed amount, formatted for a German-language reader.
-
-That is all. Resist every temptation to build more.
+The architect route is not a prose review. It changes a test and code, or
+corrects a concrete candidate, and records the same command/result evidence.
 
 ---
 
 ## Business invariants at stake
 
-All of these are stated in full, with worked values, in
-[reference/invariants.md](reference/invariants.md). **No domain knowledge is
-required or assessed.**
+Everything needed is stated in
+[reference/invariants.md](reference/invariants.md). No trading knowledge is
+required.
 
-- **INV-TIME-1** - stored timestamps are timezone-aware UTC.
-- **INV-TIME-3** - the window for business date `D` is
+- **INV-TIME-1** - stored and exchanged timestamps are timezone-aware UTC.
+- **INV-TIME-3** - business date `D` is
   `[D 00:00 Europe/Berlin, D+1 00:00 Europe/Berlin)`, converted to UTC. It is not
-  a fixed 24-hour UTC window, and it is not UTC plus a constant offset.
-- **INV-FMT-1** - display uses a decimal comma and dot thousands separators;
-  stored and transmitted values use a dot.
+  a fixed 24-hour UTC window and not UTC plus a constant offset.
+- **INV-FMT-1** - machine values use a decimal point; German-language display
+  uses a decimal comma and dot thousands separators.
 - **INV-FMT-2** - a displayed amount carries its currency.
+- **INV-FMT-3** - rounding happens only for display, never in stored values or
+  intermediate arithmetic.
 - **INV-FMT-4** - identifiers and filenames use ISO 8601 dates.
 
-### Expected values (these are the acceptance targets)
+Amounts remain `Decimal` throughout storage and arithmetic; do not introduce
+binary float.
+
+### Expected values
 
 Selection windows:
 
@@ -99,107 +126,137 @@ Selection windows:
 
 Filename for business date `2026-08-19`:
 
-```
+```text
 daily_export_2026-08-19.csv
 ```
 
-Display total, for a summed amount whose stored value is `1234567.891`:
+Display total for the stored value `1234567.891`:
 
-```
+```text
 1.234.567,89 EUR
 ```
 
 A record whose UTC timestamp is exactly the window end belongs to the **next**
-business date. The interval is half-open.
+business date.
 
 ---
 
-## Run the loop
+## Use the clock
 
-1. **Understand/Plan (8 min).** Read the brief. Write down what is asked, what is
-   assumed, and which assumption you intend to check. Choose your workflow and
-   record why.
-2. **Implement/Test (15 min).** Write the tests for the three dates in the table
-   **before or alongside** the implementation. The two DST dates are not edge cases
-   here; they are the specification.
-3. **Review (7 min).** Read your own diff as a stranger. Is anything in it not
-   required by the task? Does any formatting leak into stored values?
-4. **Explain (5 min).** Write the handover, including the three-part uncertainty
-   sentence and one line naming the claim in the brief that did not survive
-   checking - or stating that you found none, if that is your honest conclusion.
+| Time | Stage | Work and stop rule |
+|---|---|---|
+| 15:45-15:49 | Set up | Start the scenario and capture the expected failing baseline. Switch to fallback immediately if staging is blocked. |
+| 15:49-15:57 | Understand/Plan | Read the six artifacts. Record behaviour, claim to check, non-goal, role route, lane, and workflow. |
+| 15:57-16:17 | Implement/Test | Work one observable behaviour at a time; add one participant-owned adversarial check. At 16:10, narrow if Core is not on course. |
+| 16:17-16:23 | Review | Freeze behaviour. Read the diff line by line; for the architect route, record the bounded correction. |
+| 16:23-16:28 | Explain | Complete the handover with evidence, checked claim, blast radius, and uncertainty. |
+| 16:28-16:31 | [Private rubric](../workshop/ops/ASSESSMENT_RUBRIC.md) | Self-score the five dimensions and name one next practice action. Scores remain private. |
+| 16:31-16:35 | Preserve/reset | Run the full verifier once, record the result, and reset. |
+
+The stop times are part of the assessment. Scope control and a usable handover
+are engineering work.
 
 ---
 
-## Lanes
+## Choose one lane by 15:57
 
-| Lane | What you do |
+| Lane | Completion boundary |
 |---|---|
-| **Supported** | The selection window only, with the three dates covered by tests. Filename and formatting can be stated in prose rather than implemented. |
-| **Core** | All three outputs, tests for the three dates, the misleading-claim note, and the handover. |
-| **Extension** | Add a property-based or table-driven test that covers both DST transitions for a second year without new code paths. Then write the two sentences you would add to your own repository's durable context so this class of defect cannot recur. |
+| **Supported** | Implement and verify the selection window and record membership, including all three dates, timezone-aware UTC bounds, and the half-open boundary. Review the diff and complete the handover. Filename and display formatting remain explicitly unfinished. |
+| **Core** | Implement all four missing operations, pass the full supplied suite, add one participant-owned adversarial check, review the diff, complete the handover, and self-score. |
+| **Extension** | Only after Core evidence and the handover are complete: add one focused test of a risk not already covered, without a new dependency, and explain what failure it would detect. |
+
+A Supported attempt is intentionally allowed to fail the full verifier on the
+unfinished groups. Record which focused behaviour passed and the first remaining
+failure. Do not present it as Core.
+
+### Partial-success protocol
+
+If you are blocked or behind:
+
+1. keep the last passing behaviour and stop expanding scope;
+2. record the exact command, observed result, and first unresolved failure;
+3. state what remains unimplemented in the handover;
+4. inspect the diff you do have; and
+5. verify and reset at 16:31 with everyone else.
+
+This is an honest incomplete result, not a penalty and not a reason to skip
+Review or Explain.
 
 ---
 
-## Evidence and acceptance
+## Acceptance
 
-- [ ] Tests exist for all three business dates in the table, and they pass
-- [ ] The 23-hour and 25-hour windows are correct, not just the 24-hour one
-- [ ] The half-open boundary is tested: a record exactly at the window end is
+### Supported and Core
+
+- [ ] The baseline command and its observed starting failure are recorded
+- [ ] The plan names the requested behaviour, one claim to check, one non-goal,
+      the role route, and the chosen lane
+- [ ] One participant-owned adversarial check tests a material assumption without
+      weakening or merely copying a supplied assertion
+- [ ] The 23-, 24-, and 25-hour windows are correct and timezone-aware UTC
+- [ ] Record membership is half-open: the start is included and the end is
       excluded
-- [ ] Stored values use a dot; only display output uses a comma
+- [ ] The diff contains only work needed for the selected lane
+- [ ] The handover states what passed, what remains, and the three-part
+      uncertainty sentence
+- [ ] The private rubric was used and one next practice action was named; no
+      score was submitted
+- [ ] The full verifier result is recorded honestly, then the scenario is reset
+
+### Core adds
+
+- [ ] Selected stored amount strings are summed without binary float
+- [ ] Machine values keep a decimal point; only display output uses a comma
 - [ ] The displayed total carries its currency
 - [ ] The filename is ISO-dated and sortable
-- [ ] Your handover names the claim you rejected, or states that you found none
-- [ ] The three-part uncertainty sentence is present
-- [ ] Nothing outside `workshop/scenarios/capstone-transfer/work/` is modified
-- [ ] `python scripts/workshop.py verify capstone-transfer` passes, or its failing
-      check is copied into your Lab 7 remediation note
+- [ ] `python scripts/workshop.py verify capstone-transfer` passes
+
+The verifier checks the complete Core scenario. It does not read `NOTES.md`, so a
+green command alone is not complete transfer evidence.
 
 ---
 
-## Resync, preserve, and reset - 16:30
+## Preserve and reset - 16:31
 
-Everyone stops at 16:30 whether or not the utility is finished. Nothing in Lab 7
-depends on completing it. Run the verifier, then reset even if the utility is
-incomplete. Reset archives your attempt and prints its location before restoring
-the pre-start tree.
+Everyone stops at 16:31. Run both commands even if the utility is incomplete:
 
 ```bash
 python scripts/workshop.py verify capstone-transfer
 python scripts/workshop.py reset capstone-transfer
 ```
 
-While the room resets, three people answer one question in one sentence:
+Reset archives the attempt and prints its location before restoring the
+pre-start tree. Put that archive path and the first unfinished behaviour in the
+Lab 7 remediation line. Nothing in Lab 7 depends on a green verifier.
+
+While the room resets, answer in one sentence:
 **what did you check that you were tempted to take on trust?**
 
 ---
 
 ## Solo path
 
-This lab is already individual, so it works unchanged outside a workshop. If the
-scenario tooling is unavailable, everything you need is on this page: the task,
-the invariants, and the expected values. Write the brief yourself in three
-sentences, including one claim you are unsure about, and then test it.
+Use the same 50-minute clock and stop rules. If scenario tooling is unavailable,
+follow `workshop/fallbacks/capstone-transfer/README.md`; it contains the same
+brief, data, skeleton, tests, and handover template. No network or live Copilot
+feature is required.
 
 ---
 
 ## Hints
 
-[hints/lab_06.md](hints/lab_06.md) - three collapsed levels. Level 1 is a nudge
-about which of your assumptions is worth checking first, not a location.
+[hints/lab_06.md](hints/lab_06.md) provides process nudges only. It does not name
+which claim to challenge, prescribe code structure, or disclose a test name.
 
 ---
 
 ## Reflection and retrieval
 
-1. Which of the three outputs did you get right by knowledge, and which by
-   checking? Only the second one transfers.
-2. If you accepted the wrong claim: what would have caught it - a test, a
-   reviewer, a durable-context rule, or reading the brief more slowly?
-3. Retrieval, without looking: how many hours long is `2026-10-25` in
-   `Europe/Berlin`, and why?
-4. Where in your own codebase is there a "day" that is silently assumed to be 24
-   hours?
+1. Which result came from evidence rather than familiarity?
+2. Where did you narrow scope, and what did that preserve?
+3. Without looking: why can a Berlin business date be 23 or 25 hours?
+4. Where in your own systems is a "day" silently treated as 24 hours?
 
 ---
 

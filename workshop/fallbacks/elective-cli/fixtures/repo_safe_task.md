@@ -9,28 +9,33 @@ nothing outside this checkout.
 > Summarise how a risk metric reaches the API response in this repository, and
 > name the place where its sign convention is enforced. Do not change any file.
 
-## Commands a reasonable agent will want
+## Decision worksheet
 
-Write your verdict next to each one **before** you see it asked for. That is the
-exercise: a policy written under time pressure, mid-session, is not a policy.
+Complete every blank **before** opening the transcript. A policy invented after
+seeing an event is an explanation, not a preventive control.
 
-| Command | What it can do | Your verdict |
-|---|---|---|
-| `rg -n "<pattern>" --type py` | Read source anywhere under the working directory | |
-| `cat <file>` / `read <file>` | Read one file | |
-| `python -m pytest tests/ -q` | Execute the test suite, which executes repository code | |
-| `python -m pytest *` | Execute pytest **with any arguments**, including paths outside the repository | |
-| `git status` | Read repository state | |
-| `git stash` | **Change** your working tree | |
-| `git push` | Change a remote | |
-| `curl <url>` | Reach the network | |
-| `pip install <package>` | Change the environment the agent runs in | |
-| `rm -rf <path>` | Destroy data | |
+| Requested action | Reach or effect | Needed for this task? | `allow` / `ask` / `deny` | Current control and argument scope |
+|---|---|---|---|---|
+| `rg -n "<pattern>" --type py` | Reads matching source under the working directory | | | |
+| Read one named file | Reads its full contents | | | |
+| `python -m pytest tests/test_risk_v2.py -q` | Executes repository code in the current environment | | | |
+| A pytest command with different arguments or root | May execute or collect code beyond the intended test | | | |
+| `git status` | Reads repository state | | | |
+| `git stash` | Changes the working tree and index | | | |
+| `git push` | Changes a remote repository | | | |
+| `curl <url>` | Reaches a network destination | | | |
+| `pip install <package>` | Changes the environment and executes package installation code | | | |
+| `rm -rf <path>` | Deletes data reachable by the user account | | | |
+
+For the last column, distinguish tool availability, tool permission, path/URL
+approval, and sandbox policy. More than one layer may apply.
 
 ## Rules while you work
 
 - Before approving anything, say out loud what the command will do. If you
   cannot, deny it. The habit is the deliverable, not the outcome of any one
   approval.
-- Note which entries you were tempted to widen and why. There is usually one.
+- Note which command or argument pattern you were tempted to widen and why.
 - Do not run this in a directory that has production credentials exported.
+- In the captured route, trace a request through your policy and label the result
+  captured. Do not report it as a live CLI refusal.

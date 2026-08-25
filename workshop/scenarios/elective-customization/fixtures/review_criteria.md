@@ -1,7 +1,15 @@
 # Criteria for judging durable context
 
-Use these on the staged draft, and afterwards on whatever your own repository
-has. They are deliberately mechanical: a rule you cannot check is a wish.
+Use these before editing, after the rewrite, and after deleting one rule. They
+are deliberately mechanical: a rule you cannot check is a wish.
+
+## Evidence label
+
+- Route: `local` / `live explicitly attached`
+- Output: `local candidate` / `observed live`
+- Target role:
+- Intended production instruction path:
+- Intended `applyTo` glob, if path-scoped:
 
 | Criterion | The question | Failure looks like |
 |---|---|---|
@@ -32,3 +40,19 @@ If it is violated, this breaks: <what actually goes wrong>
 
 If either line is hard to write, the rule is not ready. Delete it or make it
 specific enough to survive the sentence.
+
+## Stable comparison
+
+Use the same input from `brief.md` before, after, and after deletion.
+
+- Starting-draft score:
+- Rewritten-draft score:
+- Rule removed:
+- Material difference, or `no material difference`:
+- Keep, rewrite, or delete:
+
+## Control boundary
+
+- Behavior this instruction can guide:
+- Deterministic control it cannot enforce:
+- Owner or system that should enforce that boundary:

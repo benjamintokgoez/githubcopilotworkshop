@@ -31,7 +31,32 @@ Record only: check, status, owner, timestamp, fallback lane, and ticket referenc
 - [ ] **Devcontainer/Codespaces:** build and reopen from a clean state; check forwarded ports, extensions, storage, timeout, and offline behavior. Keep an offline environment and prebuilt artifact as fallbacks.
 - [ ] **Privacy:** remove production/customer data and secrets from fixtures; inspect logs, screenshots, artifacts, and issue text; confirm recording/caption policy and the confidential help channel.
 - [ ] **Accessibility:** test captions, microphone, contrast, keyboard operation, screen-reader labels where applicable, document structure, quiet seat, and solo alternative.
-- [ ] **People and timing:** confirm facilitator/helper ratio (about 1:8–10), language and time zone, accessible breaks, late-arrival route, and named technical/policy escalation owners.
+- [ ] **People and timing:** confirm one helper per six participants for pilots,
+      or a floating technical producer; use 1:8-10 only after queue thresholds
+      pass. Confirm language/time zone, accessible breaks, late-arrival route,
+      and named technical/policy escalation owners.
+
+### Required capability matrix
+
+Publish `Green / Amber / Red`, owner, approved client/version, and fallback for:
+Ask/Plan/Agent, model selector/Auto, AI-credit budget, content exclusion, cloud
+agent, code review, MCP, CLI, proxy/network, and captured artifacts. Participants
+confirm their route; they do not discover enterprise policy during the workshop.
+
+Live-elective Green means:
+
+- **5A:** exact approved MCP server plus disposable host configuration tested;
+- **5B:** CLI installed, authenticated, policy-enabled, and permission behavior
+  tested;
+- **5C:** chat surface tested and explicit attachment method understood.
+
+Amber/Red selects captured/local delivery before arrival. Lab 5 never installs,
+authenticates, repairs proxy/SSL, requests policy changes, or activates
+scenario-local drafts as real client settings.
+
+Prepare one 30-second unrepresented-elective card for 5A, 5B, and 5C from the
+validated captured fixtures: evidence label, control under review, one negative
+event, and one limitation. Do not add a solution or claim live operation.
 
 ## Day-of: before doors open
 

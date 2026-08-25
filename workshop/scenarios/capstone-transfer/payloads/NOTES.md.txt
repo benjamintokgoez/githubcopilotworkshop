@@ -18,9 +18,8 @@ Ask, Plan, or Agent - and why. Model: Auto or an approved model - and why.
 
 ## 3. The claim I checked
 
-The brief contains at least one confident claim that does not survive checking.
-Name the one you rejected and how you established it was wrong - or state
-honestly that you found none.
+Name one material claim or assumption you checked, the evidence you used, and
+your accept, amend, or reject decision.
 
 <fill in>
 

@@ -1,108 +1,170 @@
 # Elective 5A - Secure MCP context
 
-**Block:** 15:15-15:55 (40 minutes) - **Scenario:** `elective-mcp`
+**Block:** 15:00-15:35 (35 minutes) - **Scenario:** `elective-mcp`
 **Parent:** [Lab 5 - Elective](lab_05_elective.md)
 
 ---
 
 ## Outcome
 
-You connect an assistant to an external context source through MCP with the
-narrowest useful permissions, you can say what data leaves your machine and what
-does not, and you know which of these decisions is yours and which belongs to your
-administrator.
+You reduce one local MCP configuration, trace a positive and a negative tool
+event to the layer that controlled it, and write a defensible platform decision.
+Connecting a new server is **not** the outcome and is not part of the timebox.
+
+Work in `workshop/scenarios/elective-mcp/work/`. If staging or live MCP is
+unavailable, use `workshop/fallbacks/elective-mcp/`.
+
+## Route decision
+
+| Delivery mode | Use this material | What it proves |
+|---|---|---|
+| **Captured/local** | Sample `mcp.json`, tool inventory, configuration notes, captured tool log | Engineering and control analysis; no claim that a server was operated |
+| **Live addition** | The same artifacts plus one already-approved, already-running local server | Whether this host/server combination behaved as recorded today |
+| **Follow-up** | GitHub MCP Server or enterprise allowlist proposal | Awareness only; do not install, authenticate, or request registry approval during this block |
+
+If live eligibility was not Green at T-72, use captured/local mode immediately.
+If a Green server does not answer by **15:03**, switch to the capture. Do not
+replace evidence work with connection troubleshooting.
 
 ---
 
-After starting the scenario from the parent lab, record your work in
-`workshop/scenarios/elective-mcp/work/`. The captured no-live path is under
-`workshop/fallbacks/elective-mcp/`.
+## Understand/Plan (5 minutes)
+
+MCP is a protocol boundary. Four different control layers can be involved:
+
+| Layer | It can control | It does not prove |
+|---|---|---|
+| **Enterprise/client policy** | Whether a client may start or connect to a server | That a permitted server or tool is safe |
+| **Host configuration** | Process command, environment, working directory, and local stdio sandbox rules | Which capabilities the server registered or whether tool input is valid |
+| **Client tool selection and approval** | Which offered tools the model can select and whether a user is prompted | Server-side authorization, OAuth/PAT scope, or process confinement |
+| **Server implementation and upstream identity** | Registered tools, argument validation, authorization, and data returned | That the host confined a buggy process or that returned data was minimal |
+
+Answer before editing:
+
+1. What can the **process** reach?
+2. What can the **registered tools** reach?
+3. What data enters model context or leaves the machine?
+4. Which layer will produce each piece of evidence?
+
+### Current product boundaries - as of 2026-08-25
+
+- The GitHub MCP Registry is **public preview**. Discovery through a registry is
+  not the same as enterprise approval.
+- GitHub documents enterprise `managed-settings.json` MCP allowlists as
+  **generally available** and stronger than private-registry restriction. MCP is
+  policy-dependent for Business and Enterprise seats, and the policy is disabled
+  by default.
+- Individual GitHub MCP Server tools retain the plan and feature permissions of
+  the GitHub capability they call. Its default toolsets are not a promise of
+  read-only operation.
+- The GitHub MCP Server supports a server-side `--read-only` mode. Toolsets reduce
+  the offered surface; read-only mode removes write tools. Neither changes the
+  signed-in identity's upstream access.
+- Enterprise `managed-settings.json` allowlists govern supported IDE/CLI clients;
+  cloud-agent MCP is configured separately at repository or custom-agent level.
+  A private registry is preview and weaker enforcement, not an equivalent
+  replacement.
+- VS Code documents `sandboxEnabled` and top-level `sandbox` rules for local
+  stdio servers on macOS and Linux. When enabled, tool confirmations are
+  auto-approved because the server runs in a controlled environment. That
+  trades per-call confirmation for standing filesystem/network rules; it does
+  not add server authorization and is not portable to every host.
+- Approval and sandbox behavior still depends on the supported client and
+  version. Inspect proposed calls and verify the exact host policy at T-72.
+
+Official references:
+
+- <https://docs.github.com/en/copilot/concepts/context/mcp>
+- <https://docs.github.com/en/copilot/concepts/mcp-management>
+- <https://docs.github.com/en/copilot/how-tos/provide-context/use-mcp-in-your-ide/configure-toolsets>
+- <https://github.com/github/github-mcp-server#read-only-mode>
+- <https://code.visualstudio.com/docs/agent-customization/mcp-servers>
+- <https://code.visualstudio.com/docs/agents/reference/mcp-configuration>
 
 ---
 
-## Understand/Plan (7 minutes)
+## Implement/Test (13 minutes)
 
-MCP lets a chat session reach tools and data outside the editor: repositories,
-issues, documentation, internal services. That is exactly why it is a governance
-surface and not just a convenience.
+### Captured/local mode
 
-Three questions to answer before you configure anything:
+1. Read `fixtures/tool_inventory.md` and identify the maximum reach of each
+   offered tool. Do not confuse intended use with capability.
+2. Reduce `work/mcp_config_reduced.json`:
+   - remove environment and development access the server does not need,
+   - choose and defend one documented VS Code host posture: keep per-call
+     confirmations with the sandbox disabled, or enable `sandboxEnabled` and add
+     the narrowest top-level filesystem/network rules you can defend,
+   - label an unexecuted edited policy proposed, and state platform/client
+     limitations.
+3. In `work/permission_inventory.md`, trace at least three captured events:
+   tool selection, one accepted bounded result, and one refusal. For each, name
+   the client, sandbox, server registration, server validation, or upstream
+   authorization as the controlling layer.
+4. Mark sandbox outcomes that you did not run as **predicted**, not observed. The
+   capture proves the server's registration and validation behaviour; it does
+   not prove your edited sandbox policy.
 
-1. **What can this server read?** Not what you intend to use it for - what it is
-   capable of reaching.
-2. **Where does the data go?** Local process, your network, a vendor's service?
-3. **Who approved it?** Your organisation may operate an allowlist or a private
-   registry, in which case the answer is "not you, and that is correct".
+### Optional live addition
 
-References:
-<https://docs.github.com/en/copilot/concepts/context/mcp> ,
-<https://docs.github.com/en/copilot/how-tos/provide-context/use-mcp-in-your-ide/extend-copilot-chat-with-mcp> ,
-<https://docs.github.com/en/copilot/concepts/mcp-management> ,
-<https://code.visualstudio.com/docs/agent-customization/mcp-servers> ,
-<https://code.visualstudio.com/docs/agents/reference/mcp-configuration>
+Use only the preflight-approved local server. Record the tool list, one call
+whose result contains a fresh value, and the host's tool-call record. Do not add
+the GitHub MCP Server or authenticate a new service during the block.
 
----
-
-## Implement/Test (18 minutes)
-
-1. Configure **one** MCP server in this workspace. The local QuantCore server is
-   the safe choice; the GitHub MCP server is the realistic one if your policy
-   permits it
-   (<https://docs.github.com/en/copilot/how-tos/provide-context/use-mcp-in-your-ide/set-up-the-github-mcp-server>).
-2. **Reduce it.** Enable the smallest set of tools that makes your task possible.
-   If the server supports toolsets or read-only modes, use them
-   (<https://docs.github.com/en/copilot/how-tos/provide-context/use-mcp-in-your-ide/configure-toolsets>).
-   Write down what you disabled and why.
-3. **Use it for something real**: ask a question that can only be answered with the
-   external context, and confirm the answer actually came from the tool rather
-   than from the model's guess.
-4. **Read the approval boundary.** Without sandboxing, read each proposed tool
-   call before approving it. Current VS Code auto-approves calls for a server
-   with `sandboxEnabled: true`, so in that path inspect the sandbox policy and
-   server output instead: an inaccurate allow rule is now the boundary you
-   trusted.
-5. Record: which tools were offered, which you allowed, and what a malicious or
-   buggy tool could have done with that permission.
+**Cut at 15:18:** you now need a reduced configuration and an evidence trace.
+Stop improving the rules.
 
 ---
 
-## Review: break it on purpose (5 minutes)
+## Review: test the boundary (7 minutes)
 
-Ask for something **outside** the permission you granted - a write when you allowed
-reads, or a resource outside the configured scope. Observe what happens: refusal,
-an approval prompt, or silent success. Record the actual behaviour, not the
-expected one.
+Choose one negative case whose enforcing layer you can identify:
+
+- request a tool that the read-only server never registered,
+- pass an argument outside a documented server bound,
+- in a preflight-green live sandbox, request access outside an allowed path or
+  domain.
+
+Record the request and result. A model refusal is not equivalent to a client
+deny, a sandbox error, an unknown tool, or a server validation error. For the
+captured route, trace an existing failed call and label it captured.
+
+Then name two non-goals. Examples of relevant categories are malicious server
+code, excessive but valid output, stolen upstream credentials, prompt injection
+inside returned content, or unsupported operating systems. Select the ones your
+evidence actually supports.
 
 ---
 
-## Explain (5 minutes)
+## Explain (4 minutes)
 
-Complete the platform-team paragraph in `work/permission_inventory.md`: what the
-server reaches, what you disabled, what approval you need, and what the
-configuration still cannot protect against.
+Complete the platform-team paragraph in `work/permission_inventory.md`:
+
+- server and transport,
+- process and data reach,
+- tools offered/enabled/absent,
+- positive and negative evidence source,
+- approval owner and policy status,
+- residual risk and monitoring requirement.
+
+### Role lens
+
+- **Developer:** Could you reproduce which tool ran and why the result was
+  accepted?
+- **Architect/platform owner:** Could you approve this exact server identity,
+  command/URL, authentication scope, and process reach without approving a
+  category of unknown servers?
 
 ---
 
 ## Business invariant at stake
 
-**Data minimisation is a design constraint, not a preference.** A context source
-that can read more than the task requires is a finding, even when nothing bad has
-happened yet. See
+**Data minimisation is a design constraint, not a preference.** A source that can
+read more than the task requires is a finding even if no misuse occurred. See
 [reference/dach_conventions.md](reference/dach_conventions.md#3-data-protection-datenschutz-and-data-minimisation).
 
-In a DACH enterprise, "which internal systems may an assistant reach" is a
-Datenschutz question and often a Betriebsrat question. Your configuration is a
-draft proposal, not a decision.
-
----
-
-## Lanes
-
-| Lane | What you do |
-|---|---|
-| **Supported** | Configure the local server, list its tools, and answer the three understanding questions in writing. |
-| **Core** | The full Do and Break-it sections, with the permission inventory written down. |
-| **Extension** | Draft the paragraph you would send to your platform team proposing an allowlist entry: what the server is, what it reaches, what you disabled, what you need approved, and what you would monitor. |
+In a DACH enterprise, access to internal systems can involve privacy, security,
+and works-council review. This lab produces a proposal and evidence, not
+organisational approval.
 
 ---
 
@@ -110,30 +172,35 @@ draft proposal, not a decision.
 
 See the [shared acceptance list](lab_05_elective.md#shared-acceptance), plus:
 
-- [ ] A written inventory: tools offered / tools enabled / tools disabled
-- [ ] Evidence that an answer came from the tool, not the model
-- [ ] The negative-case result, recorded as observed
-- [ ] One sentence naming what MCP configuration does **not** protect against
+Supported completes the first three branch items on one positive and one negative
+event and records the actual verifier result. Core completes every item below
+and requires the structural verifier to pass.
+
+- [ ] Inventory of tools offered, enabled, disabled, or never registered
+- [ ] Process reach separated from tool capability and upstream authorization
+- [ ] One positive and one negative event attributed to an enforcing layer
+- [ ] Live, captured, and predicted statements labelled accurately
+- [ ] One sentence explaining why tool annotations and toolsets are not
+      authorization
 
 ---
 
 ## Solo path
 
-Everything here works with the local server and no network beyond your existing
-Copilot connection. If your organisation blocks MCP entirely, do the understanding
-questions and the extension paragraph - the governance reasoning is most of the
-value and needs no server.
+Use the supplied configuration and capture. Produce the same reduced file,
+three-event control trace, negative case, and platform paragraph. If policy
+blocks MCP, record the policy owner and evaluate the proposed configuration
+without trying to bypass the policy.
 
 ---
 
 ## Reflection and retrieval
 
-1. If this server were compromised tomorrow, what is the worst thing it could have
-   done with the permissions you granted today?
-2. Retrieval: what is the difference between a tool being *available* and a tool
-   being *approved*?
-3. Who in your organisation currently decides which MCP servers are permitted? If
-   the answer is "nobody", that is your finding.
+1. If the server process were hostile, what could it reach before any tool was
+   called?
+2. What is the difference between a tool being offered, selected, approved, and
+   authorized upstream?
+3. Which statement in your note is observed, and which is only predicted?
 
 ---
 

@@ -71,7 +71,7 @@ rationalised afterwards.
 | 3 | `migration-legacy-models` | `issue.md`, staged legacy module set, `acceptance.md` |
 | 4 | `review-pr` | Pre-created PR diff, PR description, review thread, agent session transcript, captured automated code-review result |
 | 5 | `elective-mcp`, `elective-cli`, `elective-customization` | Elective-specific briefs and sample configuration |
-| 6 | `capstone-transfer` | Task brief, sample input, expected values, one misleading clue |
+| 6 | `capstone-transfer` | Task brief, sample input, expected values, utility skeleton, and acceptance suite |
 
 Artifacts live under `workshop/scenarios/<scenario-id>/`. Captured, non-live
 copies - used when there is no network, no cloud agent, or no time - live under
@@ -120,8 +120,8 @@ Nothing in this workshop assumes a feature is enabled for you.
   controlled by enterprise and organisation policy:
   <https://docs.github.com/en/copilot/concepts/policies> and
   <https://docs.github.com/en/copilot/reference/supported-surfaces-for-policies>.
-- Premium request consumption and spending budgets are real constraints in many
-  organisations:
+- AI-credit allowances, paid usage, and spending budgets are real constraints in
+  many organisations:
   <https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing>.
 - If a lab step is blocked by policy, record it in your evidence note as a finding.
   "This workflow is not available to my team, and here is what I would need from

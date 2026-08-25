@@ -1,118 +1,143 @@
 # Hints - Lab 5 (electives)
 
-General: 40 minutes is enough to configure one thing and test it. It is not enough
-to configure three things and test none. If you are running out of time, cut the
-configuration, never the verification.
+Use one level at a time. These prompts help you inspect your own evidence; they
+do not provide configuration values or a finished policy.
+
+**Time recovery:** at 15:18, stop adding controls. Move to the supplied capture
+if necessary, then complete the negative case and explanation. A labelled
+captured result is stronger than an unfinished live claim.
+
+Use L1 at 15:06 if the control/evidence boundary is not written, L2 at 15:12 if
+no positive trace exists, and L3 at 15:18 to finish. The same gates apply to all
+three branches.
 
 ## 5A - Secure MCP context
 
 <details>
-<summary><strong>L1 - Orientation</strong></summary>
+<summary><strong>L1 - Re-orient</strong></summary>
 
-- Start by listing what the server exposes before you use any of it. The inventory
-  is the deliverable, not the demo.
-- "Read-only" is a property you should verify, not a label you should trust.
-
-</details>
-
-<details>
-<summary><strong>L2 - Method</strong></summary>
-
-- Prove the answer came from the tool: ask something that cannot be answered from
-  the repository text alone, then check the tool call actually happened.
-- Turn off half the tools and try your task again. If it still works, you did not
-  need them - that is your least-privilege configuration.
+- Write four headings before looking at settings: enterprise/client, host
+  process, client tool approval, and server/upstream.
+- Put every control you plan to claim under exactly one heading. Which heading is
+  empty, and is that intentional?
+- Mark every evidence sentence `observed`, `captured`, or `predicted`.
 
 </details>
 
 <details>
-<summary><strong>L3 - Structure</strong></summary>
+<summary><strong>L2 - Diagnose</strong></summary>
 
+- Follow one successful call from model selection to returned data. At which
+  steps could it have been stopped?
+- Follow one failed call. What error distinguishes a missing tool, invalid input,
+  sandbox refusal, client denial, and upstream authorization failure?
+- Compare process reach with tool reach. Which is larger?
+
+</details>
+
+<details>
+<summary><strong>L3 - Evidence frame</strong></summary>
+
+```text
+Route and platform:
+Server identity and transport:
+Process reach:
+Tool capability:
+Positive event -> controlling layer -> evidence:
+Negative event -> controlling layer -> evidence:
+Predictions not run:
+Residual risk:
+Approval owner:
 ```
-Server:            <name, how it runs, where it runs>
-Reaches:           <systems and data it can touch>
-Tools offered:     <list>
-Tools enabled:     <list>  Why: <one line each>
-Tools disabled:    <list>  Why: <one line each>
-Negative test:     <what you asked for outside scope> -> <what actually happened>
-Not protected against: <one sentence>
-Approval needed from: <role>
-```
+
+If two rows cite the same evidence for different layers, revisit the attribution.
 
 </details>
 
-## 5B - CLI permissions and sandboxing
+## 5B - CLI permissions and confinement
 
 <details>
-<summary><strong>L1 - Orientation</strong></summary>
+<summary><strong>L1 - Re-orient</strong></summary>
 
-- Before configuring anything, run one session and simply count the approval
-  prompts. That count is your baseline.
-- Start the session in a directory whose contents you are willing to lose.
+- Separate "the model cannot see this tool" from "the tool is visible but cannot
+  run" and "the tool can run only after a prompt."
+- For captured work, fill the verdict column before opening the transcript.
+- Name the directory, credentials, network, and user account in the blast radius.
 
 </details>
 
 <details>
-<summary><strong>L2 - Method</strong></summary>
+<summary><strong>L2 - Diagnose</strong></summary>
 
-- Allowlist the narrowest thing that removes a prompt you saw, then re-run and
-  confirm exactly that prompt disappeared and no other did.
-- Test the boundary deliberately. An untested control is a belief.
-- If an entry grants more than you expected, that is the finding worth reporting
-  at 15:50.
+- Take the broadest rule and vary only its arguments. Does your reasoning still
+  produce the same verdict?
+- For a shell request, ask which control evaluates the tool name, command,
+  filesystem path, URL, and process environment. Do not assign all five to one
+  flag.
+- Check whether the evidence is a live refusal or a policy trace. Label it before
+  drawing a conclusion.
 
 </details>
 
 <details>
-<summary><strong>L3 - Structure</strong></summary>
+<summary><strong>L3 - Evidence frame</strong></summary>
 
+```text
+Evidence route:
+Unmatched-action default:
+Tool visibility decision:
+Permission decision:
+Path/URL decision:
+Broadest grant and argument scope:
+Negative request -> evaluation -> result:
+Confinement not provided by this policy:
+Shared/CI difference:
+Audit evidence:
 ```
-Default posture:     <prompt for everything / free-running>
-Allowlisted:         <entries>  Scope each one actually grants: <...>
-Still gated:         <what remained>
-Negative test:       <request> -> <observed behaviour>
-Would allow on a shared or CI machine:   <...>
-Would never allow there:                 <...>
-Not protected against:                   <one sentence>
-```
+
+A rule that says only "safe commands" or "read-only" needs another pass.
 
 </details>
 
 ## 5C - Customization
 
 <details>
-<summary><strong>L1 - Orientation</strong></summary>
+<summary><strong>L1 - Re-orient</strong></summary>
 
-- Capture the "before" output first. Without it you cannot show the rules did
-  anything.
-- Pick rules from today's invariants. They are already specific, which is exactly
-  what makes a rule effective.
-
-</details>
-
-<details>
-<summary><strong>L2 - Method</strong></summary>
-
-- A rule you cannot check is a wish. Rewrite "write clean code" as something a
-  reviewer could mark pass or fail.
-- Verify the rule is applied by omitting it from your prompt entirely. If you have
-  to mention it, the durable context is not doing the work.
-- Distinguish shaping from enforcing: anything that must be guaranteed belongs in a
-  test or a CI check.
+- Keep the task exactly the same before and after.
+- State whether the draft was explicitly attached, scored locally, or
+  automatically discovered. These are different claims.
+- Give each rule one scope and one reviewer-visible check.
 
 </details>
 
 <details>
-<summary><strong>L3 - Structure</strong></summary>
+<summary><strong>L2 - Diagnose</strong></summary>
 
+- For each rule, write one output that passes and one that fails. If both are
+  plausible, make the rule more specific.
+- Ask whether the rule applies to most repository work, one path, one repeatable
+  task, or one person's preferences.
+- For the contradiction case, identify what would make the result deterministic:
+  test, lint, CI, permission, review, or hook.
+
+</details>
+
+<details>
+<summary><strong>L3 - Evidence frame</strong></summary>
+
+```text
+Route and exact task:
+Before measure:
+After measure:
+Rule -> scope -> reviewer check -> failure impact:
+Rule removed or rewritten -> evidence:
+Contradiction -> observed or analysed result:
+Deterministic control still needed:
+Discovery claim you did not test:
+Owner and review date:
 ```
-Task used for before/after: <small, repeatable>
-Rule 1: <checkable statement>   Observable effect: <yes/no, what changed>
-Rule 2: ...
-Rule 3: ...
-Deleted: <rule with no observable effect>
-Needs a test or CI check instead: <which rules>
-Where it lives: <repository / path-scoped / personal>  Why: <one line>
-```
+
+If the "after" is only longer, you have measured volume rather than quality.
 
 </details>

@@ -4,36 +4,37 @@ Take the smallest hint that unblocks you. Stopping after L1 is a better outcome
 than reading all three.
 
 <details>
-<summary><strong>L1 - Orientation</strong> (where to look, what to ask first)</summary>
+<summary><strong>L1 - Orientation</strong> (take after 3 minutes without a claim)</summary>
 
 - You are not looking for a defect. You are looking for **claims**: sentences in
   the explanation that are either true or false about this code.
-- Good first question shape: "How does this module compute its result, and what
-  sign and scaling conventions does it use?" Not "is this correct?"
+- Ask for the computation path and its sign, unit, scaling, and boundary
+  conventions. Avoid "is this correct?"; it invites a conclusion instead of
+  evidence.
 - A claim you can check in two minutes is worth more than a claim that is more
   interesting.
+- No live response? Use the offline statement in the lab. Product access is not
+  the learning objective.
 
 </details>
 
 <details>
-<summary><strong>L2 - Method</strong> (which step you are skipping)</summary>
+<summary><strong>L2 - Method</strong> (take after 8 minutes without evidence)</summary>
 
 - If you are stuck, you are probably still in Ask and have not moved to
-  verification. Verification means running something or reading the specific lines
-  the claim is about.
-- Turn each claim into a yes/no question with an observable answer. "Vega is
-  scaled per percentage point" becomes "does the returned vega match `0.391043`
-  for the reference inputs?"
-- The reference inputs and expected values are in
-  [../reference/invariants.md](../reference/invariants.md). Use them instead of
-  inventing your own.
+  verification. Close or collapse the response and work from the claim alone.
+- Turn one claim into a yes/no question with an observable answer. Match it to
+  the relevant invariant, reuse that invariant's reference inputs, and compare
+  the observed value or code path with the documented convention.
+- A precise line reference is valid evidence when execution is unavailable. An
+  uncited restatement by the assistant is not.
 
 </details>
 
 <details>
-<summary><strong>L3 - Structure</strong> (the shape of a good answer)</summary>
+<summary><strong>L3 - Structure</strong> (take at 14 minutes and finish)</summary>
 
-A complete Part B result looks like this:
+Use this evidence shape; it contains no expected answer:
 
 ```
 Claim 1: <statement>  -> verified by: <command or line reference> -> holds / does not hold
@@ -45,6 +46,8 @@ I assumed ...
 It could still be wrong if ...
 ```
 
-If a claim does not hold, write it down and move on. Lab 2 is where changes start.
+Supported lane: complete one verified claim, one open claim, and the uncertainty
+sentence. Core: complete all three lines. If a claim does not hold, record the
+contradiction and move on; this lab does not change code.
 
 </details>

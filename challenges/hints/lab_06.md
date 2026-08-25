@@ -1,51 +1,44 @@
 # Hints - Lab 6 (capstone)
 
-These hints deliberately do not tell you which claim in the brief is wrong, and no
-level names a library or an implementation.
+These hints support the loop without prioritising a claim, prescribing code
+structure, giving a solution, or naming a test.
 
 <details>
-<summary><strong>L1 - Orientation</strong> (which assumption to check first)</summary>
+<summary><strong>L1 - Frame the evidence</strong> (take at 15:55 without a bounded plan and first check)</summary>
 
-- List every assumption the brief makes about **time** before you write code.
-  There are more than you think, and they are the ones with expected values printed
-  in the lab.
-- The three business dates in the acceptance table were not chosen at random. Ask
-  yourself why those three.
-- If a suggestion arrives with a constant in it, ask where that constant came from
-  and when it stops being true.
+- Make four columns: requested behaviour, source of the claim, evidence that
+  would confirm or reject it, and explicit non-goal.
+- Treat the issue, acceptance document, sample data, and checks as separate
+  evidence. Record any disagreement before deciding what to trust.
+- Mark every boundary where a value changes meaning or representation. Ask what
+  must remain true on each side.
 
 </details>
 
 <details>
-<summary><strong>L2 - Method</strong> (which step you are skipping)</summary>
+<summary><strong>L2 - Recover a vertical slice</strong> (take at 16:05 without a passing slice)</summary>
 
-- Write the three window tests first. They are the specification, and they will
-  reject a wrong approach in seconds rather than in review.
-- Keep computation and formatting apart. If a formatted string can reach an
-  arithmetic path, you have a defect waiting for a bigger number.
-- Test the boundary explicitly: a record whose timestamp equals the window end
-  belongs to the next day.
-- Do not extend the task. Any output beyond the three that were asked for is scope
-  creep, and scope is on the acceptance list.
+- Choose one observable acceptance behaviour. Run its narrowest available check,
+  make the smallest related change, and run that check again.
+- When a check passes, state what it rules out and what it does not cover.
+- Read the current diff before starting another behaviour. Remove anything you
+  cannot connect to acceptance.
+- If five minutes pass without new evidence, narrow to Supported and record the
+  first unresolved failure instead of broadening the change.
 
 </details>
 
 <details>
-<summary><strong>L3 - Structure</strong> (the shape of a good result)</summary>
+<summary><strong>L3 - Finish safely</strong> (take at 16:17 and finish)</summary>
 
-```
-workshop/scenarios/capstone-transfer/work/
-  daily_export.py       window(business_date) -> (start_utc, end_utc)
-                        filename(business_date) -> str
-                        display_total(amount, currency) -> str
-  test_daily_export.py  three dated window cases, one boundary case,
-                        one filename case, one formatting case
-  NOTES.md              workflow + model choice, the claim you rejected,
-                        the three-part uncertainty sentence
-```
-
-Acceptance targets are printed in the lab: three windows, one filename, one
-formatted total. If your tests assert those values and pass, you are done - resist
-adding more.
+- At 16:17, stop adding behaviour even if a check still fails.
+- Make the handover usable: task and invariant, claim checked and evidence,
+  command and observed result, files changed and non-goals, then the three-part
+  uncertainty sentence.
+- For a partial result, say exactly which behaviour is complete and which is
+  next. Do not turn a failing full check into a success-shaped summary.
+- Use the private rubric before the final check. Run the full verifier once,
+  record the result, and reset so the
+  archive preserves the attempt.
 
 </details>

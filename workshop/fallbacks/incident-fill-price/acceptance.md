@@ -2,27 +2,25 @@
 
 ## The check
 
-```bash
-python scripts/workshop.py verify incident-fill-price
-```
-
-which runs exactly this, from the repository root:
+After copying both files from `staged_copy/` to a participant-owned directory and
+removing only their trailing `.txt` suffixes, run this from the copied directory:
 
 ```bash
-python -m unittest discover \
-  -s workshop/scenarios/incident-fill-price/work \
-  -t workshop/scenarios/incident-fill-price/work \
-  -p "test_*.py"
+python -m unittest discover -s . -t . -p "test_*.py"
 ```
 
-`pytest workshop/scenarios/incident-fill-price/work -q` runs the same checks if
-you prefer pytest. Neither command needs project dependencies.
+The command needs Python but no project dependencies. If Python is unavailable,
+use `captured_acceptance_output.txt` only as labelled fail-before evidence and
+follow the read-only Supported route in `README.md`.
 
 ## Run it before you change anything
 
-The scenario stages the failing state; your checkout was green before `start`.
-Run the check now, while the code is untouched, and keep the output. That is your
-fail-before evidence, and no evidence you collect later can replace it.
+Run the copied check before editing either copied file and keep the output. That
+is your fail-before evidence. The supplied captured output can replace this step
+only when execution is unavailable; it cannot prove pass-after.
+
+Keep the copied acceptance check unchanged. Add a separate focused regression
+check for your own fail-before/pass-after evidence.
 
 ## What the check asserts
 
@@ -36,23 +34,24 @@ fail-before evidence, and no evidence you collect later can replace it.
 ## What the check is not
 
 - It is not a file list. It never names the function you have to change.
-- It is not editable. Weakening an assertion, deleting a case, or making the
-  expected value follow the observed one is a failed lab, and `reset` will show
-  the difference.
+- It is not participant implementation space. Weakening an assertion, deleting a
+  case, or making the expected value follow the observed one invalidates the
+  evidence.
 - It is not sufficient on its own. Acceptance is the floor: the lab also asks for
   a regression test you can defend and a handover the desk can read.
 
 ## Passing
 
-`verify` prints a `Summary: 1/1 acceptance checks passed` line and exits 0. Paste
-the fail-before and the pass-after output into your evidence note, in that order,
-with the command above.
+The command exits 0 when all copied checks pass. Paste the fail-before and
+pass-after output into your evidence note, in that order, with the command above.
 
-## Restore
+Passing is required for Core. A read-only or incomplete Supported result records
+the failure or `not run`, the bounded next action, and the uncertainty without
+claiming a pass.
 
-```bash
-python scripts/workshop.py reset incident-fill-price
-```
+## Clean up
 
-Your edited files are archived under `.workshop-state/attempts/` first, then the
-pre-start bytes are restored exactly.
+This fallback route has no active scenario, so `reset` does not apply. Preserve
+your evidence according to the workshop data policy, then remove only the
+participant-owned working copy you created. Do not edit or delete the versioned
+fallback files.

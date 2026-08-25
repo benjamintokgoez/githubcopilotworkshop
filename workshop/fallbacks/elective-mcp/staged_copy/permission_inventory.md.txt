@@ -28,7 +28,7 @@ One sentence per disabled tool: why it is not needed for your task.
 <fill in>
 
 - Where the control lives: <fill in - name the layer for each restriction: mcp.json process configuration, client tool picker and approval settings, or the server's own registration and validation>
-- Approval boundary: <fill in - is per-call confirmation still in play, or did you enable the sandbox and trade confirmations for policy rules? Say which, and what that means for the rules you wrote>
+- Approval boundary: <fill in - did the evidence use per-call confirmation, or does your proposed VS Code configuration set sandboxEnabled and trade confirmations for standing rules? Label proposed versus observed>
 
 ## 3. Evidence the answer came from the tool
 
@@ -44,8 +44,9 @@ call, and what came back that the model could not have produced on its own.
 
 ## 5. What MCP configuration does not protect against
 
-Two concrete things. A control whose boundary you cannot name is a belief. Say
-something about the platforms where the sandbox does not apply, too.
+Two concrete things. A control whose boundary you cannot name is a belief. If
+you propose VS Code sandboxing, include its host/platform limits and what you
+did not execute.
 
 <fill in>
 

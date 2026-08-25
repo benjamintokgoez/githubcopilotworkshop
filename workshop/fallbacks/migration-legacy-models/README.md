@@ -24,9 +24,9 @@ without it.
 ## Working without the tooling
 
 1. Copy `staged_copy/` into a directory you can edit.
-2. Capture your baseline **before** touching anything: serialise one valid and one
-   invalid input through every callable listed in `inventory.md` and save the
-   output.
+2. Create `MIGRATION_NOTES.md`. Before touching code, capture one valid instrument
+   and quote through their public parser, payload, and JSON paths, plus one
+   invalid case per model family through the public error boundary.
 3. Run the checks from that directory:
 
    ```bash
@@ -36,8 +36,18 @@ without it.
    In the starting state most checks pass and the migration checks fail. That
    split is the point: the passing ones are your contract, the failing ones are
    your target.
-4. Plan, batch, execute, and verify between batches. Re-run the command after
-   each batch, and diff your serialised output against the baseline from step 2.
+4. Save and edit the plan. Record at least two changes you made to its draft.
+   Explicitly attach or reference `MIGRATION_NOTES.md` when using it as agent
+   context; its location alone does not make it automatic context.
+5. Batch, execute, and verify. Re-run the command after each batch and diff the
+   public output against step 2. Start no new batch after 13:16, freeze edits at
+   13:26, and preserve an honest handover before reset by 13:35.
+
+The supplied `captured_acceptance_output.txt` is valid fail-before evidence for
+the fallback route, but label it as captured rather than personally executed.
+Completion of the supplied checks and useful supervision evidence are separate:
+Core needs both; Supported may finish with one verified batch and a red final
+check.
 
 ## What is deliberately not here
 

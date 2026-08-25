@@ -2100,6 +2100,11 @@ ALLOWED_URL_HOSTS = (
     "example.invalid",
 )
 
+ALLOWED_URL_PREFIXES = (
+    "https://github.blog/changelog/",
+    "https://github.com/github/github-mcp-server",
+)
+
 
 class TestContentHygiene:
     def test_no_file_is_named_like_an_answer_key(self) -> None:
@@ -2123,7 +2128,12 @@ class TestContentHygiene:
                     while index != -1:
                         rest = line[index + len(scheme) :]
                         host = rest.split("/")[0].strip("<>()[], ")
-                        assert host in ALLOWED_URL_HOSTS, f"{path}: unexpected host {host}"
+                        allowed_prefix = any(
+                            line[index:].startswith(prefix) for prefix in ALLOWED_URL_PREFIXES
+                        )
+                        assert host in ALLOWED_URL_HOSTS or allowed_prefix, (
+                            f"{path}: unexpected host {host}"
+                        )
                         index = line.find(scheme, index + 1)
 
     def test_no_email_addresses_in_workshop_content(self) -> None:

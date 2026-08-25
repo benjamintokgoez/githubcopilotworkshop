@@ -12,7 +12,7 @@ where they are operationally useful in a DACH workplace.
 ## The loop you practise all day
 
 ```
-Understand/Plan  ->  Implement/Test  ->  Review  ->  Explain
+Understand/Plan -> Implement/Test -> Review -> Explain
 ```
 
 Every lab is one or more turns of this loop. You stay the operator: you decide
@@ -45,12 +45,12 @@ independent transfer. The table below is the timed delivery sequence.
 | before the day | [Lab 0 - Preflight](lab_00_preflight.md) | Environment, access, policy | Individual |
 | 09:00-09:20 | [Lab 0 - Landing](lab_00_preflight.md#on-the-day-0900-0920-landing-check) | Confirm preflight, recover stragglers | Individual |
 | 09:20-10:00 | [Lab 1 - Operator model](lab_01_operator_model.md) | Worked example of the loop | Pairs |
-| 10:15-11:25 | [Lab 2 - Guided incident](lab_02_incident_triage.md) | Authentic incident, end to end | Pairs |
-| 12:30-13:55 | [Lab 3 - Plan-driven migration](lab_03_plan_driven_migration.md) | Legacy Pydantic migration under a plan | Pairs |
-| 14:10-14:55 | [Lab 4 - Review and delegation](lab_04_review_and_delegation.md) | Review a pre-created PR; optional cloud agent | Pairs |
-| 15:15-15:55 | [Lab 5 - Elective](lab_05_elective.md) | Exactly one of three | Pairs or solo |
-| 15:55-16:35 | [Lab 6 - Capstone](lab_06_capstone_transfer.md) | Unseen, domain-light transfer task | Individual |
-| 16:35-16:55 | [Lab 7 - Close](lab_07_close_and_adoption.md) | Remediation, retrieval, adoption | Whole room |
+| 10:15-11:20 | [Lab 2 - Guided incident](lab_02_incident_triage.md) | Authentic incident, end to end | Pairs |
+| 12:30-13:40 | [Lab 3 - Plan-driven migration](lab_03_plan_driven_migration.md) | Contract-preserving migration under a plan | Pairs |
+| 13:55-14:40 | [Lab 4 - Review and delegation](lab_04_review_and_delegation.md) | Human review plus captured automated comparison | Pairs |
+| 15:00-15:35 | [Lab 5 - Elective](lab_05_elective.md) | Exactly one bounded elective | Pairs or solo |
+| 15:45-16:35 | [Lab 6 - Capstone](lab_06_capstone_transfer.md) | Unseen, domain-light transfer task | Individual |
+| 16:35-17:00 | [Lab 7 - Close](lab_07_close_and_adoption.md) | Retrieval and one-action adoption | Whole room |
 
 Full timing, including breaks and the 60 minutes of protected slack, is in the
 [workshop README](../README.md#agenda-one-day).
@@ -63,18 +63,22 @@ Labs 2-6, use `python scripts/workshop.py resync <scenario-id> --blocked-at
 <phase>` to continue with the remaining loop stages, then verify and reset at the
 room checkpoint. The route preserves honest evidence and never inserts a solution.
 
-## Three lanes, one bar
+## Achievement lanes and delivery modes
 
 Every lab offers three lanes. Choose per lab, not once for the day. Changing lanes
 mid-lab is normal and carries no penalty.
 
-| Lane | Who it is for | What changes |
+| Lane | What it proves | What changes |
 |---|---|---|
-| **Supported** | New to agentic tooling, or the day is going sideways | Narrower scope, more scaffolding, pairing encouraged, fewer acceptance items |
-| **Core** | Default for everyone | The full task and the standard evidence bar |
-| **Extension** | Finished core with time left | Harder constraint, weaker scaffolding, higher evidence bar |
+| **Supported** | The same competency on a narrower artifact, with evidence from every loop stage | Fewer lane-specific acceptance items; the full Core verifier may legitimately remain red |
+| **Core** | The complete scenario and evidence contract | Full task, full evidence note, and the stated Core verifier |
+| **Extension** | Additional depth after Core evidence exists | One harder constraint or transfer question |
 
-The **acceptance criteria** in each lab define the bar. Speed is never the bar.
+Separately record the delivery mode as `live`, `local`, or `captured/offline`,
+and whether a live product surface was operated. Captured work can demonstrate
+Core engineering judgement; it does not prove live product operation. The
+**lane-specific acceptance criteria** in each lab define the bar. Speed and
+product access are never the bar.
 
 ## Hints
 

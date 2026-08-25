@@ -22,7 +22,7 @@ Say these out loud when someone asks "why that model?".
 | **Task complexity** | Does this need multi-step reasoning across several files, or is it a local edit? | Deeper reasoning for migrations, architecture, subtle numeric defects; lighter models for renames, summaries, boilerplate |
 | **Latency** | Am I in a tight interactive loop, or can I wait and read? | Fast models while exploring; slower, deeper models for a plan you will act on |
 | **Policy** | Is the model enabled for my organisation and this surface? | Whatever your admin actually enabled; do not design a workflow around a model you cannot use |
-| **Credits / budget** | Does this request consume premium budget my team is tracking? | Cheaper options for exploration, premium for the decision that matters |
+| **Credits / budget** | What AI-credit allowance, paid-usage policy, or stop rule applies on this surface? | Lower-cost routing for exploration; deliberate spend for the decision that matters |
 | **Evidence needs** | Do I need an inspectable plan, visible tool actions, or long context to trust the result? | Models and modes that expose useful evidence when the output must be defended |
 
 ## How to use this in the labs
@@ -37,13 +37,16 @@ shallow" is a good, teachable answer. "I always use X" is not.
 
 ## Availability and policy reality
 
-- Your picker is the source of truth. If a model is not listed, your organisation
-  has not enabled it, and no workshop instruction can change that.
+- Your picker and current policy are the source of truth. Availability depends
+  on plan, client, policy, and rollout.
+- Auto can route by task and availability. Record `Auto`; after the response,
+  record the routed model only when the client exposes it. Never infer it.
 - Enterprise and organisation policies control which models, agents, and surfaces
   are available: <https://docs.github.com/en/copilot/concepts/policies> and
   <https://docs.github.com/en/copilot/reference/supported-surfaces-for-policies>.
-- Some plans meter premium requests and support spending budgets. Ask before you
-  burn a team budget on a workshop exercise:
+- Current paid usage is described in **GitHub AI Credits**. Allowances, paid
+  overage, and budgets vary by plan and may change; do not teach a volatile
+  price or model list:
   <https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing>
   and <https://docs.github.com/en/copilot/concepts/usage-limits>.
 - If nothing works, the labs all have an offline or reduced path. See

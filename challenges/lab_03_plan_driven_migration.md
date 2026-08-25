@@ -1,209 +1,295 @@
 # Lab 3 - Plan-driven migration of a legacy model layer
 
-**Block:** 12:30-13:55 (85 minutes) - **Mode:** pairs
+**Block:** 12:30-13:40 (70 minutes) - **Mode:** pairs or solo
 **Loop stages:** Understand/Plan (heavily) -> Implement/Test -> Review -> Explain
 **Scenario:** `migration-legacy-models`
+**Hard reset:** 13:35
 
 ---
 
 ## Outcome
 
-You run a multi-file migration the way it should be run: a written plan you edited
-before execution, a captured baseline, batched execution with verification between
-batches, and a change whose external contract is provably unchanged.
+You supervise a multi-file migration with a captured baseline, a plan that you
+challenge before implementation, task context that survives individual prompts,
+small verified batches, and an explicit contract comparison.
 
-This is the lab where **Agent earns its place** - and where an unsupervised Agent
-session does the most damage. Both lessons land in the same 85 minutes.
+The Core route is achievable for a prepared pair, but it is a stretch target, not
+the definition of a successful lab. A verified first batch with useful evidence
+is a complete Supported outcome. A rushed full migration with no readable
+evidence is not.
 
 ---
 
-## Set up
+## Set up and choose roles - 12:30-12:35
 
 ```bash
 python scripts/workshop.py start migration-legacy-models
 python scripts/workshop.py status
-python scripts/workshop.py verify migration-legacy-models  # expected to fail; capture it
+python scripts/workshop.py verify migration-legacy-models  # expected to fail; save the output
 ```
 
-The scenario stages a **legacy model surface**: a set of modules still written
-against the old validation-library idioms, plus the code that consumes them. The
-scenario manifest lists which files are in scope. Do not assume the file list from
-another attendee's screen or from a previous run - read your manifest.
-
-No tooling? See the "Solo path" section below.
-
-> The repository is green before `start`, and the scenario is what stages the
-> legacy surface. Capture the acceptance and test output straight after `start` -
-> that is the state your migration has to end at least as healthy as. See
-> [reference/scenario_tooling.md](reference/scenario_tooling.md#the-healthy-baseline-contract).
+The clean repository was green before `start`. The scenario introduces a legacy
+surface whose contract checks mostly pass while its migration target does not.
+This first run is fail-before evidence; it is not evidence that the clean
+repository was broken. See
+[reference/scenario_tooling.md](reference/scenario_tooling.md#the-healthy-baseline-contract).
 
 Work only in `workshop/scenarios/migration-legacy-models/work/`. Create
-`MIGRATION_NOTES.md` there for the baseline, edited plan, ambiguity decision,
-batch checkpoints, contract comparison, and handover. Reset archives that
-participant-added file with the code attempt.
+`MIGRATION_NOTES.md` there and keep all participant-created evidence in it.
+`reset` archives participant additions before restoring the pre-start tree.
+
+For pairs:
+
+- **Operator:** controls the IDE or terminal and makes one requested change at a
+  time.
+- **Contract reviewer:** controls the manifest, baseline, diff reading, and
+  evidence note. The reviewer can stop a batch.
+- **Rotate at 12:56**, before implementation. The first reviewer becomes the
+  operator; the first operator becomes the contract reviewer.
+
+For solo work, write `Operator` and `Contract reviewer` in your note. At 12:56,
+stop prompting for one minute, switch roles, and challenge your own plan before
+you implement it.
+
+If `start` is blocked, use
+`python scripts/workshop.py fallback migration-legacy-models` and follow the
+captured/offline route. Do not spend the block repairing workshop tooling.
 
 ---
 
-## Artifacts you are working from
+## Artifacts
 
-| Artifact | What it is |
+| Artifact | Use it as |
 |---|---|
-| `issue.md` | A migration request written by a tech lead: the reason (support window ending), the constraint (no behaviour change), and the deadline |
-| Staged legacy modules | The in-scope files, listed in the scenario manifest |
-| `acceptance.md` | The contract checks the migration must satisfy |
+| `issue.md` | The migration request and business constraint |
+| `inventory.md` | The authoritative file scope and public surface |
+| Staged legacy modules | The code you may migrate |
+| `acceptance.md` | What the verifier proves, and what it cannot prove |
 
-The request is deliberately underspecified in one respect. Finding what is missing
-and deciding it explicitly is part of the planning work.
+The request is deliberately underspecified in one respect. Record the decision
+you make; do not guess silently. The hints do not identify it.
 
 ---
 
-## Business invariant at stake
+## Business invariant
 
 **The external contract does not change.**
 
-- Serialised field names, nesting, and types stay identical.
-- Inputs that were rejected before are still rejected, with an error a caller can
-  act on. Inputs that were accepted are still accepted.
-- **INV-TIME-1**: timestamps remain timezone-aware UTC after a round trip.
-- **INV-FMT-1**: numeric values are serialised with a dot decimal separator. A
-  migration that "helpfully" localises numbers into `1.234,56` inside a payload has
-  broken every consumer.
-- **INV-VAR-1** and **INV-GREEK-1** still hold for anything the models feed. Sign
-  conventions are contract, not style.
+- Serialised field names, aliases, nesting, order where consumers rely on it,
+  and value types stay identical.
+- Accepted inputs remain accepted. Rejected inputs still raise the public
+  exception with a useful message.
+- **INV-TIME-1:** timestamps remain timezone-aware UTC after a round trip.
+- **INV-FMT-1:** machine JSON uses a dot decimal separator. DACH formatting is a
+  presentation concern, not a payload concern.
+- **INV-VAR-1** and **INV-GREEK-1** remain true for downstream calculations.
 
 See [reference/invariants.md](reference/invariants.md).
 
 ---
 
+## The 70-minute route
+
+| Clock | Budget | Phase | Required output |
+|---|---:|---|---|
+| 12:30-12:35 | 5 min | Start and orient | Saved fail-before run, roles, scope |
+| 12:35-12:43 | 8 min | Capture baseline | One representative valid/invalid contract capture per model family |
+| 12:43-12:53 | 10 min | Generate and edit plan | Saved plan plus at least two recorded edits |
+| 12:53-12:56 | 3 min | Persist task context | Context source and loading route; rotate roles |
+| 12:56-13:16 | 20 min | Implement/test in batches | One or more read and verified batches |
+| 13:16-13:26 | 10 min | Review and explain | Contract comparison and handover |
+| 13:26-13:35 | 9 min | Final check and reset | Actual verifier result, archive, scenario inactive |
+| 13:35-13:40 | 5 min | Room resync | One evidence-based observation per selected pair |
+
+The clocks are part of the exercise. Do not borrow from the protected break.
+
+### Stop and cut decisions
+
+- **12:40:** if baseline evidence is missing, use the supplied harness and narrow
+  to Supported. No implementation starts without a saved baseline.
+- **12:55:** if the plan is not edited and bounded, use the pre-staged plan
+  shape and require two substantive edits. Choose one batch only.
+- **13:16:** start no new batch. Keep verified work; do not enlarge a batch to
+  chase completion.
+- **13:26:** freeze edits. Run the verifier once, record the observed result, and
+  reset by 13:35.
+- **13:35:** reset even if verification is red. Reset is the completion of the
+  workshop transaction, not an admission of failure.
+
+---
+
 ## Run the loop
 
-### 1. Capture the baseline first (10 minutes)
+### 1. Understand: capture a bounded baseline - 8 minutes
 
-Before a single line changes, capture what "unchanged" means. Suggestions:
+Use the public surface in `inventory.md`, not internal model methods. Capture:
 
-- Serialise a representative instance of each in-scope model and save the output.
-- Record the current test results, including which tests fail today.
-- Note the public import paths that other modules rely on.
+1. The initial verifier command, exit status, and observed failing/passing split.
+2. The public imports and call signatures.
+3. One valid instrument and one valid quote through their public parser, payload,
+   and JSON paths. Preserve representations and relevant runtime types.
+4. One invalid instrument and one invalid quote through the public error
+   boundary. Preserve the exception type and whether the message is non-empty.
 
-A migration without a captured baseline cannot be verified, only believed. This
-step is where most of today's real-world transfer value sits.
+This matrix covers both model families without multiplying equivalent invalid
+cases across every adapter. The supplied contract tests cover more cases; your
+capture proves that you observed the boundary before changing it.
 
-### 2. Plan - and edit the plan (15 minutes)
+### 2. Plan, then edit the plan - 10 minutes
 
-Use the **Plan** workflow. Ask for a migration plan that covers the in-scope files,
-the idiom-by-idiom mapping, the order of work, and the verification after each
-step.
+In current VS Code, choose the **Local** session target and the built-in
+**Plan** agent role, or start with `/plan`. If that role is unavailable, ask for
+a plan without permitting edits.
+Require:
 
-Then **edit it**, which is the actual exercise. Check the plan for:
+- exact in-scope files and explicit out-of-scope files;
+- old-to-new idiom categories without speculative modernisation;
+- dependency order and batches independently verifiable in under five minutes;
+- an exact verification command and expected observation after each batch;
+- the unresolved request decision and a rollback point.
 
-- **Scope**: does it list files the manifest does not? Delete them.
-- **Batching**: is it one giant step, or steps you can verify independently? Split
-  anything you cannot verify in under five minutes.
-- **Ordering**: are dependencies migrated before their dependents?
-- **The missing decision**: the request left something ambiguous. Does the plan
-  silently choose an answer? Make the choice explicit and write down why.
-- **Verification**: does each batch end with a check, or do all checks live at the
-  end? Only the first is supervisable.
-- **Rollback**: what is the reset point if batch three goes wrong?
+Challenge the draft. Save the final plan in `MIGRATION_NOTES.md` and record at
+least two changes you made to the generated draft. Delete invented scope, split
+oversized batches, correct ordering, and replace vague checks with observable
+ones.
 
-Save the edited plan. It is a deliverable.
+VS Code's Plan role also stores a plan in session memory, but that memory is
+cleared when the conversation ends. The saved copy in your scenario note is the
+durable workshop artifact.
 
-### 3. Provide durable context (5 minutes)
+Reference:
+<https://code.visualstudio.com/docs/agents/run/planning>.
 
-Stop re-typing constraints into every prompt. Put the constraints somewhere the
-session reads automatically - repository instructions, an agent brief file, or a
-task file the plan references. Include the contract rules, the sign conventions,
-the time and number rules, and "do not change files outside the manifest".
+### 3. Persist and load task context - 3 minutes
+
+Add a short implementation brief to `MIGRATION_NOTES.md`: contract rules, scope,
+the explicit ambiguity decision, the current batch, and its verification.
+
+Be precise about how the next agent receives it:
+
+- hand off directly from the Plan role, where the plan and conversation context
+  carry forward; or
+- explicitly attach or reference `MIGRATION_NOTES.md` in the implementation
+  request.
+
+An arbitrary Markdown file is **not** automatically loaded just because it is in
+the work directory. Repository instructions such as
+`.github/copilot-instructions.md`, path-specific instruction files, and
+`AGENTS.md` are recognised forms, but adding or changing repository-wide
+instructions is outside this scenario's scope. Use the repository's existing
+instructions; do not edit them for the lab.
+
+This exercise does not use **Copilot Memory**, which is a separate public-preview
+capability. A saved task note and recognised repository instructions keep the
+route deterministic and available without that feature.
+
+Ask the implementation agent to name the scope and verification it loaded before
+it edits. Record the source it names. Correct behaviour alone does not prove
+which context was applied.
 
 References:
-<https://docs.github.com/en/copilot/how-tos/configure-custom-instructions-in-your-ide/add-repository-instructions-in-your-ide> -
 <https://docs.github.com/en/copilot/reference/custom-instructions-support> -
-<https://code.visualstudio.com/docs/agent-customization/custom-instructions>
+<https://code.visualstudio.com/docs/agent-customization/custom-instructions> -
+<https://docs.github.com/en/copilot/concepts/agents/copilot-memory>.
 
-Test whether it worked: does the next response respect a constraint you did not
-repeat? If not, your durable context is decoration.
+### 4. Implement/test in batches - 20 minutes
 
-### 4. Execute in batches (25 minutes)
+For each batch:
 
-- Execute **one batch at a time**. Verify. Only then continue.
-- Read every diff. If a batch produces a diff you cannot read in two minutes, it
-  was too big; reset and split it.
-- Watch for the three classic migration failures: an idiom translated
-  syntactically but not semantically; a validation rule quietly dropped; a
-  "modernisation" nobody asked for.
-- If the session insists a change is required outside the manifest, that is
-  information. Investigate it; do not just permit it.
-- Hard rule: **you never accept a diff you have not read.** Time pressure is not
-  an exception, it is the reason for the rule.
+1. State the files and intended contract-preserving change.
+2. Permit only that batch.
+3. Read the entire diff. If two minutes is not enough, reject and split it.
+4. Run the batch check and paste the command, exit status, and observed result.
+5. Continue only when the reviewer can explain the diff and the evidence.
 
-### 5. Review and explain (15 minutes)
+Watch for semantic validation loss, changed defaults or aliases, boundary
+serialisation changes, and unrequested modernisation. A request to edit outside
+the inventory is a claim to investigate, not permission.
 
-- Diff the serialised baseline against the post-migration output. Any difference
-  is either a defect or a decision you must be able to name.
-- Confirm rejected inputs are still rejected. This is the check that generated
-  migrations most often quietly break, because tests usually cover happy paths.
-- Write the handover: what moved, what stayed, which ambiguity you resolved and
-  how, and the three-part uncertainty sentence.
+### 5. Review and explain - 10 minutes
+
+- Compare the valid baseline with the post-change public output, including types,
+  UTC representation, and machine number formatting.
+- Re-run the invalid boundary cases.
+- Inspect the complete scenario diff for scope.
+- Write the handover: completed batches, remaining batches, ambiguity decision,
+  verification results, and the three-part uncertainty sentence.
 
 ---
 
-## Lanes
+## Outcomes
 
-| Lane | What you do |
+| Lane | Evidence-complete outcome |
 |---|---|
-| **Supported** | Baseline capture, plan editing, and **one** batch executed and verified end to end. A well-verified single batch teaches the loop better than a rushed complete migration. |
-| **Core** | Baseline, edited plan, durable context, all batches with verification between them, contract diff, handover. |
-| **Extension** | Add a contract test that would fail if any serialised field name changes, so the next migration is cheap. Then answer: which part of your plan would you keep as a reusable template for your own repository? |
+| **Supported** | Bounded baseline, edited plan, recorded context-loading route, one batch whose diff was read and verified, honest final verifier result, handover of remaining work, and reset. The full migration may remain incomplete. |
+| **Core** | Supported evidence plus all planned batches, matching before/after contract capture, rejected-input comparison, passing scenario verifier, complete handover, and reset. |
+| **Extension** | Only after Core and only before 13:26: add one narrow adversarial contract check or extract a reusable migration-plan template. Record what new risk it covers. Do not delay reset. |
+
+The captured/offline route is a delivery route, not a fourth achievement lane.
+Judge it against the same evidence standard that its available tools can support.
 
 ---
 
-## Evidence and acceptance
+## Completion is not evidence
 
-- [ ] A captured baseline exists and was captured **before** any change
-- [ ] The edited plan is saved, and you can point at two things you changed in it
-- [ ] The ambiguity in the request is identified and resolved explicitly
-- [ ] Durable context exists as a file, and you tested that it is being applied
-- [ ] Each batch was verified before the next one started
-- [ ] Serialised output matches the baseline, or every difference is deliberate and
-      documented
-- [ ] Previously invalid inputs are still rejected
-- [ ] `python scripts/workshop.py verify migration-legacy-models` passes (or the
-      acceptance commands in `acceptance.md`)
-- [ ] No file outside the manifest is modified without a written reason
-- [ ] Handover note with the uncertainty sentence
+`python scripts/workshop.py verify migration-legacy-models` proves that the
+supplied contract checks pass and the compatibility shim is gone. It cannot prove
+that you captured the baseline first, edited the plan, loaded the intended
+context, read each diff, or made a sound ambiguity decision.
 
----
+Conversely, a red final verifier does not erase useful Supported evidence. Record
+the failing check, the last verified batch, and the next bounded action. Never
+describe a partial migration as Core-complete.
 
-## Resync checkpoint - 13:40
+### Evidence checklist
 
-At 13:40 everyone stops. Verify, then reset whether or not the migration is
-complete. Reset archives the attempt and prints its location before restoring the
-pre-start tree; Lab 4 cannot start while this scenario remains active.
-
-```bash
-python scripts/workshop.py verify migration-legacy-models
-python scripts/workshop.py reset migration-legacy-models
-```
-
-Three pairs answer one question each, in one sentence:
-
-1. What did you delete from the generated plan?
-2. What did a batch try to do that you refused?
-3. What did your baseline catch that a test did not?
-
-Nothing after this lab depends on your migration being complete.
+- [ ] Fail-before output was saved before code changed
+- [ ] Baseline covers both public model families and both error boundaries
+- [ ] Final plan is saved with at least two recorded edits to the draft
+- [ ] Ambiguity decision and out-of-scope files are explicit
+- [ ] Context source and loading route are recorded accurately
+- [ ] Every attempted batch has a readable diff and observed check result
+- [ ] Before/after output differences are named, including "none"
+- [ ] Invalid inputs were compared after the change
+- [ ] Final verifier result is copied exactly, whether red or green
+- [ ] Handover separates completed, verified, assumed, and remaining work
+- [ ] No unexplained file outside the inventory changed
+- [ ] Reset completed and the archive location was noted
 
 ---
 
-## Solo path
+## Facilitator cues
 
-Budget 70 minutes and keep the same phase timings. Alone, the discipline that slips
-first is batching, so set a timer and force a verification every 10 minutes.
+- At 12:35, ask for the saved fail-before run, not a verbal "it failed".
+- At 12:56, call the role rotation and ask reviewers what they removed or split
+  in the plan. Do not supply API mappings.
+- At 13:16, announce "no new batches". Route stalled participants to Supported or
+  `resync`, not to a hidden solution:
 
-No tooling? Do the same exercise on any legacy-idiom surface in this repository:
-capture the baseline, write and edit a plan, migrate one module, prove the
-serialised output is unchanged. The transferable skill is
-**baseline -> plan -> batch -> verify**, not the specific library idiom.
+  ```bash
+  python scripts/workshop.py resync migration-legacy-models --blocked-at implement-test
+  ```
+
+- At 13:26, announce the edit freeze. Protect nine minutes for honest
+  verification and reset.
+- Announce and post every cut time; do not rely on colour, a projected timer, or
+  one participant relaying instructions. Pairing is optional.
+- At resync, ask three pairs for one sentence each: a plan edit, a refused scope
+  change, or a baseline difference. A completed migration is not required.
+
+---
+
+## Solo and captured/offline routes
+
+Solo participants use the same clocks and lane definitions. The deliberate
+one-minute role switch at 12:56 replaces conversational peer challenge; do not
+skip it.
+
+Without the runner, use
+`workshop/fallbacks/migration-legacy-models/`, copy the inert staged files to a
+permitted working directory, and use the captured initial verifier output as the
+fail-before command evidence. Record which observations are captured rather than
+personally executed. That distinction is part of the evidence.
 
 ---
 
@@ -215,14 +301,11 @@ serialised output is unchanged. The transferable skill is
 
 ## Reflection and retrieval
 
-1. Your plan had a flaw you fixed. Would you have noticed that flaw if you had
-   read the plan *after* execution instead of before?
-2. Retrieval: name three things a migration plan must contain to be supervisable.
-3. Which is more dangerous in your own repository - a migration that fails loudly
-   in CI, or one that silently changes a serialised field name? What do you
-   currently have in place against the second?
-4. What is the smallest piece of durable context you could add to your own
-   repository on Monday that would pay for itself in a week?
+1. Which generated plan step did you change, and what risk did the edit remove?
+2. Name three properties that make a migration batch supervisable.
+3. Which evidence remains useful even if the final verifier is red?
+4. What belongs in reusable repository instructions, and what belongs only in a
+   task-specific migration note?
 
 ---
 

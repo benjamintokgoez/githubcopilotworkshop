@@ -60,21 +60,18 @@ read them as local time.
 - One call was auto-approved and nobody read it. That is a configuration
   decision, usually made by accepting a default.
 
-## What this session would look like sandboxed
+## What would change under the documented VS Code sandbox
 
-This capture is from an **unsandboxed** server: note `sandboxEnabled=false` on the
-first line, and the `approval=prompted` line at `13:03:05` that follows from it.
+This capture records `sandboxEnabled=false` and one `approval=prompted` event. It
+does not establish why every approval decision applied or whether another
+process-control layer ran.
 
-With `"sandboxEnabled": true` there would be no `approval=prompted` line at all,
-for any call. Confirmations are auto-approved for a sandboxed server, so the
-`filesystem` and `network` rules in the top-level `sandbox` object would be the
-only thing standing between this session and the machine. The refusals at
-`13:04:22` and `13:05:19` would still happen - those are the server's own
-validation and registration, which no client setting and no sandbox changes.
-
-That is the comparison worth writing into your inventory: which of these five
-calls would you have wanted a human to see, and does your sandbox policy cover
-the ones nobody would be shown?
+With `"sandboxEnabled": true`, there would be no `approval=prompted` line at all:
+VS Code auto-approves confirmations for a sandboxed server, and the top-level
+filesystem/network rules become the host boundary. That is a prediction from the
+documented configuration, not an observed sandbox run in this capture. The
+refusals at `13:04:22` and `13:05:19` remain server validation and registration
+decisions.
 
 *Synthetic capture. No real client, order, endpoint, or credential appears in
 this log.*

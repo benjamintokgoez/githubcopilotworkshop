@@ -9,6 +9,10 @@ Recovery is part of the design, not a failure of the participant. Name the issue
 3. Return to the current lab’s evidence checkpoint: **Understand/Plan -> Implement/Test -> Review -> Explain**.
 4. Log only aggregate issue type, status, lane, and time.
 
+The facilitator guide's quantitative cut triggers take precedence over repeated
+retries. In particular, Lab 5 switches to captured mode at T+3 unless live
+eligibility was Green at T-72, and acceptance commands stop after 90 seconds.
+
 For an active scenario, use the runner to print the matching participant route:
 
 ```bash

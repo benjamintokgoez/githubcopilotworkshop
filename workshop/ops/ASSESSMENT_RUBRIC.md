@@ -23,11 +23,15 @@ in the room, but does not record it.
 
 1. Read the Lab 6 scenario and record the observable problem, relevant context, invariant, and non-goal.
 2. Select the Supported, Core, or Extension lane; use the captured/offline fallback if a product path is unavailable.
-3. Implement or write the bounded change, then inspect the diff.
-4. Test with focused verification plus one edge case or adversarial check.
-5. Review the evidence and reject or amend unsupported output.
-6. Explain the change, reason, evidence, uncertainty, and next step.
-7. Self-score using the rubric and mark one confidence level.
+3. Choose Builder or Supervising architect. Both make a concrete code/test
+   change; neither is prose-only.
+4. Implement the selected lane, add one participant-owned adversarial check for
+   a material assumption, then inspect the full diff.
+5. Test with focused verification. On the architect route, review a candidate
+   implementation and make at least one bounded correction.
+6. Review the evidence and reject or amend unsupported output.
+7. Explain the change, reason, evidence, uncertainty, and next step.
+8. Self-score during the allocated three minutes and mark one confidence level.
 
 ## Self / peer workflow
 

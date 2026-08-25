@@ -4,6 +4,10 @@ This is the complete Lab 4 package. It is captured, not live: identical for
 everyone, no network, no cloud agent, no code-review entitlement required. It is
 also the **default** path for the lab, not a degraded one.
 
+The current GitHub product name is **Copilot cloud agent** (formerly Copilot
+coding agent). Nothing in this package requires that product or a live pull
+request.
+
 ## Inventory
 
 | File | What it is | Read it as |
@@ -31,14 +35,22 @@ also the **default** path for the lab, not a degraded one.
 3. Work the six-point checklist - scope, invariant, tests, contracts,
    non-functional, explanation - and record each finding with location, severity,
    evidence, and a requested change.
-4. Only then open `captured_code_review.md` and answer: what did it find that you
+4. Stop finding new issues at 14:19. Check the description and make a provisional
+   decision. Open the transcript or review thread only for a targeted question
+   that could change it.
+5. At 14:22, open `captured_code_review.md` and answer: what did it find that you
    missed, what did you find that it could not see, and which of its comments
    would you not forward to the author?
-5. Decide: approve, or request changes with a named condition.
+6. At 14:28, stop analysis. Decide: approve, or request changes with a named
+   condition. Run the structural verifier when available, then reset by 14:35.
 
 If the scenario tooling is available, `python scripts/workshop.py start review-pr`
 stages a review-note template with those sections already laid out, and
-`verify review-pr` checks that you filled them in substantively.
+`verify review-pr` checks minimum structure. It does not judge correctness,
+evidence quality, severity, reading order, scope assessment, or uncertainty.
+
+The captured initial verifier output is valid fail-before evidence for the
+offline route, but label it as captured rather than personally executed.
 
 ## Note on the diff
 

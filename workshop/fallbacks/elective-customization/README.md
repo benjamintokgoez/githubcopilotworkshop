@@ -1,7 +1,8 @@
 # Offline fallback - elective-customization (Lab 5C)
 
-The customization elective is self-contained by design; this directory is the
-copy you can work from when the scenario tooling is unavailable.
+This is the local-analysis mode when scenario tooling or a live model is
+unavailable. It still produces an edited artifact, comparison, ablation, and
+contradiction trace.
 
 ## Inventory
 
@@ -21,18 +22,21 @@ copy you can work from when the scenario tooling is unavailable.
 ## Working without the tooling
 
 1. Copy `staged_copy/` somewhere you can edit.
-2. Measure a small repeatable task **before** adding any context, and keep the
-   output.
-3. Critique `instructions_draft.md` against `fixtures/review_criteria.md`, then
-   rewrite it down to three to five checkable, scoped rules.
-4. Measure the same task again and record the observable difference.
-5. Ask for something that contradicts one of your rules and record what actually
-   happened.
+2. Score the draft and write a baseline local candidate for the stable review
+   input in `brief.md`.
+3. Rewrite three to five checkable, scoped rules, then write and score the
+   after-candidate for the same input.
+4. Remove one rule, repeat the comparison, and record the material difference or
+   `no material difference`.
+5. Trace the review-only versus patch-request contradiction and name the
+   deterministic owner of the boundary. Label the result `local expected`, not
+   observed Copilot behavior.
 
 ## Scope reminder
 
-Do not edit `.github/copilot-instructions.md` for this elective. The staged draft
-is a practice file, deliberately separate from the repository's real durable
-context, which other people are working against today.
+Do not edit `.github/copilot-instructions.md` or `.github/instructions/` for this
+elective. The staged draft is not automatically discovered. A later live run may
+explicitly attach it, which can prove content influence but not discovery,
+path-scope matching, or precedence.
 
 *Synthetic material written for the workshop.*

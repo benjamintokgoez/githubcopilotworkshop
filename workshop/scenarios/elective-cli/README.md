@@ -8,13 +8,22 @@ python scripts/workshop.py reset elective-cli
 
 | Path | What it is |
 |---|---|
-| `brief.md` | The task and the three questions the policy has to answer |
-| `fixtures/cli_session_transcript.md` | Captured session: approvals, denials, and one entry that granted too much |
-| `fixtures/repo_safe_task.md` | A read-only task for this repository, with a verdict column to fill in first |
+| `brief.md` | The task, current control layers, and product status |
+| `fixtures/cli_session_transcript.md` | Synthetic risk trace whose wildcard wording is not current configuration syntax |
+| `fixtures/repo_safe_task.md` | A read-only task with a decision worksheet to complete before seeing the transcript |
 | `acceptance.md` | What `verify` checks |
 | `work/permission_policy.md` | Created by `start`: your allow / ask / deny policy |
 
-No agent installation is required. If you have one, run the task live and label
-your evidence as live; if you do not, the captured transcript carries the same
-findings, including the allowlist entry that turned out to be broader than it
-looked.
+The **captured delivery mode** requires no installation. Predict
+verdicts before opening the transcript, map each event to current Copilot CLI
+controls, and trace one negative case through your written policy.
+
+Either mode can support Supported or Core evidence; record the achievement lane
+separately. Use the live route only if Copilot CLI was installed, authenticated,
+policy-enabled, and smoke-tested before Lab 5. Installation, sign-in, and
+preview sandbox setup do not fit this block.
+
+The transcript is a synthetic risk case, not a copyable current configuration.
+Its broad wildcard notation illustrates argument scope. Use the current
+`Kind(argument)` permission vocabulary from `brief.md` for your policy and label
+the transcript evidence captured.

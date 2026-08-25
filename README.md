@@ -23,7 +23,7 @@ result.
 ## The loop
 
 ```
-Understand/Plan  ->  Implement/Test  ->  Review  ->  Explain
+Understand/Plan -> Implement/Test -> Review -> Explain
 ```
 
 Every lab is one or more turns of this loop. By the end of the day you should be
@@ -109,21 +109,24 @@ overruns, questions, and human beings are survivable.
 | 09:00-09:20 | [Lab 0](challenges/lab_00_preflight.md) - landing check, recovery lane, room contract | 20 min |
 | 09:20-10:00 | [Lab 1](challenges/lab_01_operator_model.md) - operator model and worked example | 40 min |
 | 10:00-10:15 | Break | 15 min |
-| 10:15-11:25 | [Lab 2](challenges/lab_02_incident_triage.md) - guided authentic incident | 70 min |
-| 11:25-11:45 | **Slack A** - catch-up and resync | 20 min |
+| 10:15-11:20 | [Lab 2](challenges/lab_02_incident_triage.md) - guided authentic incident | 65 min |
+| 11:20-11:45 | **Slack A** - recovery and resync | 25 min |
 | 11:45-12:30 | Lunch | 45 min |
-| 12:30-13:55 | [Lab 3](challenges/lab_03_plan_driven_migration.md) - plan-driven legacy migration | 85 min |
-| 13:55-14:10 | Break | 15 min |
-| 14:10-14:55 | [Lab 4](challenges/lab_04_review_and_delegation.md) - review a pre-created PR (optional live cloud-agent observation) | 45 min |
-| 14:55-15:15 | **Slack B** - catch-up and resync | 20 min |
-| 15:15-15:55 | [Lab 5](challenges/lab_05_elective.md) - elective, exactly one of three | 40 min |
-| 15:55-16:35 | [Lab 6](challenges/lab_06_capstone_transfer.md) - capstone, individual | 40 min |
-| 16:35-16:55 | [Lab 7](challenges/lab_07_close_and_adoption.md) - remediation, retrieval, adoption | 20 min |
-| 16:55-17:15 | **Slack C** - overrun reserve and open questions | 20 min |
+| 12:30-13:40 | [Lab 3](challenges/lab_03_plan_driven_migration.md) - plan-driven legacy migration | 70 min |
+| 13:40-13:55 | Break | 15 min |
+| 13:55-14:40 | [Lab 4](challenges/lab_04_review_and_delegation.md) - human review plus captured automated comparison | 45 min |
+| 14:40-15:00 | **Slack B** - recovery and resync | 20 min |
+| 15:00-15:35 | [Lab 5](challenges/lab_05_elective.md) - one bounded elective | 35 min |
+| 15:35-15:45 | Break | 10 min |
+| 15:45-16:35 | [Lab 6](challenges/lab_06_capstone_transfer.md) - capstone, individual | 50 min |
+| 16:35-17:00 | [Lab 7](challenges/lab_07_close_and_adoption.md) - retrieval and one-action adoption | 25 min |
+| 17:00-17:15 | **Slack C** - questions and quiet completion | 15 min |
 
 Each lab has a **resync checkpoint** where the whole room stops and can return to a
-known-good state, and three **lanes** (Supported, Core, Extension) so that being
-faster or slower than average is planned for rather than punished.
+known-good state, and three **achievement lanes** (Supported, Core, Extension).
+Live, local, and captured/offline are delivery modes, not achievement levels.
+Lane evidence is stated separately from whether a live product surface was
+operated.
 
 ---
 
@@ -138,7 +141,8 @@ faster or slower than average is planned for rather than punished.
 - A machine permitted to run the provided synthetic repository, or a managed
   workshop environment. The offline route does not require installing a
   particular editor extension.
-- Roughly 45 minutes for preflight **before** the workshop day.
+- **60-90 minutes for a cold-machine preflight**, completed by T-72 hours. A
+  prepared managed image may take less.
 
 **Expected for the primary live route, but not required for the learning
 outcomes:** active GitHub Copilot access under either a personal plan or a plan
@@ -232,18 +236,28 @@ answer and often the most useful thing an attendee brings.
 - [ ] Which models appear in my picker?
 - [ ] Is the **cloud agent** enabled for me, and for which repositories?
 - [ ] Is **Copilot code review** enabled?
-- [ ] Are **MCP servers** allowed, and is there an allowlist or private registry?
+- [ ] Are **MCP servers** allowed, and does the supported client receive the
+      enterprise `managed-settings.json` allowlist? Treat a private registry as
+      preview and weaker enforcement; check cloud-agent MCP separately.
 - [ ] Can I install **Copilot CLI** on this machine?
-- [ ] Are **premium requests** metered, and is there a budget I must respect?
+- [ ] What **GitHub AI Credits** allowance, paid-usage policy, or stop rule
+      applies?
 - [ ] Are there **content exclusion** rules on my work repositories?
 - [ ] Has our works council (Betriebsrat) agreed how usage data may be used?
 
-Live references:
+Live references (revalidate before delivery):
 [policies](https://docs.github.com/en/copilot/concepts/policies) ,
 [feature availability](https://docs.github.com/en/copilot/reference/copilot-feature-matrix) ,
 [content exclusion](https://docs.github.com/en/copilot/concepts/context/content-exclusion) ,
 [billing and pricing](https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing) ,
-[enterprise AI governance](https://docs.github.com/en/copilot/get-started/enterprise-ai-governance).
+[enterprise agent management](https://docs.github.com/en/copilot/concepts/agents/enterprise-management).
+
+The current-product statements in this curriculum were reconciled against
+official sources **as of 2026-08-25**. Plans, previews, policies, client support,
+and billing can change. The maintenance path is
+[workshop/ops/RELEASE_CHECKLIST.md](workshop/ops/RELEASE_CHECKLIST.md): revalidate
+the release manifest two weeks before delivery and use the captured route when a
+surface differs.
 
 **Nothing in this workshop assumes a feature is enabled for you.** If a step is
 blocked by policy, record it as a finding and take it to Lab 7's adoption list.

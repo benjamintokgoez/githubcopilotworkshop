@@ -21,9 +21,16 @@ about three minutes once you have the habit.
 6. Blast radius:                       files touched, what else could break
 7. Uncertainty:                        what I verified / what I assumed /
                                        what could still be wrong
+8. Achievement lane:                   Supported | Core | Extension
+9. Delivery mode:                      live | local | captured/offline
+10. Live surface operated:             <surface> | none
 ```
 
 Line 7 is the one people skip and the one reviewers value most.
+
+Lines 8-10 prevent two false conclusions. A deliberately narrower Supported
+artifact does not need to pass a full Core verifier, and a captured analysis
+does not prove live product operation. Report both dimensions.
 
 ## What counts as evidence
 
@@ -78,7 +85,8 @@ Copilot code review is a useful **second** pass, not a substitute for the first:
 
 ## Acceptance criteria in the labs
 
-Each lab lists acceptance criteria as a checklist. They are deliberately about
-**evidence quality**, not speed. A Supported-lane attendee who meets four criteria
-with clean evidence has done better work than a Core-lane attendee who claims six
-with none.
+Each lab lists separate Supported and Core acceptance criteria. They are
+deliberately about **evidence quality**, not speed. Supported still touches
+Understand/Plan, Implement/Test, Review, and Explain on a narrower artifact. Its
+full scenario verifier may remain red when the lab says so. Core requires the
+full scenario contract plus the evidence note. Extension starts only after Core.

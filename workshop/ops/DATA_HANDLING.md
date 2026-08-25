@@ -5,6 +5,8 @@ This workshop uses the minimum information needed to deliver, support, and impro
 ## Potentially allowed after notice and organizer approval
 
 - Aggregate attendance and lane counts.
+- Aggregate, anonymous role-group completion counts with small-cell suppression
+  when a pilot tests developer/architect parity.
 - Aggregate anonymous feedback themes.
 - Technical incident category, status, time, impact, and fallback lane.
 - Sanitized synthetic repositories, fixtures, screenshots, and captures.
@@ -19,6 +21,8 @@ because it would be convenient.
 - Passwords, API keys, access tokens, recovery codes, cookies, or private URLs.
 - Full prompt/response logs, browser history, keystrokes, screen recordings, or hidden chain-of-thought.
 - Individual surveillance, productivity metrics, or tool-usage scores.
+- Individual artifacts, rubric scores, lane histories, or identifiable
+  completion/latency/performance telemetry.
 - Public rankings or participant performance comparisons.
 
 A separate employer process does not become workshop collection by changing its

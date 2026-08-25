@@ -4,18 +4,20 @@ Use this checklist for each delivery release. Keep the current-product manifest 
 
 ## Repository product baseline
 
-**Last reconciled:** 2026-08-19. This records what the repository was designed
+**Last reconciled:** 2026-08-25. This records what the repository was designed
 against; it is not delivery-specific sign-off and does not replace the manifest
 below.
 
 | Surface | Repository baseline | Revalidate against |
 |---|---|---|
 | Chat workflows | Ask, Plan, and local Agent are taught as workflow choices, subject to client and organization availability | [GitHub Copilot feature matrix](https://docs.github.com/en/copilot/reference/copilot-feature-matrix), [VS Code chat overview](https://code.visualstudio.com/docs/chat/chat-overview) |
-| Models | No fixed model name; use Auto or an organization-approved available model | [Auto model selection](https://docs.github.com/en/copilot/concepts/models/auto-model-selection), [supported models](https://docs.github.com/en/copilot/reference/ai-models/supported-models) |
-| Cloud agent and code review | Optional observation/comparison only; captured local evidence preserves every learning outcome | [Copilot agents](https://docs.github.com/en/copilot/concepts/agents), [Copilot code review](https://docs.github.com/en/copilot/concepts/agents/code-review) |
-| MCP | QuantCore uses the official Python SDK v2; VS Code host configuration is isolated to the elective and writes are opt-in | [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk), [VS Code MCP servers](https://code.visualstudio.com/docs/agent-customization/mcp-servers) |
-| Copilot CLI | Optional elective with deny/ask/allow analysis and a captured session fallback | [About Copilot CLI](https://docs.github.com/en/copilot/concepts/agents/copilot-cli/about-copilot-cli), [allowing tools](https://docs.github.com/en/copilot/how-tos/copilot-cli/use-copilot-cli/allowing-tools) |
-| Enterprise controls | Entitlement, policy, budget, content exclusion, network, and works-council review are explicit gates | [Copilot policies](https://docs.github.com/en/copilot/concepts/policies), [policy surfaces](https://docs.github.com/en/copilot/reference/supported-surfaces-for-policies) |
+| Models | No fixed model name; use Auto or an approved visible model; record routed model only when exposed; use AI-credit language | [Auto model selection](https://docs.github.com/en/copilot/concepts/models/auto-model-selection), [billing](https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing) |
+| Cloud agent and code review | Research/plan/iterate, automations, custom agents, and effort/context trade-offs are taught through accountability decisions; only the captured comparison is Core | [Cloud agent](https://docs.github.com/en/copilot/concepts/agents/cloud-agent/about-cloud-agent), [code review](https://docs.github.com/en/copilot/concepts/agents/code-review) |
+| MCP | `managed-settings.json` is the enterprise IDE/CLI governance reference; cloud-agent MCP has a distinct repository/custom-agent boundary | [MCP management](https://docs.github.com/en/copilot/concepts/mcp-management) |
+| Copilot CLI | GA client; local/cloud sandbox status and allowlist/permission distinction are explicit; live use is T-72 gated | [Copilot CLI](https://docs.github.com/en/copilot/concepts/agents/copilot-cli/about-copilot-cli), [sandboxes](https://docs.github.com/en/copilot/concepts/about-cloud-and-local-sandboxes) |
+| Customization | Skills are on-demand, instructions are always/scoped context, hooks are deterministic controls, Memory is preview/expiring/governed | [Customization](https://docs.github.com/en/copilot/reference/customization-cheat-sheet), [Memory](https://docs.github.com/en/copilot/concepts/agents/copilot-memory) |
+| Enterprise controls | AI Controls, metrics, content exclusion, policy, budget, and works-council review are explicit gates | [Enterprise management](https://docs.github.com/en/copilot/concepts/agents/enterprise-management), [metrics](https://docs.github.com/en/copilot/concepts/copilot-usage-metrics/copilot-metrics) |
+| Mention-only | Agentic workflows, plugins, third-party agents, subagents, and Copilot app are awareness only | [Agents](https://docs.github.com/en/copilot/concepts/agents) |
 
 ## Two weeks before delivery
 
@@ -28,6 +30,13 @@ below.
 - [ ] Confirm legal/privacy/works-council review owner and the data-handling notice.
 - [ ] Recheck links, commands, Python 3.12, dependencies, fixtures, test commands, and reset scripts.
 - [ ] Confirm attendee and facilitator agendas use the same Lab 0–7 links, Supported/Core/Extension lane names, captured/offline fallback, and exact loop wording: **Understand/Plan -> Implement/Test -> Review -> Explain**.
+- [ ] Confirm the canonical 09:00-17:15 schedule is identical everywhere:
+      65/70/45/35/50/25-minute Labs 2-7, protected 15/15/10-minute breaks,
+      45-minute lunch, and 25/20/15-minute Slack A/B/C.
+- [ ] Confirm lane and delivery mode are orthogonal in attendee pages,
+      assessment, pilot, recovery, and facilitator guidance.
+- [ ] Confirm T-72 live-elective eligibility and organizer capability matrix are
+      complete; no timed install/auth/proxy/policy discovery remains.
 - [ ] Freeze the release branch/tag only after the above evidence is attached to the internal release record.
 
 ## Day before
@@ -35,6 +44,8 @@ below.
 - [ ] Download or locally cache approved captures, starter artifacts, fixtures, and one-page run cards.
 - [ ] Run the five-minute preflight smoke test.
 - [ ] Verify facilitator/helper access to Supported/Core/Extension artifacts and captured/offline fallbacks.
+- [ ] Verify the three unrepresented-elective awareness cards against the
+      current captured fixtures; each says `captured` and contains no solution.
 - [ ] Confirm attendee instructions use CET/CEST plus UTC and the correct 24-hour dates.
 - [ ] Confirm breaks, captions, microphones, quiet route, confidential help channel, and late-arrival path.
 
@@ -43,6 +54,9 @@ below.
 - [ ] Delete temporary branches, raw captures, and unneeded incident notes according to `DATA_HANDLING.md`.
 - [ ] Review aggregate feedback and recovery incidents; do not rank participants.
 - [ ] Quarterly, revalidate product surfaces, policy assumptions, links, accessibility, localization, dependencies, and fallback artifacts.
+- [ ] Reconcile official-source currency at least quarterly and before every
+      tagged delivery. Update the `Last reconciled` date and manifest; do not
+      preserve stale status labels for narrative convenience.
 - [ ] Retire stale screenshots and claims; update the manifest with owner and next review date.
 - [ ] Re-run a clean-room checkpoint after any repository, environment, or lab change.
 
