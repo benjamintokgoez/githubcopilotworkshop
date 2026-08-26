@@ -33,16 +33,33 @@ infer the other's constraints during an incident.
 - Use only this synthetic training repository or an organizer-provided copy. Do
   not test access with production code, customer data, credentials, or private
   repository content.
+- Start with the organizer-approved GitHub Codespace. It is the simplest route
+  because Python 3.12 and the workshop dependencies are prepared for you. If
+  Codespaces is blocked or unavailable, use the local setup in step 2.
 - Use your organisation's approved IDE and latest permitted stable client or
   extension. Record the version: feature availability depends on both the client
   and policy.
-- Start with an approved Python 3.12 interpreter and package-index route. If you
-  cannot obtain either within 30 minutes, stop and contact the named support
-  owner. Do not disable TLS, bypass a proxy, or paste a token into chat.
+- For local setup, use an approved Python 3.12 interpreter and package-index
+  route. If you cannot obtain either within 30 minutes, stop and contact the
+  named support owner. Do not disable TLS, bypass a proxy, or paste a token into
+  chat.
 - A live Copilot connection is optional. A local repository route and
   captured/offline evidence route are part of the design.
 
-### 1. Tooling
+### 1. Recommended route: GitHub Codespaces
+
+1. Open the workshop repository on GitHub.
+2. Select **Code**, then **Codespaces**, then **Create codespace**.
+3. Wait until setup finishes and the repository opens.
+4. Continue with step 3 and run both preflight commands.
+
+If the Codespace does not open because of access, policy, quota, or network
+restrictions, stop troubleshooting and use the local setup below. Codespaces is
+a convenient starting point, not a workshop requirement.
+
+### 2. Fallback route: local setup
+
+Check the local tools:
 
 ```bash
 python --version          # must report 3.12.x - the workshop baseline
@@ -56,7 +73,7 @@ if `python --version` reports something else, create the virtual environment bel
 from a 3.12 interpreter explicitly (for example `python3.12 -m venv .venv`) rather
 than hoping it works on the day.
 
-### 2. Repository and environment
+Clone the repository and install its dependencies:
 
 ```bash
 git clone <repo-url>
@@ -69,7 +86,7 @@ source .venv/bin/activate       # macOS/Linux
 python -m pip install -e ".[dev]"
 ```
 
-### 3. Preflight check
+### 3. Preflight check for both routes
 
 ```bash
 python scripts/workshop_doctor.py    # environment and repository structure

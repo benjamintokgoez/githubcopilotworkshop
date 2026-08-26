@@ -2,7 +2,10 @@
 
 **Audience:** experienced developers and technical leads in a DACH enterprise setting  
 **Language:** accessible international English; use the short German phrases below when helpful  
-**Delivery contract:** every participant can complete the learning objective without live cloud services. Use pre-created repositories, fixtures, captures, and offline artifacts by default. Live cloud tooling is optional and never critical-path.
+**Delivery contract:** use an organizer-tested GitHub Codespace as the easiest
+starting route. Keep a tested local environment and captured/offline artifacts
+ready for anyone who cannot use Codespaces. Every participant can complete the
+learning objective without live cloud services.
 
 ## Canonical learning loop
 
@@ -30,7 +33,10 @@ Use this exact wording on the facilitator screen, attendee agenda, lab briefings
 
 **Physical room:** U-shaped or small tables with clear sightlines; one facilitator screen; one confidence monitor if possible; power at every table; quiet seat; accessible route; printed large-text run card; visible break clock; no camera requirement.  
 **Remote/hybrid:** stable host connection, captioning enabled, chat monitored by a helper, one shared help channel, breakout rooms pre-created, captions and recording policy stated before any recording.  
-**Technical kit:** offline copy of the starter repository, known-good Python 3.12 environment or approved devcontainer, test fixtures, answer-neutral hints, sanitized captures, printed QR/short links, spare adapters, microphones, and a local timer.
+**Technical kit:** organizer-tested Codespace, offline copy of the starter
+repository, known-good local Python 3.12 environment, test fixtures,
+answer-neutral hints, sanitized captures, printed QR/short links, spare
+adapters, microphones, and a local timer.
 
 ## Run of show (09:00–17:15 Europe/Berlin)
 

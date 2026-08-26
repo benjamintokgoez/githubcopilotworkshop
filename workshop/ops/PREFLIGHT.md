@@ -15,7 +15,9 @@ Record only: check, status, owner, timestamp, fallback lane, and ticket referenc
 ## T-72 hours: owner sign-off
 
 - [ ] **Objectives and artifacts:** facilitator guide, starter repository, lab branches, fixtures, expected evidence, rubric, feedback form, and all short links are versioned and locally available.
-- [ ] **Python:** Python 3.12 is installed or the approved devcontainer is ready; `python --version`; virtual environment creation; dependency install from the declared bounded requirements; focused tests pass.
+- [ ] **Environment routes:** the organizer-tested Codespace is ready as the
+      recommended route, and a local Python 3.12 environment is ready as the
+      fallback. Both routes can run the doctor and test baseline.
 - [ ] **Repository:** each participant gets an isolated training repository/branch; write permissions and default branch protections are tested with a non-production identity; clean-room clone and reset procedure are verified.
 - [ ] **IDE/editor:** approved editor opens the repository, terminal runs, tests discover, keyboard-only navigation works, zoom is usable, and extensions are not required for the offline fallback.
 - [ ] **Copilot login and entitlement:** participant-facing sign-in route and organization policy are documented; verify with a test identity or organizer account without asking attendees to share credentials.
@@ -28,7 +30,11 @@ Record only: check, status, owner, timestamp, fallback lane, and ticket referenc
 - [ ] **Organization policies:** confirm Copilot, Actions, third-party action, repository, SSO, IP allowlist, proxy, and retention settings with the organizer. The facilitator must not bypass policy.
 - [ ] **AI credits / budgets / rate limits:** ask the organization owner to confirm applicable budgets, quotas, concurrency, and reset windows. Set a stop rule and do not ask for billing or credential details.
 - [ ] **Network/proxy/SSL:** test DNS, GitHub endpoints, package indexes, certificate chain, WebSockets if needed, and proxy authentication flow. Provide approved CA/proxy instructions only; never disable certificate validation.
-- [ ] **Devcontainer/Codespaces:** build and reopen from a clean state; check forwarded ports, extensions, storage, timeout, and offline behavior. Keep an offline environment and prebuilt artifact as fallbacks.
+- [ ] **Codespaces:** create and reopen a clean Codespace; check extensions,
+      storage, timeout, quota, organization policy, and the two preflight
+      commands. Give participants simple local instructions for access, policy,
+      quota, or network failures; do not troubleshoot those failures during a
+      timed lab.
 - [ ] **Privacy:** remove production/customer data and secrets from fixtures; inspect logs, screenshots, artifacts, and issue text; confirm recording/caption policy and the confidential help channel.
 - [ ] **Accessibility:** test captions, microphone, contrast, keyboard operation, screen-reader labels where applicable, document structure, quiet seat, and solo alternative.
 - [ ] **People and timing:** confirm one helper per six participants for pilots,

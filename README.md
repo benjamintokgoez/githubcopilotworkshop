@@ -134,10 +134,13 @@ operated.
 
 **Required:**
 
-- **Python 3.12.x** - the workshop baseline the platform is built and verified
-  against - plus `git` and an editor, or an organizer-provided approved
-  environment containing them. Newer minor versions are not supported for the
-  workshop day; check with `python --version` before you install anything else.
+- An organizer-approved **GitHub Codespace** is the easiest way to start. It
+  opens the repository with Python 3.12 and the workshop tools already set up.
+  If Codespaces is unavailable because of access, policy, quota, or network
+  restrictions, use the local setup below.
+- For local setup: **Python 3.12.x**, `git`, and an editor. Python 3.12 is the
+  workshop baseline. Newer minor versions are not supported for the workshop
+  day.
 - A machine permitted to run the provided synthetic repository, or a managed
   workshop environment. The offline route does not require installing a
   particular editor extension.
@@ -175,6 +178,23 @@ do not bypass policy or spend the lab troubleshooting sign-in in public.
 Do this **before** the workshop day. Full detail, including the policy checklist,
 is in [challenges/lab_00_preflight.md](challenges/lab_00_preflight.md).
 
+### Recommended: GitHub Codespaces
+
+1. Open the repository on GitHub.
+2. Select **Code**, then **Codespaces**, then **Create codespace**.
+3. Wait for setup to finish and for the repository to open in the browser.
+4. In the Codespace terminal, run:
+
+```bash
+python scripts/workshop_doctor.py
+python -m pytest -q
+```
+
+If you cannot create or open a Codespace, do not spend the workshop fixing
+account, quota, policy, or network problems. Use the local setup instead.
+
+### Fallback: local setup
+
 ```bash
 git clone <repo-url>
 cd githubcopilotworkshop
@@ -186,7 +206,7 @@ source .venv/bin/activate       # macOS/Linux
 pip install -e ".[dev]"
 
 python scripts/workshop_doctor.py    # environment and repository structure
-pytest -q                            # the test baseline
+python -m pytest -q                  # the test baseline
 ```
 
 `workshop_doctor.py` checks your Python version, that the expected dependencies
