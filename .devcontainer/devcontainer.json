@@ -1,5 +1,5 @@
 {
-  "name": "QuantCore Workshop (DACH)",
+  "name": "MittelWerk Workshop (DACH)",
   // Python baseline: 3.12, verified against the 3.12.14 patch release (see
   // pyproject.toml `requires-python` and .github/workflows/ci.yml
   // PYTHON_VERSION). This base image only publishes major.minor tags, so it

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Workshop Doctor - deterministic preflight/health check for the QuantCore
+"""Workshop Doctor - deterministic preflight/health check for the MittelWerk
 workshop platform baseline.
 
 Verifies the local (or CI) environment is set up correctly: Python version,
 repository revision, presence of expected baseline files, importability of
 key runtime dependencies, structural validity of `settings.yaml` and
-`instruments.json`, and a handful of Copilot/CI-relevant environment hints.
+`equipment.json`, and a handful of Copilot/CI-relevant environment hints.
 
 This script never prints secret values - only whether a variable is set.
 It is cross-platform (Windows/macOS/Linux) and uses only the Python
@@ -32,12 +32,13 @@ import subprocess
 import sys
 from collections.abc import Iterator
 from dataclasses import dataclass, field
-from datetime import date
 from decimal import Decimal, InvalidOperation
 from pathlib import Path, PurePosixPath
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 STATUS_ORDER = {"PASS": 0, "WARN": 1, "FAIL": 2}
 
@@ -46,12 +47,18 @@ STATUS_ORDER = {"PASS": 0, "WARN": 1, "FAIL": 2}
 # PYTHON_VERSION, and .devcontainer/devcontainer.json's image comment.
 PYTHON_BASELINE = "3.12.14"
 
-# Mirrors qxm.core.models.InstrumentType exactly. Options are a single
-# "OPTION" instrument_type with a separate option_type: CALL|PUT field --
-# there is no OPTION_CALL/OPTION_PUT instrument_type in the live contract.
-ALLOWED_INSTRUMENT_TYPES = {"EQUITY", "ETF", "OPTION", "FUTURE", "FX", "CRYPTO"}
-ALLOWED_OPTION_TYPES = {"CALL", "PUT"}
-SYMBOL_RE = re.compile(r"^[A-Z0-9][A-Z0-9._/\-]*$")
+# Mirrors mittelwerk.core.models.EquipmentCategory exactly.
+ALLOWED_EQUIPMENT_TYPES = {
+    "CNC_MACHINE",
+    "HYDRAULIC_PRESS",
+    "CONVEYOR_SYSTEM",
+    "ROBOTIC_ARM",
+    "COMPRESSOR",
+    "GENERATOR",
+    "HVAC_UNIT",
+    "FORKLIFT",
+}
+ASSET_ID_RE = re.compile(r"^[A-Z0-9][A-Z0-9._/\-]*$")
 
 # Runtime packages the application depends on; import failures here are a
 # WARN (not FAIL) because this doctor is designed to run even *before*
@@ -73,7 +80,7 @@ EXPECTED_FILES = [
     "pyproject.toml",
     "requirements.txt",
     "settings.yaml",
-    "instruments.json",
+    "equipment.json",
     ".env.example",
     ".github/workflows/ci.yml",
     ".devcontainer/devcontainer.json",
@@ -90,7 +97,7 @@ EXPECTED_FILES = [
 ]
 
 SCENARIO_IDS = (
-    "incident-fill-price",
+    "incident-service-rate",
     "migration-legacy-models",
     "review-pr",
     "elective-mcp",
@@ -108,7 +115,7 @@ SUPPORTED_SETTINGS_KEYS = {
         "cors_origins",
         "cors_allow_credentials",
     },
-    "risk": {"daily_volatility"},
+    "risk": {"hours_volatility"},
     "database": {"url", "echo"},
     "feed": {"mode", "interval_ms", "seed"},
     "dashboard": {"currency"},
@@ -495,14 +502,14 @@ def check_settings_yaml(report: Report) -> None:
         problems.append("auth.key_ttl_seconds must be a positive int or null")
 
     risk = sections["risk"]
-    daily_volatility = risk.get("daily_volatility")
-    if daily_volatility is not None and (
-        isinstance(daily_volatility, bool)
-        or not isinstance(daily_volatility, (int, float))
-        or daily_volatility <= 0
-        or not math.isfinite(daily_volatility)
+    hours_volatility = risk.get("hours_volatility")
+    if hours_volatility is not None and (
+        isinstance(hours_volatility, bool)
+        or not isinstance(hours_volatility, (int, float))
+        or hours_volatility <= 0
+        or not math.isfinite(hours_volatility)
     ):
-        problems.append("risk.daily_volatility must be finite and positive or null")
+        problems.append("risk.hours_volatility must be finite and positive or null")
 
     dashboard = sections["dashboard"]
     currency = dashboard.get("currency")
@@ -596,125 +603,121 @@ def _iter_leaf_values(node: Any) -> Iterator[Any]:
         yield node
 
 
-def check_instruments_json(report: Report) -> None:
-    instruments_path = REPO_ROOT / "instruments.json"
-    if not instruments_path.exists():
-        report.add("instruments_json", "FAIL", "instruments.json not found")
+def check_equipment_json(report: Report) -> None:
+    equipment_path = REPO_ROOT / "equipment.json"
+    if not equipment_path.exists():
+        report.add("equipment_json", "FAIL", "equipment.json not found")
         return
 
     try:
         data = json.loads(
-            instruments_path.read_text(encoding="utf-8"),
+            equipment_path.read_text(encoding="utf-8"),
             parse_constant=_reject_json_constant,
         )
     except (json.JSONDecodeError, ValueError) as exc:
-        report.add("instruments_json", "FAIL", f"invalid JSON: {exc}")
+        report.add("equipment_json", "FAIL", f"invalid JSON: {exc}")
         return
 
     if not isinstance(data, list) or not data:
-        report.add("instruments_json", "FAIL", "expected a non-empty JSON array of instruments")
+        report.add("equipment_json", "FAIL", "expected a non-empty JSON array of equipment")
         return
 
     errors: list[str] = []
-    seen_symbols: set[str] = set()
+    seen_asset_ids: set[str] = set()
 
-    common_fields = {
-        "symbol",
+    allowed_fields = {
+        "asset_id",
         "name",
-        "instrument_type",
-        "tick_size",
-        "lot_size",
+        "equipment_type",
+        "service_interval_days",
+        "hourly_service_rate",
+        "rate_increment",
+        "hour_lot_size",
         "currency",
-        "exchange",
+        "site_code",
     }
-    option_fields = common_fields | {"underlying", "strike", "expiry", "option_type"}
 
     for idx, item in enumerate(data):
         if not isinstance(item, dict):
             errors.append(f"<item {idx}>: not an object")
             continue
-        label = item.get("symbol", f"<item {idx}>")
+        label = item.get("asset_id", f"<item {idx}>")
 
-        symbol = item.get("symbol")
-        if not isinstance(symbol, str) or not (1 <= len(symbol) <= 32):
-            errors.append(f"{label}: symbol must be a string of length 1-32")
-        elif not SYMBOL_RE.match(symbol):
-            errors.append(f"{label}: symbol must be uppercase alphanumeric with . _ / - separators")
-        elif symbol in seen_symbols:
-            errors.append(f"{label}: duplicate symbol")
+        asset_id = item.get("asset_id")
+        if not isinstance(asset_id, str) or not (1 <= len(asset_id) <= 32):
+            errors.append(f"{label}: asset_id must be a string of length 1-32")
+        elif not ASSET_ID_RE.match(asset_id):
+            errors.append(
+                f"{label}: asset_id must be uppercase alphanumeric with . _ / - separators"
+            )
+        elif asset_id in seen_asset_ids:
+            errors.append(f"{label}: duplicate asset_id")
         else:
-            seen_symbols.add(symbol)
+            seen_asset_ids.add(asset_id)
 
         name = item.get("name")
         if not _non_blank_str(name):
             errors.append(f"{label}: name must be a non-empty (non-whitespace) string")
 
-        exchange = item.get("exchange")
-        if not _non_blank_str(exchange):
-            errors.append(f"{label}: exchange must be a non-empty (non-whitespace) string")
+        site_code = item.get("site_code")
+        if site_code is not None and not _non_blank_str(site_code):
+            errors.append(f"{label}: site_code must be a non-empty (non-whitespace) string")
 
-        itype = item.get("instrument_type")
-        if itype not in ALLOWED_INSTRUMENT_TYPES:
+        etype = item.get("equipment_type")
+        if etype not in ALLOWED_EQUIPMENT_TYPES:
             errors.append(
-                f"{label}: instrument_type must be one of {sorted(ALLOWED_INSTRUMENT_TYPES)}"
+                f"{label}: equipment_type must be one of {sorted(ALLOWED_EQUIPMENT_TYPES)}"
             )
 
         currency = item.get("currency")
-        if not isinstance(currency, str) or len(currency) != 3:
+        if currency is not None and (not isinstance(currency, str) or len(currency) != 3):
             errors.append(f"{label}: currency must be a 3-letter code")
 
-        tick_size = _parse_finite_decimal(item.get("tick_size"))
-        if tick_size is None:
-            errors.append(f"{label}: tick_size must be Decimal-compatible and finite")
-        elif tick_size <= 0:
-            errors.append(f"{label}: tick_size must be positive")
+        service_interval_days = item.get("service_interval_days")
+        if (
+            isinstance(service_interval_days, bool)
+            or not isinstance(service_interval_days, int)
+            or service_interval_days <= 0
+        ):
+            errors.append(f"{label}: service_interval_days must be a positive integer")
 
-        lot_size = _parse_finite_decimal(item.get("lot_size"))
-        if lot_size is None:
-            errors.append(
-                f"{label}: lot_size must be Decimal-compatible and finite (fractional allowed)"
-            )
-        elif lot_size <= 0:
-            errors.append(f"{label}: lot_size must be positive")
+        hourly_service_rate = _parse_finite_decimal(item.get("hourly_service_rate"))
+        if hourly_service_rate is None:
+            errors.append(f"{label}: hourly_service_rate must be Decimal-compatible and finite")
+        elif hourly_service_rate <= 0:
+            errors.append(f"{label}: hourly_service_rate must be positive")
 
-        if itype == "OPTION":
-            option_type = item.get("option_type")
-            underlying = item.get("underlying")
-            strike = item.get("strike")
-            expiry = item.get("expiry")
-            if option_type not in ALLOWED_OPTION_TYPES:
+        rate_increment = item.get("rate_increment")
+        if rate_increment is not None:
+            rate_increment_dec = _parse_finite_decimal(rate_increment)
+            if rate_increment_dec is None:
+                errors.append(f"{label}: rate_increment must be Decimal-compatible and finite")
+            elif rate_increment_dec <= 0:
+                errors.append(f"{label}: rate_increment must be positive")
+
+        hour_lot_size = item.get("hour_lot_size")
+        if hour_lot_size is not None:
+            hour_lot_size_dec = _parse_finite_decimal(hour_lot_size)
+            if hour_lot_size_dec is None:
                 errors.append(
-                    f"{label}: option requires option_type in {sorted(ALLOWED_OPTION_TYPES)}"
+                    f"{label}: hour_lot_size must be Decimal-compatible and finite "
+                    "(fractional allowed)"
                 )
-            if not isinstance(underlying, str) or not underlying:
-                errors.append(f"{label}: option requires non-empty 'underlying'")
-            strike_dec = _parse_finite_decimal(strike)
-            if strike_dec is None or strike_dec <= 0:
-                errors.append(f"{label}: option requires a positive 'strike'")
-            if not isinstance(expiry, str):
-                errors.append(f"{label}: option requires an 'expiry' date string")
-            else:
-                # Fixtures are dated scenarios (e.g. a 2027 option chain),
-                # not live market data, so a past expiry is not an error -
-                # only the ISO `date` format itself is validated here.
-                try:
-                    date.fromisoformat(expiry)
-                except ValueError:
-                    errors.append(f"{label}: expiry is not a valid ISO date (YYYY-MM-DD)")
-            extra_keys = set(item) - option_fields
-        else:
-            extra_keys = set(item) - common_fields
+            elif hour_lot_size_dec <= 0:
+                errors.append(f"{label}: hour_lot_size must be positive")
+
+        extra_keys = set(item) - allowed_fields
         if extra_keys:
             errors.append(f"{label}: unsupported extra field(s) {sorted(extra_keys)}")
 
     if errors:
-        report.add("instruments_json", "FAIL", "; ".join(errors))
+        report.add("equipment_json", "FAIL", "; ".join(errors))
     else:
         report.add(
-            "instruments_json",
+            "equipment_json",
             "PASS",
-            f"{len(data)} instrument(s) valid against the canonical schema "
-            f"(types: {sorted(ALLOWED_INSTRUMENT_TYPES)})",
+            f"{len(data)} equipment asset(s) valid against the canonical schema "
+            f"(types: {sorted(ALLOWED_EQUIPMENT_TYPES)})",
         )
 
     _crosscheck_live_model(report, data)
@@ -725,33 +728,33 @@ def _crosscheck_live_model(report: Report, data: list[dict[str, Any]]) -> None:
     informational only (WARN, never FAIL) so the dependency-free doctor remains
     useful before the project has been installed."""
     try:
-        from qxm.core.models import Instrument
+        from mittelwerk.core.models import Equipment
     except ImportError as exc:
         report.add(
-            "instruments_live_model_crosscheck",
+            "equipment_live_model_crosscheck",
             "WARN",
-            f"qxm.core.models not importable yet, skipped live validation ({exc})",
+            f"mittelwerk.core.models not importable yet, skipped live validation ({exc})",
         )
         return
 
     live_errors = []
     for item in data:
         try:
-            Instrument(**item)
+            Equipment(**item)
         except (ValueError, TypeError) as exc:
-            live_errors.append(f"{item.get('symbol')}: {exc.__class__.__name__}")
+            live_errors.append(f"{item.get('asset_id')}: {exc.__class__.__name__}")
     if live_errors:
         report.add(
-            "instruments_live_model_crosscheck",
+            "equipment_live_model_crosscheck",
             "WARN",
-            f"{len(live_errors)} instrument(s) do not validate against the live "
-            f"qxm.core.models.Instrument: {'; '.join(live_errors)}",
+            f"{len(live_errors)} equipment asset(s) do not validate against the live "
+            f"mittelwerk.core.models.Equipment: {'; '.join(live_errors)}",
         )
     else:
         report.add(
-            "instruments_live_model_crosscheck",
+            "equipment_live_model_crosscheck",
             "PASS",
-            "all instruments also validate against the live qxm.core.models.Instrument",
+            "all equipment also validate against the live mittelwerk.core.models.Equipment",
         )
 
 
@@ -763,7 +766,7 @@ def check_copilot_environment(report: Report) -> None:
         hints.append(f"{tool_name}={'found' if path else 'missing'}")
 
     # Presence-only checks: never print the value of anything secret-like.
-    for var in ("GITHUB_TOKEN", "GH_TOKEN", "QXM_AUTH_SECRET_KEY"):
+    for var in ("GITHUB_TOKEN", "GH_TOKEN", "MITTELWERK_AUTH_SECRET_KEY"):
         hints.append(f"{var}={'set' if os.environ.get(var) else 'unset'}")
 
     # Non-secret environment hints - safe to show the actual value.
@@ -787,7 +790,7 @@ CHECKS = [
     check_scenario_catalogue,
     check_runtime_imports,
     check_settings_yaml,
-    check_instruments_json,
+    check_equipment_json,
     check_copilot_environment,
 ]
 
@@ -800,7 +803,7 @@ def run_all_checks() -> Report:
 
 
 def render_text_report(report: Report) -> str:
-    lines = ["QuantCore Workshop Doctor", "=" * 32, ""]
+    lines = ["MittelWerk Workshop Doctor", "=" * 32, ""]
     for result in report.results:
         lines.append(f"[{result.status:<4}] {result.name}")
         if result.detail:

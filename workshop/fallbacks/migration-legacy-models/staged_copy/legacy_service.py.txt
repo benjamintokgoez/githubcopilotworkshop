@@ -1,55 +1,39 @@
-"""Serialisation boundary for the SIMX reference-data surface.
-
-Everything downstream goes through these functions. Their names, arguments,
-return types and the exception they raise are the published contract; see
-`inventory.md`.
-"""
+"""Published serialisation boundary for equipment and service-rate data."""
 
 from typing import Any, Dict
 
-from legacy_models import InstrumentRef, QuotePayload
+from legacy_models import EquipmentRef, ServiceRatePayload
 
 
 class ContractError(ValueError):
-    """Raised when input does not satisfy the published contract.
-
-    The reference-data API and the quote publisher both catch exactly this and
-    map it to a 422 response carrying the message. Callers depend on that, so
-    the type and the fact that the message is non-empty are contract.
-    """
+    """Raised when input does not satisfy the published contract."""
 
 
-def parse_instrument(raw: Dict[str, Any]) -> InstrumentRef:
-    """Validate ``raw`` into an :class:`InstrumentRef`."""
+def parse_equipment(raw: Dict[str, Any]) -> EquipmentRef:
     try:
-        return InstrumentRef.parse_obj(raw)
+        return EquipmentRef.parse_obj(raw)
     except ValueError as exc:
         raise ContractError(str(exc)) from exc
 
 
-def parse_quote(raw: Dict[str, Any]) -> QuotePayload:
-    """Validate ``raw`` into a :class:`QuotePayload`."""
+def parse_service_rate(raw: Dict[str, Any]) -> ServiceRatePayload:
     try:
-        return QuotePayload.parse_obj(raw)
+        return ServiceRatePayload.parse_obj(raw)
     except ValueError as exc:
         raise ContractError(str(exc)) from exc
 
 
-def instrument_payload(raw: Dict[str, Any]) -> Dict[str, Any]:
-    """Instrument reference data as a plain dict, keyed by published alias."""
-    return parse_instrument(raw).dict(by_alias=True)
+def equipment_payload(raw: Dict[str, Any]) -> Dict[str, Any]:
+    return parse_equipment(raw).dict(by_alias=True)
 
 
-def instrument_json(raw: Dict[str, Any]) -> str:
-    """Instrument reference data as the JSON body consumers receive."""
-    return parse_instrument(raw).json(by_alias=True)
+def equipment_json(raw: Dict[str, Any]) -> str:
+    return parse_equipment(raw).json(by_alias=True)
 
 
-def quote_payload(raw: Dict[str, Any]) -> Dict[str, Any]:
-    """Quote as a plain dict, keyed by published alias."""
-    return parse_quote(raw).dict(by_alias=True)
+def service_rate_payload(raw: Dict[str, Any]) -> Dict[str, Any]:
+    return parse_service_rate(raw).dict(by_alias=True)
 
 
-def quote_json(raw: Dict[str, Any]) -> str:
-    """Quote as the JSON body consumers receive."""
-    return parse_quote(raw).json(by_alias=True)
+def service_rate_json(raw: Dict[str, Any]) -> str:
+    return parse_service_rate(raw).json(by_alias=True)

@@ -1,46 +1,28 @@
-# QXM-4488 - Report VaR as a positive loss magnitude in the risk summary
+# MW-4488 - Report overdue service workload as non-negative magnitudes
 
 | Field | Value |
 |---|---|
 | Opened | 2026-08-12, 11:05 CEST |
-| Requested by | Risk reporting (internal consumer of the risk summary endpoint) |
+| Requested by | Regional service operations |
 | Priority | Normal |
-| Assigned to | Delegated - unattended agent run on branch `agent/qxm-4488-var-sign` |
+| Assigned to | Delegated unattended agent run |
 
----
-
-## Problem
-
-The risk summary we consume returns VaR with an inconsistent sign. Some code paths
-give us a negative number, some a positive one, and our dashboard shows whichever
-it gets. Two weeks ago it displayed a negative VaR during a review meeting and we
-spent ten minutes explaining that it did not mean the portfolio could not lose
-money.
-
-Per our own convention (INV-VAR-1 in the invariants reference), **VaR and CVaR are
-non-negative loss magnitudes everywhere**: runtime, API, dashboard, tests, docs.
+The operational summary sometimes returns negative overdue hours and sometimes
+positive values. The dashboard displays whichever it receives. Our contract is
+simple: `overdue_hours` and `estimated_service_cost` are non-negative magnitudes.
 
 ## Requested change
 
-1. Make the VaR and CVaR values in the risk summary non-negative loss magnitudes.
-2. Keep the 1-day and 10-day horizons that are already exposed.
+1. Make both values non-negative.
+2. Preserve the existing daily and weekly summary horizons.
+3. Add a regression check that fails without the correction.
 
 ## Explicitly out of scope
 
-- **The response shape does not change.** We parse it by field name; renaming a
-  field is a breaking change for us and needs its own ticket and a deprecation
-  window.
-- Number formatting. We format for display on our side.
-- Storage, persistence and the market-data path. Nothing in this ticket needs
-  them.
-
-## Acceptance
-
-- The summary returns non-negative VaR and CVaR for a portfolio that can lose
-  money.
-- Existing consumers keep working without changes.
-- The change is covered by a test that would fail without it.
+- Response field names and shape.
+- Human-facing number formatting.
+- Storage, telemetry ingestion, or work-order identity.
 
 ---
 
-*Synthetic issue, written for the workshop.*
+*Synthetic issue for the workshop.*

@@ -26,7 +26,7 @@ TOOL_PATH = REPO_ROOT / "scripts" / "workshop.py"
 SCENARIO_ROOT = REPO_ROOT / "workshop" / "scenarios"
 FALLBACK_ROOT = REPO_ROOT / "workshop" / "fallbacks"
 
-CODE_SCENARIOS = ("incident-fill-price", "migration-legacy-models", "capstone-transfer")
+CODE_SCENARIOS = ("incident-service-rate", "migration-legacy-models", "capstone-transfer")
 EVIDENCE_SCENARIOS = (
     "review-pr",
     "elective-mcp",
@@ -34,7 +34,7 @@ EVIDENCE_SCENARIOS = (
     "elective-customization",
 )
 ALL_SCENARIOS = (
-    "incident-fill-price",
+    "incident-service-rate",
     "migration-legacy-models",
     "review-pr",
     "elective-mcp",
@@ -251,7 +251,7 @@ from datetime import UTC, date, datetime, time, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 from zoneinfo import ZoneInfo
 
-EXPORT_PREFIX = "daily_export"
+EXPORT_PREFIX = "service_export"
 
 
 def selection_window(business_date: date) -> tuple[datetime, datetime]:
@@ -287,7 +287,7 @@ def total_of(records: Sequence[dict[str, str]]) -> Decimal:
     return sum((Decimal(record["amount"]) for record in records), Decimal("0"))
 '''
 
-MIGRATED_MODELS = '''"""SIMX reference-data models (test-local migrated implementation)."""
+MIGRATED_MODELS = '''"""MittelWerk model surface (test-local migrated implementation)."""
 
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -301,24 +301,24 @@ from pydantic import (
     model_validator,
 )
 
-SUPPORTED_CURRENCIES = ("EUR", "USD", "CHF", "GBP")
+SUPPORTED_CURRENCIES = ("EUR", "CHF")
 
 
-class InstrumentRef(BaseModel):
+class EquipmentRef(BaseModel):
     model_config = ConfigDict(populate_by_name=True, str_strip_whitespace=True)
 
-    symbol: str = Field(..., alias="sym", min_length=1, max_length=16)
+    asset_code: str = Field(..., alias="asset", min_length=1, max_length=24)
     name: str = Field(..., min_length=1, max_length=80)
     currency: str = Field("EUR", min_length=3, max_length=3)
-    tick_size: Decimal = Field(..., gt=0)
-    venue: str | None = None
+    standard_hourly_rate: Decimal = Field(..., gt=0)
+    service_region: str | None = None
 
-    @field_validator("symbol")
+    @field_validator("asset_code")
     @classmethod
-    def symbol_is_upper_case(cls, value: str) -> str:
+    def asset_code_is_upper_case(cls, value: str) -> str:
         upper = value.upper()
-        if not upper.replace(".", "").replace("-", "").isalnum():
-            raise ValueError("symbol must be alphanumeric, optionally with '.' or '-'")
+        if not upper.replace("-", "").isalnum():
+            raise ValueError("asset code must be alphanumeric, optionally with '-'")
         return upper
 
     @field_validator("currency")
@@ -330,18 +330,18 @@ class InstrumentRef(BaseModel):
         return upper
 
 
-class QuotePayload(BaseModel):
+class ServiceRatePayload(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
-    symbol: str = Field(..., alias="sym", min_length=1, max_length=16)
-    bid: Decimal = Field(..., ge=0)
-    ask: Decimal = Field(..., ge=0)
+    asset_code: str = Field(..., alias="asset", min_length=1, max_length=24)
+    standard_rate: Decimal = Field(..., ge=0)
+    emergency_rate: Decimal = Field(..., ge=0)
     as_of: datetime
-    venue: str | None = None
+    service_region: str | None = None
 
-    @field_validator("symbol")
+    @field_validator("asset_code")
     @classmethod
-    def symbol_is_upper_case(cls, value: str) -> str:
+    def asset_code_is_upper_case(cls, value: str) -> str:
         return value.upper()
 
     @field_validator("as_of")
@@ -356,9 +356,9 @@ class QuotePayload(BaseModel):
         return value.astimezone(UTC).isoformat()
 
     @model_validator(mode="after")
-    def ask_is_not_below_bid(self) -> "QuotePayload":
-        if self.ask < self.bid:
-            raise ValueError("ask must not be below bid")
+    def emergency_rate_is_not_lower(self) -> "ServiceRatePayload":
+        if self.emergency_rate < self.standard_rate:
+            raise ValueError("emergency rate must not be below standard rate")
         return self
 '''
 
@@ -366,67 +366,65 @@ MIGRATED_SERVICE = '''"""Serialisation boundary (test-local migrated implementat
 
 from typing import Any
 
-from legacy_models import InstrumentRef, QuotePayload
+from legacy_models import EquipmentRef, ServiceRatePayload
 
 
 class ContractError(ValueError):
     """Raised when input does not satisfy the published contract."""
 
 
-def parse_instrument(raw: dict[str, Any]) -> InstrumentRef:
+def parse_equipment(raw: dict[str, Any]) -> EquipmentRef:
     try:
-        return InstrumentRef.model_validate(raw)
+        return EquipmentRef.model_validate(raw)
     except ValueError as exc:
         raise ContractError(str(exc)) from exc
 
 
-def parse_quote(raw: dict[str, Any]) -> QuotePayload:
+def parse_service_rate(raw: dict[str, Any]) -> ServiceRatePayload:
     try:
-        return QuotePayload.model_validate(raw)
+        return ServiceRatePayload.model_validate(raw)
     except ValueError as exc:
         raise ContractError(str(exc)) from exc
 
 
-def instrument_payload(raw: dict[str, Any]) -> dict[str, Any]:
-    return parse_instrument(raw).model_dump(by_alias=True)
+def equipment_payload(raw: dict[str, Any]) -> dict[str, Any]:
+    return parse_equipment(raw).model_dump(by_alias=True)
 
 
-def instrument_json(raw: dict[str, Any]) -> str:
-    return parse_instrument(raw).model_dump_json(by_alias=True)
+def equipment_json(raw: dict[str, Any]) -> str:
+    return parse_equipment(raw).model_dump_json(by_alias=True)
 
 
-def quote_payload(raw: dict[str, Any]) -> dict[str, Any]:
-    return parse_quote(raw).model_dump(by_alias=True)
+def service_rate_payload(raw: dict[str, Any]) -> dict[str, Any]:
+    return parse_service_rate(raw).model_dump(by_alias=True)
 
 
-def quote_json(raw: dict[str, Any]) -> str:
-    return parse_quote(raw).model_dump_json(by_alias=True)
+def service_rate_json(raw: dict[str, Any]) -> str:
+    return parse_service_rate(raw).model_dump_json(by_alias=True)
 '''
 
 REVIEW_NOTES = """# Review notes - PR #212
 
 ## 1. What I think the diff does
 
-It changes the sign of reported value at risk, renames the fields of the risk
-summary response, relaxes two assertions in the risk tests, formats decimal
-numbers with a comma inside serialised payloads, and drops timezone awareness in
-the store write path while swallowing write failures.
+It makes overdue workload and service-cost values negative, renames published
+summary fields, weakens analytics assertions, puts locale-formatted numbers into
+machine JSON, and drops timezone awareness while swallowing storage failures.
 
 ## 2. Findings
 
-### Finding 1 - reported value at risk becomes negative
+### Finding 1 - overdue workload becomes negative
 
-- Location: qxm/risk/var.py, report_var and report_cvar helpers
+- Location: mittelwerk/analytics/sla.py, reporting helpers
 - Severity: blocking
-- Evidence: the linked issue and INV-VAR-1 both require non-negative loss
-  magnitudes, and the helper returns minus the absolute value, so the summary now
-  emits a negative number for a portfolio that can lose money.
-- Requested change: return the absolute value from both helpers and restore the
-  exact reference assertion of 24672.80 in the risk test.
+- Evidence: the issue requires non-negative operational magnitudes, but both
+  helpers return minus the absolute value, so overdue hours and cost are negative.
+- Requested change: return the absolute value and restore the exact analytics
+  assertions that would fail for negative values.
 
 ### Finding 2 - response field names changed although the issue forbade it
 
-- Location: qxm/api/routes.py, get_risk_summary return value
+- Location: mittelwerk/api/routes.py, get_operations_summary return value
 - Severity: blocking
 - Evidence: the issue puts the response shape explicitly out of scope, the diff
   renames the two published keys, and the session log records a dashboard
@@ -436,30 +434,28 @@ the store write path while swallowing write failures.
 
 ### Finding 3 - test assertions were weakened to make the change pass
 
-- Location: tests/test_risk.py, both updated assertions
+- Location: tests/test_analytics.py, both updated assertions
 - Severity: blocking
-- Evidence: the tolerance moved from one cent to one euro and the positivity
-  assertion became a non-zero assertion, so the suite can no longer detect the
-  defect it was written for.
+- Evidence: the tolerance widened and the non-negative assertion became a
+  non-zero assertion, so the suite no longer detects the reported defect.
 - Requested change: restore the original assertions and let the implementation
   satisfy them instead.
 
 ## 3. Comparison with the captured automated review
 
-- Found by the captured review, missed by me: the naive local-time timestamp in
-  the store write path, which I skipped while reading the risk files first.
+- Found by the captured review, missed by me: the naive timestamp and swallowed
+  storage failure, which I skipped while reading analytics first.
 - Found by me, missed by the captured review: the renamed response keys that
   break the documented contract, because judging that needs the linked issue and
   the downstream consumer rather than the diff alone.
-- Comment I would not forward to the author: the suggestion to convert the
-  decimal arithmetic to floating point, because it trades correctness for speed
-  in a money path and contradicts our own conventions.
+- Comment I would not forward to the author: converting Decimal rates to float,
+  because that contradicts the exact money-boundary contract.
 
 ## 4. Decision
 
 - Decision: request changes, with the conditions listed below
 - Condition that would flip it: original field names restored, non-negative
-  magnitudes returned, and the original test assertions reinstated.
+  magnitudes returned, and strong assertions reinstated.
 
 ## 5. Uncertainty
 
@@ -481,14 +477,14 @@ environment file hands it.
 
 ## 2. Tools offered, enabled, disabled
 
-- Tools offered: list_instruments, get_order_book, calculate_risk
-- Tools enabled: get_order_book, calculate_risk
-- Tools disabled: list_instruments was deselected in the client; submit_order and
-  cancel_order were never registered by this read-only server
+- Tools offered: list_equipment, get_dispatch_queue, calculate_service_risk
+- Tools enabled: get_dispatch_queue, calculate_service_risk
+- Tools disabled: list_equipment was deselected in the client; submit_work_order and
+  cancel_work_order were never registered by this read-only server
 
-The writing tools are absent because the task is a question and not a trade, and
-the instrument listing is deselected because it returns the whole reference set
-when the question concerned one symbol.
+The writing tools are absent because the task is read-only, and the equipment
+listing is deselected because it returns the whole reference set when the
+question concerned one asset.
 
 - Where the control lives: the process confinement is mcp.json with sandboxEnabled
   and the top-level sandbox rules, tool selection and approval are client settings,
@@ -499,14 +495,14 @@ when the question concerned one symbol.
 
 ## 3. Evidence the answer came from the tool
 
-Captured evidence from the shipped tool-call log: the order-book call returned
-five price levels for one symbol at 13:03 UTC, values the model could not have
+Captured evidence from the shipped tool-call log: the queue call returned three
+offers and one request for PRESS-17 at 13:03 UTC, values the model could not have
 produced without the call, and the reply quoted them exactly.
 
 ## 4. Negative case
 
-- What I asked for outside the permission: submitting a market order for one
-  hundred units, and then requesting a book depth far beyond the documented bound.
+- What I asked for outside the permission: submitting a work order for four
+  hours, and then requesting queue depth far beyond the documented bound.
 - Observed behaviour: the server answered unknown tool for the write, because it
   was never registered, and rejected the depth argument in its own validation, so
   the refusals came from the server rather than from the client.
@@ -670,12 +666,15 @@ EVIDENCE_FIXTURES: dict[str, str] = {
 def apply_repair(root: Path, scenario_id: str) -> None:
     """Simulate a correct participant repair for a code scenario."""
     work = root / "workshop" / "scenarios" / scenario_id / "work"
-    if scenario_id == "incident-fill-price":
-        module = work / "fill_engine.py"
+    if scenario_id == "incident-service-rate":
+        module = work / "dispatch_engine.py"
         source = module.read_text(encoding="utf-8")
-        assert "price=order.indicative_price," in source
+        assert "hourly_rate=request.maximum_hourly_rate," in source
         module.write_text(
-            source.replace("price=order.indicative_price,", "price=maker.price,"),
+            source.replace(
+                "hourly_rate=request.maximum_hourly_rate,",
+                "hourly_rate=offer.hourly_rate,",
+            ),
             encoding="utf-8",
         )
     elif scenario_id == "capstone-transfer":
@@ -725,14 +724,14 @@ class TestCommandSurface:
         result = subprocess.run(  # noqa: S603 - fixed argv, no shell
             argv,
             cwd=str(sandbox),
-            env={**os.environ, "QXM_WORKSHOP_REPO_ROOT": str(sandbox)},
+            env={**os.environ, "MITTELWERK_WORKSHOP_REPO_ROOT": str(sandbox)},
             capture_output=True,
             text=True,
             timeout=120,
             check=False,
         )
         assert result.returncode == EXIT_OK
-        assert "incident-fill-price" in result.stdout
+        assert "incident-service-rate" in result.stdout
 
     def test_a_root_without_a_catalogue_is_refused(self, tmp_path: Path, sandbox: Path) -> None:
         empty = tmp_path / "empty"
@@ -794,7 +793,7 @@ class TestList:
         assert "does not match its directory" in result.stderr
 
     def test_missing_required_artifact_is_reported(self, sandbox: Path) -> None:
-        (sandbox / "workshop" / "scenarios" / "incident-fill-price" / "issue.md").unlink()
+        (sandbox / "workshop" / "scenarios" / "incident-service-rate" / "issue.md").unlink()
         result = run(sandbox, "list")
         assert result.returncode == EXIT_INVALID_ARTIFACT
         assert "required artifact is missing" in result.stderr
@@ -886,7 +885,7 @@ class TestManifestValidation:
         data = base_command_manifest("sandbox-x", ["{python}", "-c", "pass"])
         stage = data["stage"]
         assert isinstance(stage, list)
-        stage[0]["target"] = "qxm/core/engine.py"
+        stage[0]["target"] = "outside/core/engine.py"
         with pytest.raises(cli.ArtifactError, match="must live under"):
             self._parse(cli, data)
 
@@ -1123,14 +1122,17 @@ class TestCodeScenarios:
         assert tree_state(sandbox) == before
 
     def test_the_incident_check_asserts_the_invariant_not_one_literal(self, sandbox: Path) -> None:
-        run(sandbox, "start", "incident-fill-price")
-        module = sandbox / "workshop/scenarios/incident-fill-price/work/fill_engine.py"
+        run(sandbox, "start", "incident-service-rate")
+        module = sandbox / "workshop/scenarios/incident-service-rate/work/dispatch_engine.py"
         source = module.read_text(encoding="utf-8")
         module.write_text(
-            source.replace("price=order.indicative_price,", 'price=Decimal("101.20"),'),
+            source.replace(
+                "hourly_rate=request.maximum_hourly_rate,",
+                'hourly_rate=Decimal("110.00"),',
+            ),
             encoding="utf-8",
         )
-        assert run(sandbox, "verify", "incident-fill-price").returncode == EXIT_ACCEPTANCE_FAILED
+        assert run(sandbox, "verify", "incident-service-rate").returncode == EXIT_ACCEPTANCE_FAILED
 
     @NEEDS_PYDANTIC
     def test_the_migration_contract_checks_pass_before_the_migration(self, sandbox: Path) -> None:
@@ -1145,7 +1147,10 @@ class TestCodeScenarios:
         apply_repair(sandbox, "migration-legacy-models")
         models = sandbox / "workshop/scenarios/migration-legacy-models/work/legacy_models.py"
         source = models.read_text(encoding="utf-8")
-        models.write_text(source.replace('alias="sym"', 'alias="symbol_code"'), encoding="utf-8")
+        models.write_text(
+            source.replace('alias="asset"', 'alias="equipment_code"'),
+            encoding="utf-8",
+        )
         assert (
             run(sandbox, "verify", "migration-legacy-models").returncode == EXIT_ACCEPTANCE_FAILED
         )
@@ -1211,9 +1216,8 @@ class TestEvidenceScenarios:
     def test_a_finding_without_evidence_fails(self, sandbox: Path) -> None:
         run(sandbox, "start", "review-pr")
         weakened = REVIEW_NOTES.replace(
-            "- Evidence: the linked issue and INV-VAR-1 both require non-negative loss\n"
-            "  magnitudes, and the helper returns minus the absolute value, so the summary now\n"
-            "  emits a negative number for a portfolio that can lose money.",
+            "- Evidence: the issue requires non-negative operational magnitudes, but both\n"
+            "  helpers return minus the absolute value, so overdue hours and cost are negative.",
             "- Evidence: looks wrong",
         )
         evidence_path_of(sandbox, "review-pr").write_text(weakened, encoding="utf-8")
@@ -1299,7 +1303,7 @@ class TestStateConflicts:
         result = run(sandbox, command, "does-not-exist")
         assert result.returncode == EXIT_ERROR
         assert "unknown scenario id" in result.stderr
-        assert "incident-fill-price" in result.stderr
+        assert "incident-service-rate" in result.stderr
 
     def test_resync_refuses_a_scenario_that_is_not_active(self, sandbox: Path) -> None:
         run(sandbox, "start", "review-pr")
@@ -1387,10 +1391,10 @@ class TestTransactionalStaging:
         assert stat.S_IMODE(target.stat().st_mode) == original_mode
 
     def test_staging_failure_rolls_back_completely(self, sandbox: Path) -> None:
-        blocker = sandbox / "workshop/scenarios/incident-fill-price/work"
+        blocker = sandbox / "workshop/scenarios/incident-service-rate/work"
         blocker.write_text("not a directory\n", encoding="utf-8")
         before = tree_state(sandbox)
-        result = run(sandbox, "start", "incident-fill-price")
+        result = run(sandbox, "start", "incident-service-rate")
         assert result.returncode == EXIT_ERROR
         assert "rolled back" in result.stderr
         assert tree_state(sandbox) == before
@@ -1575,7 +1579,7 @@ class TestAcceptanceExecution:
         script = (
             "import os, sys\n"
             "leaked = [name for name in ('GITHUB_TOKEN', 'AWS_SECRET_ACCESS_KEY',\n"
-            "         'QXM_API_TOKEN', 'NPM_TOKEN') if name in os.environ]\n"
+            "         'LEGACY_API_TOKEN', 'NPM_TOKEN') if name in os.environ]\n"
             "print('leaked:', leaked)\n"
             "for name, value in sorted(os.environ.items()):\n"
             "    print(name, '=', value)\n"
@@ -1585,7 +1589,7 @@ class TestAcceptanceExecution:
         secrets = {
             "GITHUB_TOKEN": "ghp_" + "s" * 30,
             "AWS_SECRET_ACCESS_KEY": "AKIA" + "Z" * 16,
-            "QXM_API_TOKEN": "qxm-super-secret-value-42",
+            "LEGACY_API_TOKEN": "legacy-super-secret-value-42",
             "NPM_TOKEN": "npm-secret-value-42",
         }
         run(sandbox, "start", "sandbox-probe", env=secrets)
@@ -1664,7 +1668,7 @@ class TestUntrustedState:
             "../../../../etc/passwd",
             "workshop/scenarios/review-pr/manifest.json",
             "workshop/scenarios/other/work/notes.md",
-            "qxm/core/engine.py",
+            "outside/core/engine.py",
         ],
     )
     def test_a_tampered_target_path_is_refused(self, sandbox: Path, bad_path: str) -> None:
@@ -2202,15 +2206,13 @@ class TestContentHygiene:
 # The MCP elective must describe the server this repository actually ships
 # ---------------------------------------------------------------------------
 
-MCP_SERVER_SOURCE = REPO_ROOT / "qxm" / "mcp_server" / "server.py"
-DOCUMENTED_READ_TOOLS = ("list_instruments", "get_order_book", "calculate_risk")
-DOCUMENTED_WRITE_TOOLS = ("submit_order", "cancel_order")
-RETIRED_TOOL_NAMES = (
-    "get_positions",
-    "get_risk_metrics",
-    "get_portfolio_snapshot",
-    "list_strategies",
+MCP_SERVER_SOURCE = REPO_ROOT / "mittelwerk" / "mcp_server" / "server.py"
+DOCUMENTED_READ_TOOLS = (
+    "list_equipment",
+    "get_dispatch_queue",
+    "calculate_service_risk",
 )
+DOCUMENTED_WRITE_TOOLS = ("submit_work_order", "cancel_work_order")
 VSCODE_SERVER_KEYS = {
     "type",
     "command",
@@ -2269,12 +2271,6 @@ class TestMcpElectiveMatchesTheServer:
         )
         for name in DOCUMENTED_READ_TOOLS + DOCUMENTED_WRITE_TOOLS:
             assert f"`{name}`" in inventory, f"{name} is missing from the tool inventory"
-
-    def test_no_artifact_mentions_a_retired_tool(self) -> None:
-        for path in self._artifacts():
-            text = path.read_text(encoding="utf-8")
-            for retired in RETIRED_TOOL_NAMES:
-                assert retired not in text, f"{path} still mentions {retired}"
 
     def test_the_inventory_separates_capability_from_configuration(self) -> None:
         inventory = flatten_markdown(
@@ -2400,19 +2396,19 @@ class TestMcpElectiveMatchesTheServer:
 class TestBaselineSafety:
     def test_start_verify_reset_cycles_leave_the_tree_untouched(self, sandbox: Path) -> None:
         before = tree_state(sandbox)
-        for scenario_id in ("incident-fill-price", "review-pr", "capstone-transfer"):
+        for scenario_id in ("incident-service-rate", "review-pr", "capstone-transfer"):
             run(sandbox, "start", scenario_id)
             run(sandbox, "verify", scenario_id)
             run(sandbox, "reset", scenario_id)
         assert tree_state(sandbox) == before
 
     def test_nothing_outside_the_scenario_tree_is_touched(self, sandbox: Path) -> None:
-        runtime = sandbox / "qxm"
+        runtime = sandbox / "mittelwerk"
         runtime.mkdir()
         marker = runtime / "engine.py"
         marker.write_text("# baseline runtime\n", encoding="utf-8")
-        run(sandbox, "start", "incident-fill-price")
-        run(sandbox, "reset", "incident-fill-price")
+        run(sandbox, "start", "incident-service-rate")
+        run(sandbox, "reset", "incident-service-rate")
         assert marker.read_text(encoding="utf-8") == "# baseline runtime\n"
 
     def test_no_scenario_stages_outside_its_own_work_directory(self, cli: types.ModuleType) -> None:

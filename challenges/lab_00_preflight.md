@@ -97,7 +97,7 @@ Two commands, because they answer two different questions.
 
 `workshop_doctor.py` reports your Python version, whether the expected
 dependencies import, whether the repository revision and the expected baseline
-files are present, whether `settings.yaml` and `instruments.json` are structurally
+files are present, whether `settings.yaml` and `equipment.json` are structurally
 valid, and a few environment hints - it tells you whether a relevant variable is
 set, never what it contains. Read the whole output rather than scanning for the
 absence of red; a warning you skim past now is a broken lab at 11:00.

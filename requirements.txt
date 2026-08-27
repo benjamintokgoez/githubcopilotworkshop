@@ -1,4 +1,4 @@
-# QuantCore — pip-compatible install file.
+# MittelWerk — pip-compatible install file.
 #
 # This file is kept in sync with the dependency bounds declared in
 # pyproject.toml ([project.dependencies] / [project.optional-dependencies]).

@@ -1,4 +1,4 @@
-"""Small AST-based security scanner for the QuantCore Python source tree.
+"""Small AST-based security scanner for the MittelWerk Python source tree.
 
 Run ``python security_check.py`` for stable plain text or add ``--json`` for
 machine-readable output. The scanner reports locations and descriptions only;
@@ -27,7 +27,7 @@ class Finding:
     description: str
 
 
-SCAN_DIRS = ("qxm",)
+SCAN_DIRS = ("mittelwerk",)
 SKIP_DIRS = frozenset({"__pycache__", ".git", "node_modules", ".venv"})
 FAIL_SEVERITIES = frozenset({"CRITICAL", "HIGH"})
 SEVERITY_ORDER = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
@@ -465,7 +465,7 @@ def scan_project(
 def print_report(findings: Sequence[Finding]) -> None:
     """Print a deterministic, source-free plain-text report."""
     ordered = _sorted_unique(findings)
-    print("QuantCore Security Audit")
+    print("MittelWerk Security Audit")
     print(f"Total findings: {len(ordered)}")
     for finding in ordered:
         print(

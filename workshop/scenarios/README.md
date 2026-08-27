@@ -77,6 +77,6 @@ python scripts/workshop.py fallback <scenario-id>
 
 ## Simulation notice
 
-Every symbol, price, order, ticket, transcript and review in these scenarios is
-synthetic and generated for teaching. No customer data, no production system, and
-no real market data is represented here.
+Every organisation, site, asset, provider, work order, ticket, transcript, and
+review in these scenarios is synthetic and generated for teaching. No customer
+data or production system is represented here.

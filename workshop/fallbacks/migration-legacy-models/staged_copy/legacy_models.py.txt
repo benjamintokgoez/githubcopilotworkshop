@@ -1,11 +1,6 @@
-"""SIMX reference-data models (legacy surface).
+"""MittelWerk equipment and service-rate models on a legacy compatibility shim.
 
-These models are still written against the 1.x idioms of the validation library
-and are imported through its compatibility shim. See QXM-4520.
-
-The serialised form of everything in this module is a public contract: field
-names and aliases, types, the dot decimal separator in payloads, the timestamp
-representation, and which inputs are rejected.
+The serialised shape is a published contract used by regional service systems.
 """
 
 from datetime import datetime, timezone
@@ -14,28 +9,26 @@ from typing import Optional
 
 from pydantic.v1 import BaseModel, Field, root_validator, validator
 
-SUPPORTED_CURRENCIES = ("EUR", "USD", "CHF", "GBP")
+SUPPORTED_CURRENCIES = ("EUR", "CHF")
 
 
-class InstrumentRef(BaseModel):
-    """Reference data for one tradeable instrument."""
-
-    symbol: str = Field(..., alias="sym", min_length=1, max_length=16)
+class EquipmentRef(BaseModel):
+    asset_code: str = Field(..., alias="asset", min_length=1, max_length=24)
     name: str = Field(..., min_length=1, max_length=80)
     currency: str = Field("EUR", min_length=3, max_length=3)
-    tick_size: Decimal = Field(..., gt=0)
-    venue: Optional[str] = None
+    standard_hourly_rate: Decimal = Field(..., gt=0)
+    service_region: Optional[str] = None
 
     class Config:
         allow_population_by_field_name = True
         anystr_strip_whitespace = True
         json_encoders = {Decimal: str}
 
-    @validator("symbol")
-    def symbol_is_upper_case(cls, value: str) -> str:  # noqa: N805
+    @validator("asset_code")
+    def asset_code_is_upper_case(cls, value: str) -> str:  # noqa: N805
         upper = value.upper()
-        if not upper.replace(".", "").replace("-", "").isalnum():
-            raise ValueError("symbol must be alphanumeric, optionally with '.' or '-'")
+        if not upper.replace("-", "").isalnum():
+            raise ValueError("asset code must be alphanumeric, optionally with '-'")
         return upper
 
     @validator("currency")
@@ -46,21 +39,19 @@ class InstrumentRef(BaseModel):
         return upper
 
 
-class QuotePayload(BaseModel):
-    """A two-sided quote as it is published to downstream consumers."""
-
-    symbol: str = Field(..., alias="sym", min_length=1, max_length=16)
-    bid: Decimal = Field(..., ge=0)
-    ask: Decimal = Field(..., ge=0)
+class ServiceRatePayload(BaseModel):
+    asset_code: str = Field(..., alias="asset", min_length=1, max_length=24)
+    standard_rate: Decimal = Field(..., ge=0)
+    emergency_rate: Decimal = Field(..., ge=0)
     as_of: datetime
-    venue: Optional[str] = None
+    service_region: Optional[str] = None
 
     class Config:
         allow_population_by_field_name = True
         json_encoders = {Decimal: str}
 
-    @validator("symbol")
-    def symbol_is_upper_case(cls, value: str) -> str:  # noqa: N805
+    @validator("asset_code")
+    def asset_code_is_upper_case(cls, value: str) -> str:  # noqa: N805
         return value.upper()
 
     @validator("as_of")
@@ -70,9 +61,9 @@ class QuotePayload(BaseModel):
         return value.astimezone(timezone.utc)
 
     @root_validator(skip_on_failure=True)
-    def ask_is_not_below_bid(cls, values: dict) -> dict:  # noqa: N805
-        bid = values.get("bid")
-        ask = values.get("ask")
-        if bid is not None and ask is not None and ask < bid:
-            raise ValueError("ask must not be below bid")
+    def emergency_rate_is_not_lower(cls, values: dict) -> dict:  # noqa: N805
+        standard = values.get("standard_rate")
+        emergency = values.get("emergency_rate")
+        if standard is not None and emergency is not None and emergency < standard:
+            raise ValueError("emergency rate must not be below standard rate")
         return values

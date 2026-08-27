@@ -1,4 +1,4 @@
-"""Acceptance checks for the daily export utility (OPS-2026-118).
+"""Acceptance checks for the daily service export utility (MW-2026-118).
 
 The expected values are the ones printed in the lab and in `acceptance.md`. The
 two daylight-saving dates are not edge cases here, they are the specification.
@@ -93,7 +93,7 @@ class FilenameTest(unittest.TestCase):
     """Identifiers and filenames use ISO 8601 dates."""
 
     def test_filename_for_the_sample_business_date(self) -> None:
-        self.assertEqual(export_filename(date(2026, 8, 19)), "daily_export_2026-08-19.csv")
+        self.assertEqual(export_filename(date(2026, 8, 19)), "service_export_2026-08-19.csv")
 
     def test_filenames_sort_chronologically(self) -> None:
         names = [

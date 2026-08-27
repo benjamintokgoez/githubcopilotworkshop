@@ -50,7 +50,7 @@ Check 1/1: Business-date windows, half-open boundary, filename, and display tota
   | ----------------------------------------------------------------------
   | Traceback (most recent call last):
   |   File "<repo>/workshop/scenarios/capstone-transfer/work/test_daily_export.py", line 96, in test_filename_for_the_sample_business_date
-  |     self.assertEqual(export_filename(date(2026, 8, 19)), "daily_export_2026-08-19.csv")
+  |     self.assertEqual(export_filename(date(2026, 8, 19)), "service_export_2026-08-19.csv")
   |                      ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
   | ... output truncated at 40 lines / 4000 chars
 

@@ -8,19 +8,19 @@ hosts, and no real repository other than this one appear in it.
 
 ```
 2026-08-19T13:20:04Z  session.start   cwd=<repo> approvals=ask-every-command
-2026-08-19T13:20:04Z  task            "Summarise how a risk metric reaches the API response, and
+2026-08-19T13:20:04Z  task            "Summarise how overdue service hours reach the API response, and
                                        name where the sign convention is enforced."
 
-2026-08-19T13:20:11Z  request         run: rg -n "value_at_risk|var" --type py
-                      reason          "locate the risk calculation and its consumers"
+2026-08-19T13:20:11Z  request         run: rg -n "overdue_hours" --type py
+                      reason          "locate the SLA calculation and its consumers"
 2026-08-19T13:20:19Z  approval        granted by user
 2026-08-19T13:20:19Z  result          exit=0 lines=64
 
-2026-08-19T13:20:33Z  request         read: qxm/risk/var.py
+2026-08-19T13:20:33Z  request         read: mittelwerk/analytics/sla.py
 2026-08-19T13:20:35Z  approval        granted by user
 2026-08-19T13:20:35Z  result          exit=0 bytes=9214
 
-2026-08-19T13:21:02Z  request         run: python -m pytest tests/test_risk_v2.py -q
+2026-08-19T13:21:02Z  request         run: python -m pytest tests/test_analytics_v2.py -q
                       reason          "confirm the documented values still hold"
 2026-08-19T13:21:09Z  approval        granted by user
 2026-08-19T13:21:31Z  result          exit=0 duration_s=21 "24 passed"

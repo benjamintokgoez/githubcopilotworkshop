@@ -97,8 +97,8 @@ corrects a concrete candidate, and records the same command/result evidence.
 ## Business invariants at stake
 
 Everything needed is stated in
-[reference/invariants.md](reference/invariants.md). No trading knowledge is
-required.
+[reference/invariants.md](reference/invariants.md). No field-service knowledge
+is required.
 
 - **INV-TIME-1** - stored and exchanged timestamps are timezone-aware UTC.
 - **INV-TIME-3** - business date `D` is
@@ -127,7 +127,7 @@ Selection windows:
 Filename for business date `2026-08-19`:
 
 ```text
-daily_export_2026-08-19.csv
+service_export_2026-08-19.csv
 ```
 
 Display total for the stored value `1234567.891`:

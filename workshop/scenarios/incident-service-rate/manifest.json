@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "id": "incident-service-rate",
+  "title": "Incident - a service assignment at a rate nobody offered",
+  "kind": "code",
+  "lab": "Lab 2",
+  "summary": "A service-operations ticket about an incorrect assignment rate, with UTC logs, dispatch invariants, and a bounded reproduction of provider-capacity allocation.",
+  "fallback": "workshop/fallbacks/incident-service-rate",
+  "acceptance_doc": "workshop/scenarios/incident-service-rate/acceptance.md",
+  "required_artifacts": [
+    "workshop/scenarios/incident-service-rate/issue.md",
+    "workshop/scenarios/incident-service-rate/invariants.md",
+    "workshop/scenarios/incident-service-rate/logs/mittelwerk-dispatch-2026-08-19.log",
+    "workshop/scenarios/incident-service-rate/logs/service-assignment_WO-2026-0819-0442.txt"
+  ],
+  "briefing": [
+    "workshop/scenarios/incident-service-rate/issue.md",
+    "workshop/scenarios/incident-service-rate/logs/",
+    "workshop/scenarios/incident-service-rate/invariants.md"
+  ],
+  "stage": [
+    {
+      "payload": "workshop/scenarios/incident-service-rate/payloads/dispatch_engine.py.txt",
+      "target": "workshop/scenarios/incident-service-rate/work/dispatch_engine.py",
+      "mode": "0644",
+      "description": "Bounded reproduction of the service-dispatch path as it ran on 2026-08-19."
+    },
+    {
+      "payload": "workshop/scenarios/incident-service-rate/payloads/test_service_rate.py.txt",
+      "target": "workshop/scenarios/incident-service-rate/work/test_service_rate.py",
+      "mode": "0644",
+      "description": "Acceptance checks for provider-rate integrity, allocation priority, and hours conservation."
+    }
+  ],
+  "acceptance": {
+    "kind": "command",
+    "commands": [
+      {
+        "label": "Provider rate, allocation priority, and hours conservation",
+        "argv": [
+          "{python}",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "workshop/scenarios/incident-service-rate/work",
+          "-t",
+          "workshop/scenarios/incident-service-rate/work",
+          "-p",
+          "test_*.py"
+        ],
+        "timeout_seconds": 120
+      }
+    ]
+  }
+}

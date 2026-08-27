@@ -1,73 +1,31 @@
-# Captured automated code-review result - PR #212
+# Captured automated review - PR #212
 
-**Captured:** 2026-08-14, 11:20 UTC - **Diff reviewed:** `pr_diff.patch` in this
-directory - **Comments:** 5
+This synthetic review was prepared for comparison after the participant's
+independent human review.
 
-This is a saved, offline copy so that the comparison step works for everyone,
-whether or not automated code review is enabled for your account. Read it only
-**after** your own findings are written; reading it first anchors you and defeats
-the exercise.
+No blocking issues found in `mittelwerk/api/routes.py`; the returned fields are
+internally consistent with the changed analytics summary.
 
-It is a synthetic capture in the shape of an automated review. Treat it the way
-you would treat the real thing: an input to your judgement, never a substitute
-for it - including the comments you decide not to forward.
+## Finding A
 
----
+**Blocking:** `report_overdue_hours` and `report_estimated_cost` return negative
+values, contradicting the issue's non-negative magnitude contract. Return
+`abs(value)` and retain the original assertions.
 
-## Comment 1 - `qxm/data/store.py`, line 101
+## Finding B
 
-**Severity:** high
+**Blocking:** `datetime.now()` creates a naive timestamp in the persistence path,
+and the broad exception handler hides failed writes. Keep aware UTC and surface
+the storage failure through the existing error boundary.
 
-> Exception handling swallows all errors silently. `except Exception: pass`
-> around the session commit means a failed write is indistinguishable from a
-> successful one. Consider logging the exception and re-raising, or handling the
-> specific database errors you expect.
+## Finding C
 
----
+**Should-fix:** organisation identifiers are added to an info log although the
+ticket does not require them. Remove the unnecessary identifier and document the
+minimal operational fields that remain.
 
-## Comment 2 - `qxm/data/store.py`, line 96
+## Suggestion not grounded in the repository contract
 
-**Severity:** medium
-
-> `datetime.now()` returns a naive local-time value. If this timestamp is
-> persisted or compared with other timestamps, use a timezone-aware value
-> instead, for example `datetime.now(timezone.utc)`.
-
----
-
-## Comment 3 - `qxm/risk/var.py`, line 158
-
-**Severity:** low
-
-> The new module-level functions `report_var` and `report_cvar` are duplicated
-> implementations. Consider extracting a single helper parameterised by measure
-> name to avoid divergence if the convention changes.
-
----
-
-## Comment 4 - `qxm/risk/var.py`, line 145
-
-**Severity:** low
-
-> Using `Decimal` for this arithmetic is slower than necessary in a hot path.
-> Converting the portfolio value and volatility to `float` before the
-> multiplication would reduce overhead, and the precision difference is unlikely
-> to be material for a risk estimate.
-
----
-
-## Comment 5 - `qxm/utils/serializer.py`, line 67
-
-**Severity:** low
-
-> `_format_for_locale` is missing a docstring reference to the expected input
-> range and does not handle negative values explicitly. Consider adding a unit
-> test for negative amounts.
-
----
-
-## Summary produced with the review
-
-> Overall the change is focused and well structured. The main risks are in the
-> data-store error handling and the naive timestamp. No blocking issues found in
-> the risk calculations or the API layer.
+Converting `Decimal` calculations to float could make the code shorter. This
+suggestion should not be forwarded because it conflicts with the money-boundary
+contract.

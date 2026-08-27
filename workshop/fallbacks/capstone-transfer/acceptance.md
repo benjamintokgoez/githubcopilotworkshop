@@ -50,7 +50,7 @@ Selection windows, as half-open `[start, end)` intervals in UTC:
 Filename for business date `2026-08-19`:
 
 ```text
-daily_export_2026-08-19.csv
+service_export_2026-08-19.csv
 ```
 
 Display total for a stored value of `1234567.891`:

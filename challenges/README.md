@@ -1,6 +1,6 @@
 # Labs - supervised agentic engineering (one day)
 
-This directory holds the attendee-facing labs for the QuantCore workshop. It is a
+This directory holds the attendee-facing labs for the MittelWerk workshop. It is a
 one-day, hands-on curriculum for professional engineers who already write and
 review production code. It is not a feature tour of GitHub Copilot.
 
@@ -109,8 +109,8 @@ signal that you failed.
 
 ## Ground rules
 
-- **This is a simulation.** QuantCore is a teaching codebase. Nothing here is
-  investment advice, and no output of this workshop should be used to trade.
+- **This is a simulation.** MittelWerk is a teaching codebase. Every company,
+  asset, provider, work order, rate, and telemetry reading is synthetic.
 - **No fixed model names.** Use **Auto** or a model your administrator has
   approved and made available to you. See
   [reference/model_selection.md](reference/model_selection.md).

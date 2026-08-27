@@ -1,7 +1,8 @@
 # Scenario: migration-legacy-models (Lab 3)
 
-A bounded legacy model surface that still runs through a deprecated compatibility
-shim, its consumer, and the contract checks that define "behaviour preserving".
+A bounded equipment and service-rate model surface that still runs through a
+deprecated compatibility shim, its consumer, and the contract checks that define
+"behaviour preserving".
 
 ```bash
 python scripts/workshop.py start migration-legacy-models
@@ -25,7 +26,7 @@ python scripts/workshop.py reset migration-legacy-models
 - `work/legacy_service.py` - the consumer that serialises them
 - `work/test_contract.py` - the contract checks
 
-`qxm/` is untouched. The canonical runtime models are deliberately **not** part of
+`mittelwerk/` is untouched. The canonical runtime models are deliberately **not** part of
 this exercise: a migration you can reset in one command is a better place to
 practise supervision than the live core.
 
@@ -41,7 +42,8 @@ python -m pip install -r requirements.txt
 ## Working notes
 
 - Create `work/MIGRATION_NOTES.md`. Capture the initial verifier run, one valid
-  instrument and quote through their public parser/payload/JSON paths, and one
+  equipment reference and service-rate record through their public
+  parser/payload/JSON paths, and one
   invalid case per model family **before** the first edit.
 - Save the edited plan, how task context was loaded, each batch's diff/check
   result, the contract comparison, and handover in that note. An arbitrary note

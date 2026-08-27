@@ -1,22 +1,18 @@
-# QuantCore - a one-day workshop in supervised agentic engineering
+# MittelWerk - a one-day workshop in supervised agentic engineering
 
-QuantCore is a **simulated** quantitative trading engine written in Python. It
-exists for one purpose: to give professional engineers a realistic system in which
-to practise working with agentic AI tooling under supervision - incidents,
-migrations, reviews, and handovers that look like the ones they already have at
-work.
+MittelWerk is a **simulated industrial equipment and field-service platform**
+written in Python. It gives professional engineers a familiar DACH enterprise
+system in which to practise supervised agentic engineering: service incidents,
+legacy migrations, unattended-change reviews, permissions, and handovers.
 
 This is **not** a tour of GitHub Copilot features. It is a day of engineering
 practice in which the assistant is one participant and you are accountable for the
 result.
 
-> **Simulation notice.** QuantCore is teaching software. The market data is
-> generated and the risk analytics are simplified. Familiar real-world reference
-> instruments and symbols may appear so the domain reads naturally, but every
-> price, order, position, event, and scenario in this repository is simulated and
-> describes no real market, issuer, or venue.
-> **Nothing here is investment advice**, and no output of this workshop should be
-> used to make trading decisions.
+> **Simulation notice.** MittelWerk is teaching software, not a production field
+> service system. Every organisation, site, asset, provider, work order, service
+> rate, telemetry reading, event, and scenario is synthetic and describes no real
+> company or person.
 
 ---
 
@@ -169,7 +165,7 @@ do not bypass policy or spend the lab troubleshooting sign-in in public.
   [challenges/reference/model_selection.md](challenges/reference/model_selection.md).
 - The cloud agent, Copilot code review, MCP servers, or Copilot CLI. Each appears
   in exactly one place, always with a fallback.
-- Any knowledge of finance, trading, or derivatives.
+- Any knowledge of industrial equipment or field-service operations.
 
 ---
 
@@ -210,7 +206,7 @@ python -m pytest -q                  # the test baseline
 ```
 
 `workshop_doctor.py` checks your Python version, that the expected dependencies
-import, that the repository, `settings.yaml`, and `instruments.json` have the
+import, that the repository, `settings.yaml`, and `equipment.json` have the
 structure the labs assume, and it reports environment hints - including whether
 relevant variables are set, never their values. It does **not** run the test
 suite, generate sample data, or check anything inside your IDE. Those are
@@ -331,7 +327,7 @@ or environment defect, not workshop material.
 | Area | Included contract |
 |---|---|
 | Attendee curriculum (`README.md`, `challenges/`) | One-day Supported/Core/Extension journeys, no fixed model names, no answer keys |
-| Runtime (`qxm/`), tests, tooling, dashboard | Python 3.12 baseline, simulated trading engine, `de-DE`/`en-GB` presentation with explicit DACH scope, healthy tests |
+| Runtime (`mittelwerk/`), tests, tooling, dashboard | Python 3.12 baseline, simulated service-operations platform, `de-DE`/`en-GB` presentation with explicit DACH scope, healthy tests |
 | Scenario system (`workshop/scenarios/`, `workshop/fallbacks/`, `scripts/workshop.py`) | Seven deterministic scenarios, exact reset with participant-work archive, captured offline fallbacks |
 | Preflight tooling (`scripts/workshop_doctor.py`) | Environment, dependency, configuration, and workshop-structure checks without reading secret values |
 | Facilitator and operations material (`workshop/ops/`) | Matching agenda plus accessibility, privacy, works-council, assessment, and recovery guidance |
@@ -352,17 +348,17 @@ can improve the experience, but none sits on the critical path.
 
 ```
 githubcopilotworkshop/
-  qxm/                  Main package: core matching, risk, data, strategy,
+  mittelwerk/           Main package: domain, dispatch, analytics, telemetry,
                         auth, API, MCP server, utilities
   tests/                Test suite
   challenges/           The workshop: labs, hints, shared references
-  dashboard/            Trading dashboard frontend
+  dashboard/            Service-operations dashboard
   scripts/              Data generation and workshop tooling
   docs/                 API reference and domain glossary
   workshop/ops/         Facilitator, accessibility, privacy and recovery material
   main.py               Application entry point
   settings.yaml         Configuration
-  instruments.json      Instrument definitions
+  equipment.json        Synthetic equipment catalogue
 ```
 
 Architecture detail: [ARCHITECTURE.md](ARCHITECTURE.md). Contribution guidelines:

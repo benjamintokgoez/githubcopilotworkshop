@@ -23,7 +23,7 @@ must follow its actual locale, currency, and IANA-zone requirements.
   Sunday 2026-03-29 (CET to CEST, local `02:00` does not exist) and Sunday
   2026-10-25 (CEST to CET, local `02:00` occurs twice). One local day that year is
   23 hours long and one is 25 hours long. See
-  [invariants.md](invariants.md#5-time-and-calendar-invariants) for the exact
+  [invariants.md](invariants.md#5-time-and-calendar) for the exact
   UTC windows.
 - **ISO 8601 for machines, `dd.MM.yyyy` for German-language humans.** Filenames
   and identifiers use ISO dates, because `2026-08-19` sorts and
@@ -38,8 +38,8 @@ must follow its actual locale, currency, and IANA-zone requirements.
 - **Formatting belongs at the edge.** Parse and compute on numbers, format once,
   as late as possible. Round-tripping a formatted string back into arithmetic is
   one of the most common defects in DACH reporting code.
-- Aggregate display examples default to EUR. Instrument metadata or an explicit
-  payload currency is authoritative; QuantCore performs no FX conversion.
+- Aggregate display examples default to EUR. Equipment metadata or an explicit
+  payload currency is authoritative; MittelWerk performs no FX conversion.
 
 ## 3. Data protection (Datenschutz) and data minimisation
 

@@ -1,0 +1,16 @@
+Captured starting run for scenario 'incident-service-rate'.
+
+Command: python scripts/workshop.py verify incident-service-rate
+Result: exit 3 (acceptance not met)
+Summary: 0/1 acceptance checks passed
+
+ProviderRateTest.test_request_uses_rates_from_provider_offers
+  expected hourly rate Decimal('110.00')
+  observed hourly rate Decimal('118.00')
+
+ProviderRateTest.test_assignment_rate_is_always_positive_and_from_an_offer
+  expected accepted CAP-1 rate Decimal('110.00')
+  observed Decimal('120.00')
+
+The priority and hours-conservation checks passed. This captured output is
+synthetic fail-before evidence for the offline route.

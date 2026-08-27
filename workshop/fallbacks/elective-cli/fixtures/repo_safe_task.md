@@ -6,7 +6,7 @@ nothing outside this checkout.
 
 ## The task
 
-> Summarise how a risk metric reaches the API response in this repository, and
+> Summarise how overdue service hours reach the API response in this repository, and
 > name the place where its sign convention is enforced. Do not change any file.
 
 ## Decision worksheet
@@ -18,7 +18,7 @@ seeing an event is an explanation, not a preventive control.
 |---|---|---|---|---|
 | `rg -n "<pattern>" --type py` | Reads matching source under the working directory | | | |
 | Read one named file | Reads its full contents | | | |
-| `python -m pytest tests/test_risk_v2.py -q` | Executes repository code in the current environment | | | |
+| `python -m pytest tests/test_analytics_v2.py -q` | Executes repository code in the current environment | | | |
 | A pytest command with different arguments or root | May execute or collect code beyond the intended test | | | |
 | `git status` | Reads repository state | | | |
 | `git stash` | Changes the working tree and index | | | |

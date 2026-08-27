@@ -4,7 +4,7 @@
   "title": "Migration - a legacy model surface off its compatibility shim",
   "kind": "code",
   "lab": "Lab 3",
-  "summary": "A bounded reference-data model surface still written against the 1.x validation idioms, its consumer, and the contract checks a behaviour-preserving migration has to satisfy.",
+  "summary": "A bounded equipment and service-rate model surface still written against 1.x validation idioms, its consumer, and contract checks for a behaviour-preserving migration.",
   "fallback": "workshop/fallbacks/migration-legacy-models",
   "acceptance_doc": "workshop/scenarios/migration-legacy-models/acceptance.md",
   "required_artifacts": [
@@ -21,7 +21,7 @@
       "payload": "workshop/scenarios/migration-legacy-models/payloads/legacy_models.py.txt",
       "target": "workshop/scenarios/migration-legacy-models/work/legacy_models.py",
       "mode": "0644",
-      "description": "In-scope: reference-data models on the 1.x compatibility shim."
+      "description": "In-scope: equipment and service-rate models on the 1.x compatibility shim."
     },
     {
       "payload": "workshop/scenarios/migration-legacy-models/payloads/legacy_service.py.txt",

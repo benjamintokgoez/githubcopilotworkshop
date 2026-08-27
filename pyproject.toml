@@ -1,7 +1,7 @@
 [project]
-name = "quantcore"
-version = "0.5.0"
-description = "Educational, simulation-only quantitative trading engine for workshops (order matching, risk analytics)"
+name = "mittelwerk"
+version = "1.0.0"
+description = "Educational, simulation-only field-service operations platform for workshops (work order dispatch, operational analytics)"
 readme = "README.md"
 license = {text = "MIT"}
 # Workshop Python baseline: 3.12, verified against the 3.12.14 patch release.
@@ -13,7 +13,7 @@ license = {text = "MIT"}
 # See .github/workflows/ci.yml and .devcontainer/devcontainer.json.
 requires-python = ">=3.12,<3.14"
 authors = [
-    {name = "QuantCore Workshop", email = "workshop@quantcore.dev"},
+    {name = "MittelWerk Workshop", email = "workshop@mittelwerk.dev"},
 ]
 
 dependencies = [
@@ -48,15 +48,15 @@ dev = [
 ]
 
 [project.scripts]
-quantcore = "main:main"
-quantcore-mcp = "qxm.mcp_server.server:run_server"
+mittelwerk = "main:main"
+mittelwerk-mcp = "mittelwerk.mcp_server.server:run_server"
 
 [build-system]
 requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["qxm*"]
+include = ["mittelwerk*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -84,9 +84,10 @@ select = ["E", "W", "F", "I", "S", "B", "UP"]
 [tool.ruff.lint.per-file-ignores]
 # Plain asserts are the normal, expected idiom in test files.
 "tests/*" = ["S101"]
-# These generators produce deterministic synthetic market data, never secrets
-# or security tokens; cryptographic randomness would defeat reproducibility.
-"qxm/data/feed.py" = ["S311"]
+# These generators produce deterministic synthetic telemetry data, never
+# secrets or security tokens; cryptographic randomness would defeat
+# reproducibility.
+"mittelwerk/telemetry/feed.py" = ["S311"]
 "scripts/generate_sample_data.py" = ["S311"]
 
 [tool.mypy]

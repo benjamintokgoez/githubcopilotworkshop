@@ -1,4 +1,4 @@
-"""Focused contract tests for the high-level MCP v2 server."""
+"""Focused contract tests for the MittelWerk MCP v2 server."""
 
 from __future__ import annotations
 
@@ -9,53 +9,58 @@ import sys
 from datetime import datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
+from typing import Any
 
 import pytest
 from mcp import Client, MCPError
-from mcp.client.stdio import StdioServerParameters, stdio_client
 from mcp.types import CallToolResult
 
-from qxm import __version__
-from qxm.core.engine import MatchingEngine
-from qxm.core.events import EventBus
-from qxm.core.models import (
-    Instrument,
-    InstrumentType,
-    Order,
-    OrderStatus,
-    OrderType,
-    Side,
+from mittelwerk import __version__
+from mittelwerk.core.engine import DispatchEngine
+from mittelwerk.core.events import EventBus
+from mittelwerk.core.models import (
+    DispatchSide,
+    DispatchWindow,
+    Equipment,
+    EquipmentCategory,
+    WorkOrder,
+    WorkOrderMode,
+    WorkOrderStatus,
 )
-from qxm.mcp_server import create_default_mcp_server, create_mcp_server
-from qxm.mcp_server import server as server_module
+from mittelwerk.mcp_server import server as server_module
+from mittelwerk.mcp_server.server import create_default_mcp_server, create_mcp_server
 
 
 def _runtime(
     *,
-    tick_size: Decimal = Decimal("0.0100"),
-    lot_size: Decimal = Decimal("1"),
-) -> tuple[MatchingEngine, dict[str, Instrument]]:
-    instruments = {
-        "AAPL": Instrument(
-            symbol="AAPL",
-            name="Apple Inc.",
-            instrument_type=InstrumentType.EQUITY,
-            tick_size=tick_size,
-            lot_size=lot_size,
-            currency="USD",
-            exchange="XQXM",
+    rate_increment: Decimal = Decimal("0.50"),
+    hour_lot_size: Decimal = Decimal("0.25"),
+) -> tuple[DispatchEngine, dict[str, Equipment]]:
+    equipment = {
+        "PRESS-17": Equipment(
+            asset_id="PRESS-17",
+            name="Hydraulic Press 17",
+            equipment_type=EquipmentCategory.HYDRAULIC_PRESS,
+            service_interval_days=30,
+            hourly_service_rate=Decimal("120.00"),
+            rate_increment=rate_increment,
+            hour_lot_size=hour_lot_size,
+            currency="EUR",
+            site_code="MW-MUC",
         ),
-        "MSFT": Instrument(
-            symbol="MSFT",
-            name="Microsoft Corporation",
-            instrument_type=InstrumentType.EQUITY,
-            tick_size=tick_size,
-            lot_size=lot_size,
-            currency="USD",
-            exchange="XQXM",
+        "PUMP-04": Equipment(
+            asset_id="PUMP-04",
+            name="Cooling Pump 04",
+            equipment_type=EquipmentCategory.COMPRESSOR,
+            service_interval_days=14,
+            hourly_service_rate=Decimal("95.00"),
+            rate_increment=rate_increment,
+            hour_lot_size=hour_lot_size,
+            currency="EUR",
+            site_code="MW-HAM",
         ),
     }
-    return MatchingEngine(EventBus(), instruments=instruments), instruments
+    return DispatchEngine(event_bus=EventBus(), equipment=equipment), equipment
 
 
 def _structured(result: CallToolResult) -> dict[str, object]:
@@ -70,16 +75,34 @@ def _assert_utc(value: object) -> None:
     assert parsed.utcoffset() == timedelta(0)
 
 
+def _equipment_payload(asset_id: str = "PRESS-17") -> dict[str, Any]:
+    return {
+        "asset_id": asset_id,
+        "name": f"Synthetic {asset_id}",
+        "equipment_type": "HYDRAULIC_PRESS",
+        "service_interval_days": 30,
+        "hourly_service_rate": "120.00",
+        "rate_increment": "0.50",
+        "hour_lot_size": "0.25",
+        "currency": "EUR",
+        "site_code": "MW-MUC",
+    }
+
+
 @pytest.mark.asyncio
-async def test_read_only_surface_schemas_and_annotations() -> None:
-    engine, instruments = _runtime()
-    server = create_mcp_server(engine, instruments)
+async def test_read_only_surface_schemas_annotations_and_write_absence() -> None:
+    engine, equipment = _runtime()
+    server = create_mcp_server(engine, equipment)
 
     async with Client(server, raise_exceptions=True) as client:
         listed = await client.list_tools()
         tools = {tool.name: tool for tool in listed.tools}
 
-        assert set(tools) == {"calculate_risk", "get_order_book", "list_instruments"}
+        assert set(tools) == {
+            "calculate_service_risk",
+            "get_dispatch_queue",
+            "list_equipment",
+        }
         for tool in tools.values():
             assert tool.annotations is not None
             assert tool.annotations.read_only_hint is True
@@ -87,115 +110,191 @@ async def test_read_only_surface_schemas_and_annotations() -> None:
             assert tool.annotations.idempotent_hint is True
             assert tool.annotations.open_world_hint is False
 
-        assert tools["list_instruments"].input_schema["properties"]["limit"]["maximum"] == 50
-        assert tools["get_order_book"].input_schema["properties"]["depth"]["maximum"] == 20
-        risk_schema = json.dumps(tools["calculate_risk"].input_schema)
+        assert tools["list_equipment"].input_schema["properties"]["limit"]["maximum"] == 50
+        assert tools["get_dispatch_queue"].input_schema["properties"]["depth"]["maximum"] == 20
+        risk_schema = json.dumps(tools["calculate_service_risk"].input_schema)
         assert '"maxItems": 256' in risk_schema
 
-        invalid_depth = await client.call_tool("get_order_book", {"symbol": "AAPL", "depth": 21})
+        invalid_depth = await client.call_tool(
+            "get_dispatch_queue", {"asset_id": "PRESS-17", "depth": 21}
+        )
         assert invalid_depth.is_error is True
         oversized_history = await client.call_tool(
-            "calculate_risk",
+            "calculate_service_risk",
             {
-                "portfolio_value": "1000",
-                "pnl_history": ["-1"] * 257,
+                "open_backlog_hours": "1000",
+                "backlog_history": ["-1"] * 257,
             },
         )
         assert oversized_history.is_error is True
 
+        missing_tool = await client.call_tool(
+            "submit_work_order",
+            {
+                "asset_id": "PRESS-17",
+                "side": "REQUEST",
+                "requested_hours": "4",
+                "max_hourly_rate": "120.00",
+            },
+        )
+        assert missing_tool.is_error is True
+        assert missing_tool.structured_content is None
+        assert len(missing_tool.content) == 1
+        assert missing_tool.content[0].text == "Unknown tool: submit_work_order"
+
 
 @pytest.mark.asyncio
-async def test_default_factory_loads_local_configuration_read_only() -> None:
-    server = create_default_mcp_server()
+async def test_default_factory_loads_supplied_configuration_read_only(tmp_path: Path) -> None:
+    equipment_path = tmp_path / "equipment.json"
+    equipment_path.write_text(
+        json.dumps([_equipment_payload("PRESS-17"), _equipment_payload("PUMP-04")]),
+        encoding="utf-8",
+    )
+
+    server = create_default_mcp_server(equipment_path=equipment_path)
     assert server.version == __version__
 
     async with Client(server, raise_exceptions=True) as client:
         tools = {tool.name for tool in (await client.list_tools()).tools}
-        instruments = _structured(await client.call_tool("list_instruments", {"limit": 50}))
+        listed = _structured(await client.call_tool("list_equipment", {"limit": 50}))
 
-    assert tools == {"calculate_risk", "get_order_book", "list_instruments"}
-    assert instruments["total"] == 10
-    assert instruments["environment"] == "SIMULATION"
+    assert tools == {"calculate_service_risk", "get_dispatch_queue", "list_equipment"}
+    assert listed["total"] == 2
+    assert listed["environment"] == "SIMULATION"
+
+
+def test_server_construction_requires_matching_equipment_mapping() -> None:
+    engine, equipment = _runtime()
+    mismatched = dict(equipment)
+    mismatched["PUMP-04"] = Equipment(
+        asset_id="PUMP-04",
+        name="Cooling Pump 04",
+        equipment_type=EquipmentCategory.COMPRESSOR,
+        service_interval_days=14,
+        hourly_service_rate=Decimal("95.00"),
+        rate_increment=Decimal("0.50"),
+        hour_lot_size=Decimal("0.25"),
+        currency="EUR",
+        site_code="MW-BER",
+    )
+
+    with pytest.raises(ValueError, match="must match the MCP equipment mapping"):
+        create_mcp_server(engine, mismatched)
+
+
+@pytest.mark.asyncio
+async def test_empty_dispatch_queue_returns_known_asset_with_no_levels() -> None:
+    engine, equipment = _runtime()
+    server = create_mcp_server(engine, equipment)
+
+    async with Client(server, raise_exceptions=True) as client:
+        snapshot = _structured(
+            await client.call_tool("get_dispatch_queue", {"asset_id": "press-17", "depth": 5})
+        )
+
+    assert snapshot["asset_id"] == "PRESS-17"
+    assert snapshot["best_request_rate"] is None
+    assert snapshot["best_offer_rate"] is None
+    assert snapshot["rate_spread"] is None
+    assert snapshot["representative_rate"] is None
+    assert snapshot["requests"] == []
+    assert snapshot["offers"] == []
+    _assert_utc(snapshot["as_of"])
 
 
 @pytest.mark.asyncio
 async def test_decimal_utc_and_bounded_read_results() -> None:
-    engine, instruments = _runtime(lot_size=Decimal("0.001"))
-    await engine.submit_order(
-        Order(
-            order_id="bid-one",
-            client_id="maker",
-            symbol="AAPL",
-            side=Side.BUY,
-            order_type=OrderType.LIMIT,
-            quantity=Decimal("2.500"),
-            price=Decimal("100.1000"),
+    engine, equipment = _runtime(hour_lot_size=Decimal("0.001"))
+    await engine.submit_work_order(
+        WorkOrder(
+            work_order_id="request-one",
+            organization_id="maker-org",
+            asset_id="PRESS-17",
+            side=DispatchSide.REQUEST,
+            mode=WorkOrderMode.RATE_CAPPED,
+            requested_hours=Decimal("2.500"),
+            max_hourly_rate=Decimal("120.5000"),
+            dispatch_window=DispatchWindow.OPEN,
         )
     )
-    await engine.submit_order(
-        Order(
-            order_id="bid-two",
-            client_id="maker",
-            symbol="AAPL",
-            side=Side.BUY,
-            order_type=OrderType.LIMIT,
-            quantity=Decimal("1.000"),
-            price=Decimal("100.0900"),
+    await engine.submit_work_order(
+        WorkOrder(
+            work_order_id="request-two",
+            organization_id="maker-org",
+            asset_id="PRESS-17",
+            side=DispatchSide.REQUEST,
+            mode=WorkOrderMode.RATE_CAPPED,
+            requested_hours=Decimal("1.000"),
+            max_hourly_rate=Decimal("120.0000"),
+            dispatch_window=DispatchWindow.OPEN,
         )
     )
-    server = create_mcp_server(engine, instruments)
+    server = create_mcp_server(engine, equipment)
 
     async with Client(server, raise_exceptions=True) as client:
-        listed = _structured(await client.call_tool("list_instruments", {"limit": 1}))
+        listed = _structured(await client.call_tool("list_equipment", {"limit": 1}))
         assert listed["returned"] == 1
-        assert len(listed["instruments"]) == 1
-        first_instrument = listed["instruments"][0]
-        assert isinstance(first_instrument, dict)
-        assert first_instrument["tick_size"] == "0.0100"
+        assert len(listed["equipment"]) == 1
+        first_equipment = listed["equipment"][0]
+        assert isinstance(first_equipment, dict)
+        assert first_equipment["hour_lot_size"] == "0.001"
 
         snapshot = _structured(
-            await client.call_tool("get_order_book", {"symbol": "aapl", "depth": 1})
+            await client.call_tool("get_dispatch_queue", {"asset_id": "press-17", "depth": 1})
         )
-        assert snapshot["symbol"] == "AAPL"
-        assert len(snapshot["bids"]) == 1
-        assert snapshot["bids"][0]["price"] == "100.1000"
-        assert snapshot["bids"][0]["quantity"] == "2.500"
+        assert snapshot["asset_id"] == "PRESS-17"
+        assert len(snapshot["requests"]) == 1
+        assert snapshot["requests"][0]["rate"] == "120.5000"
+        assert snapshot["requests"][0]["hours"] == "2.500"
         _assert_utc(snapshot["as_of"])
 
         risk = _structured(
             await client.call_tool(
-                "calculate_risk",
+                "calculate_service_risk",
                 {
-                    "portfolio_value": "1000.00",
-                    "daily_volatility": "0.02",
-                    "pnl_history": ["10.00", "-25.50", "-5.25"],
+                    "open_backlog_hours": "1000.00",
+                    "hours_volatility": "0.02",
+                    "backlog_history": ["10.00", "-25.50", "-5.25"],
                     "confidence": "0.95",
-                    "holding_period": 1,
+                    "horizon_days": 1,
                 },
             )
         )
-        assert isinstance(risk["parametric_var"], str)
-        assert isinstance(risk["historical_var"], str)
-        assert isinstance(risk["conditional_var"], str)
-        assert Decimal(risk["parametric_var"]) >= 0
-        assert Decimal(risk["historical_var"]) >= 0
-        assert Decimal(risk["conditional_var"]) >= 0
+        assert isinstance(risk["parametric_backlog_risk"], str)
+        assert isinstance(risk["historical_backlog_risk"], str)
+        assert isinstance(risk["conditional_backlog_risk"], str)
+        assert Decimal(risk["parametric_backlog_risk"]) >= 0
+        assert Decimal(risk["historical_backlog_risk"]) >= 0
+        assert Decimal(risk["conditional_backlog_risk"]) >= 0
         _assert_utc(risk["as_of"])
 
 
 @pytest.mark.asyncio
-async def test_unknown_symbols_are_protocol_errors() -> None:
-    engine, instruments = _runtime()
-    server = create_mcp_server(engine, instruments)
+async def test_calculate_service_risk_requires_at_least_one_input() -> None:
+    engine, equipment = _runtime()
+    server = create_mcp_server(engine, equipment)
 
     async with Client(server, raise_exceptions=True) as client:
-        with pytest.raises(MCPError, match="Unknown simulated instrument: NOPE"):
-            await client.call_tool("get_order_book", {"symbol": "NOPE"})
+        with pytest.raises(MCPError, match="Provide hours_volatility, backlog_history, or both"):
+            await client.call_tool(
+                "calculate_service_risk",
+                {"open_backlog_hours": "1000.00"},
+            )
 
 
-def test_writes_require_a_conservative_bound_client_identity() -> None:
-    engine, instruments = _runtime()
-    invalid_client_ids = (
+@pytest.mark.asyncio
+async def test_unknown_assets_are_protocol_errors() -> None:
+    engine, equipment = _runtime()
+    server = create_mcp_server(engine, equipment)
+
+    async with Client(server, raise_exceptions=True) as client:
+        with pytest.raises(MCPError, match="Unknown simulated asset: NOPE"):
+            await client.call_tool("get_dispatch_queue", {"asset_id": "NOPE"})
+
+
+def test_writes_require_a_conservative_bound_organization_identity() -> None:
+    engine, equipment = _runtime()
+    invalid_organization_ids = (
         None,
         "",
         " leading",
@@ -206,246 +305,282 @@ def test_writes_require_a_conservative_bound_client_identity() -> None:
         "non-ascii-\N{LATIN SMALL LETTER E WITH ACUTE}",
         "x" * 65,
     )
-    for client_id in invalid_client_ids:
-        with pytest.raises(ValueError, match="client_id"):
+    for organization_id in invalid_organization_ids:
+        with pytest.raises(ValueError, match="organization_id"):
             create_mcp_server(
                 engine,
-                instruments,
+                equipment,
                 allow_writes=True,
-                client_id=client_id,
+                organization_id=organization_id,
             )
 
 
 @pytest.mark.asyncio
 async def test_opt_in_writes_execute_cancel_reject_and_enforce_identity() -> None:
-    engine, instruments = _runtime()
-    await engine.submit_order(
-        Order(
-            order_id="foreign-ask",
-            client_id="external-maker",
-            symbol="AAPL",
-            side=Side.SELL,
-            order_type=OrderType.LIMIT,
-            quantity=Decimal("2"),
-            price=Decimal("99.90"),
+    engine, equipment = _runtime()
+    await engine.submit_work_order(
+        WorkOrder(
+            work_order_id="foreign-offer",
+            organization_id="external-provider",
+            asset_id="PRESS-17",
+            side=DispatchSide.OFFER,
+            mode=WorkOrderMode.RATE_CAPPED,
+            requested_hours=Decimal("2"),
+            max_hourly_rate=Decimal("119.50"),
+            dispatch_window=DispatchWindow.OPEN,
         )
     )
     server = create_mcp_server(
         engine,
-        instruments,
+        equipment,
         allow_writes=True,
-        client_id="workshop-client",
+        organization_id="workshop-org",
     )
 
     async with Client(server, raise_exceptions=True) as client:
         listed = await client.list_tools()
         tools = {tool.name: tool for tool in listed.tools}
         assert set(tools) == {
-            "calculate_risk",
-            "cancel_order",
-            "get_order_book",
-            "list_instruments",
-            "submit_order",
+            "calculate_service_risk",
+            "cancel_work_order",
+            "get_dispatch_queue",
+            "list_equipment",
+            "submit_work_order",
         }
-        submit_schema = tools["submit_order"].input_schema
-        assert "client_id" not in submit_schema["properties"]
-        assert "api_key" not in submit_schema["properties"]
-        assert submit_schema["$defs"]["SupportedOrderType"]["enum"] == ["LIMIT", "MARKET"]
-        assert submit_schema["$defs"]["SupportedTimeInForce"]["enum"] == ["GTC", "IOC", "FOK"]
-        quantity_schema = submit_schema["properties"]["quantity"]
-        assert quantity_schema["anyOf"][0]["maximum"] == 10_000
-        assert tools["submit_order"].output_schema is not None
-        output_properties = tools["submit_order"].output_schema["properties"]
-        assert output_properties["trades"]["maxItems"] == 100
-        assert output_properties["returned_trade_count"]["maximum"] == 100
+        submit_schema = tools["submit_work_order"].input_schema
+        assert "organization_id" not in submit_schema["properties"]
+        assert submit_schema["$defs"]["SupportedWorkOrderMode"]["enum"] == [
+            "RATE_CAPPED",
+            "ANY_RATE",
+        ]
+        assert submit_schema["$defs"]["SupportedDispatchWindow"]["enum"] == [
+            "OPEN",
+            "IMMEDIATE",
+            "COMPLETE",
+        ]
+        hours_schema = submit_schema["properties"]["requested_hours"]
+        assert hours_schema["anyOf"][0]["maximum"] == 10_000
+        assert tools["submit_work_order"].output_schema is not None
+        output_properties = tools["submit_work_order"].output_schema["properties"]
+        assert output_properties["assignments"]["maxItems"] == 100
+        assert output_properties["returned_assignment_count"]["maximum"] == 100
         assert output_properties["rejection_reason"]["anyOf"][0]["maxLength"] == 256
-        assert tools["submit_order"].annotations is not None
-        assert tools["submit_order"].annotations.read_only_hint is False
-        assert tools["submit_order"].annotations.destructive_hint is True
-        assert tools["submit_order"].annotations.idempotent_hint is False
-        assert tools["submit_order"].annotations.open_world_hint is False
-        assert tools["cancel_order"].annotations is not None
-        assert tools["cancel_order"].annotations.idempotent_hint is True
+        assert tools["submit_work_order"].annotations is not None
+        assert tools["submit_work_order"].annotations.read_only_hint is False
+        assert tools["submit_work_order"].annotations.destructive_hint is True
+        assert tools["submit_work_order"].annotations.idempotent_hint is False
+        assert tools["submit_work_order"].annotations.open_world_hint is False
+        assert tools["cancel_work_order"].annotations is not None
+        assert tools["cancel_work_order"].annotations.idempotent_hint is True
 
-        order_count = engine.order_count
+        work_order_count = engine.work_order_count
         oversized = await client.call_tool(
-            "submit_order",
+            "submit_work_order",
             {
-                "order_id": "mcp-oversized",
-                "symbol": "AAPL",
-                "side": "BUY",
-                "quantity": "10001",
-                "price": "100.00",
+                "work_order_id": "mcp-oversized",
+                "asset_id": "PRESS-17",
+                "side": "REQUEST",
+                "requested_hours": "10001",
+                "max_hourly_rate": "120.00",
             },
         )
         assert oversized.is_error is True
-        assert engine.order_count == order_count
+        assert engine.work_order_count == work_order_count
+
+        with pytest.raises(MCPError, match="RATE_CAPPED work orders require a max_hourly_rate"):
+            await client.call_tool(
+                "submit_work_order",
+                {
+                    "work_order_id": "missing-rate",
+                    "asset_id": "PRESS-17",
+                    "side": "REQUEST",
+                    "requested_hours": "1",
+                },
+            )
+        with pytest.raises(
+            MCPError, match="ANY_RATE work orders must not include a max_hourly_rate"
+        ):
+            await client.call_tool(
+                "submit_work_order",
+                {
+                    "work_order_id": "any-rate-with-cap",
+                    "asset_id": "PRESS-17",
+                    "side": "REQUEST",
+                    "requested_hours": "1",
+                    "mode": "ANY_RATE",
+                    "max_hourly_rate": "120.00",
+                },
+            )
 
         fill = _structured(
             await client.call_tool(
-                "submit_order",
+                "submit_work_order",
                 {
-                    "order_id": "mcp-fill",
-                    "symbol": "AAPL",
-                    "side": "BUY",
-                    "quantity": "1",
-                    "order_type": "LIMIT",
-                    "price": "100.00",
+                    "work_order_id": "mcp-fill",
+                    "asset_id": "PRESS-17",
+                    "side": "REQUEST",
+                    "requested_hours": "1",
+                    "mode": "RATE_CAPPED",
+                    "max_hourly_rate": "120.00",
                 },
             )
         )
-        assert fill["status"] == OrderStatus.FILLED.value
+        assert fill["status"] == WorkOrderStatus.ASSIGNED.value
         assert fill["accepted"] is True
         assert fill["rejection_reason"] is None
-        assert fill["trade_count"] == 1
-        assert fill["returned_trade_count"] == 1
-        assert fill["trades_truncated"] is False
-        assert fill["trades"][0]["price"] == "99.90"
-        assert fill["trades"][0]["quantity"] == "1"
-        _assert_utc(fill["trades"][0]["timestamp"])
+        assert fill["assignment_count"] == 1
+        assert fill["returned_assignment_count"] == 1
+        assert fill["assignments_truncated"] is False
+        assert fill["assignments"][0]["hourly_rate"] == "119.50"
+        assert fill["assignments"][0]["hours"] == "1"
+        _assert_utc(fill["assignments"][0]["timestamp"])
 
         resting = _structured(
             await client.call_tool(
-                "submit_order",
+                "submit_work_order",
                 {
-                    "order_id": "mcp-resting",
-                    "symbol": "AAPL",
-                    "side": "BUY",
-                    "quantity": "2",
-                    "price": "90.00",
+                    "work_order_id": "mcp-resting",
+                    "asset_id": "PRESS-17",
+                    "side": "REQUEST",
+                    "requested_hours": "2",
+                    "max_hourly_rate": "100.00",
                 },
             )
         )
-        assert resting["status"] == OrderStatus.ACCEPTED.value
-        cancelled = _structured(await client.call_tool("cancel_order", {"order_id": "mcp-resting"}))
-        assert cancelled["status"] == OrderStatus.CANCELLED.value
+        assert resting["status"] == WorkOrderStatus.ACCEPTED.value
+        cancelled = _structured(
+            await client.call_tool("cancel_work_order", {"work_order_id": "mcp-resting"})
+        )
+        assert cancelled["status"] == WorkOrderStatus.CANCELLED.value
         _assert_utc(cancelled["updated_at"])
 
         rejected = _structured(
             await client.call_tool(
-                "submit_order",
+                "submit_work_order",
                 {
-                    "order_id": "mcp-rejected",
-                    "symbol": "AAPL",
-                    "side": "BUY",
-                    "quantity": "1.5",
-                    "price": "90.00",
+                    "work_order_id": "mcp-rejected",
+                    "asset_id": "PRESS-17",
+                    "side": "REQUEST",
+                    "requested_hours": "1.10",
+                    "max_hourly_rate": "90.00",
                 },
             )
         )
-        assert rejected["status"] == OrderStatus.REJECTED.value
+        assert rejected["status"] == WorkOrderStatus.REJECTED.value
         assert rejected["accepted"] is False
-        assert rejected["rejection_reason"] == "Quantity 1.5 is not a multiple of lot size 1"
-        assert rejected["trade_count"] == 0
-        assert rejected["returned_trade_count"] == 0
+        assert rejected["rejection_reason"] == "Hours 1.10 is not a multiple of hour lot size 0.25"
+        assert rejected["assignment_count"] == 0
+        assert rejected["returned_assignment_count"] == 0
 
         with pytest.raises(MCPError, match="already been submitted"):
             await client.call_tool(
-                "submit_order",
+                "submit_work_order",
                 {
-                    "order_id": "mcp-rejected",
-                    "symbol": "AAPL",
-                    "side": "BUY",
-                    "quantity": "1",
-                    "price": "90.00",
+                    "work_order_id": "mcp-rejected",
+                    "asset_id": "PRESS-17",
+                    "side": "REQUEST",
+                    "requested_hours": "1",
+                    "max_hourly_rate": "90.00",
                 },
             )
 
-        with pytest.raises(MCPError, match="not found for this MCP client"):
-            await client.call_tool("cancel_order", {"order_id": "foreign-ask"})
-        book = engine.get_book("AAPL")
-        assert book is not None
-        assert book.contains("foreign-ask")
+        with pytest.raises(MCPError, match="not found for this MCP organization"):
+            await client.call_tool("cancel_work_order", {"work_order_id": "foreign-offer"})
+        queue = engine.get_queue("PRESS-17")
+        assert queue is not None
+        assert queue.contains("foreign-offer")
 
 
 def test_rejection_reason_is_bounded_without_losing_engine_context() -> None:
-    order = Order(
-        order_id="bounded-rejection",
-        client_id="mcp-client",
-        symbol="AAPL",
-        side=Side.BUY,
-        order_type=OrderType.LIMIT,
-        quantity=Decimal("1"),
-        price=Decimal("90"),
-        status=OrderStatus.REJECTED,
+    work_order = WorkOrder(
+        work_order_id="bounded-rejection",
+        organization_id="mcp-org",
+        asset_id="PRESS-17",
+        side=DispatchSide.REQUEST,
+        mode=WorkOrderMode.RATE_CAPPED,
+        requested_hours=Decimal("1"),
+        max_hourly_rate=Decimal("90"),
+        dispatch_window=DispatchWindow.OPEN,
+        status=WorkOrderStatus.REJECTED,
     )
-    result = server_module._order_result(
-        server_module.OrderSubmission(
-            order=order,
-            rejection_reason="risk policy: " + "x" * 300,
+    result = server_module._work_order_result(
+        server_module.DispatchResult(
+            work_order=work_order,
+            rejection_reason="dispatch policy: " + "x" * 300,
         )
     )
 
     assert result.rejection_reason is not None
-    assert result.rejection_reason.startswith("risk policy: ")
+    assert result.rejection_reason.startswith("dispatch policy: ")
     assert result.rejection_reason.endswith("...")
     assert len(result.rejection_reason) == server_module.MAX_REJECTION_REASON_LENGTH
 
 
 @pytest.mark.asyncio
-async def test_submit_order_bounds_serialized_trades_without_hiding_execution() -> None:
-    engine, instruments = _runtime()
+async def test_submit_work_order_bounds_serialized_assignments_without_hiding_execution() -> None:
+    engine, equipment = _runtime()
     for index in range(105):
-        await engine.submit_order(
-            Order(
-                order_id=f"maker-{index:03}",
-                client_id=f"maker-{index:03}",
-                symbol="AAPL",
-                side=Side.SELL,
-                order_type=OrderType.LIMIT,
-                quantity=Decimal("1.000"),
-                price=Decimal("99.9900"),
+        await engine.submit_work_order(
+            WorkOrder(
+                work_order_id=f"maker-{index:03}",
+                organization_id=f"maker-org-{index:03}",
+                asset_id="PRESS-17",
+                side=DispatchSide.OFFER,
+                mode=WorkOrderMode.RATE_CAPPED,
+                requested_hours=Decimal("1.000"),
+                max_hourly_rate=Decimal("99.50"),
+                dispatch_window=DispatchWindow.OPEN,
             )
         )
 
     server = create_mcp_server(
         engine,
-        instruments,
+        equipment,
         allow_writes=True,
-        client_id="bounded-output-client",
+        organization_id="bounded-output-org",
     )
     async with Client(server, raise_exceptions=True) as client:
         result = _structured(
             await client.call_tool(
-                "submit_order",
+                "submit_work_order",
                 {
-                    "order_id": "large-fill",
-                    "symbol": "AAPL",
-                    "side": "BUY",
-                    "quantity": "105.000",
-                    "price": "100.0000",
+                    "work_order_id": "large-fill",
+                    "asset_id": "PRESS-17",
+                    "side": "REQUEST",
+                    "requested_hours": "105.000",
+                    "max_hourly_rate": "100.00",
                 },
             )
         )
 
-    assert result["status"] == OrderStatus.FILLED.value
-    assert result["filled_quantity"] == "105.000"
-    assert result["trade_count"] == 105
-    assert result["returned_trade_count"] == 100
-    assert result["trades_truncated"] is True
-    assert len(result["trades"]) == 100
-    assert len(engine.trade_log) == 105
-    for retained, executed in zip(result["trades"], engine.trade_log[:100], strict=True):
-        assert retained["price"] == str(executed.price)
-        assert retained["quantity"] == str(executed.quantity)
+    assert result["status"] == WorkOrderStatus.ASSIGNED.value
+    assert result["assigned_hours"] == "105.000"
+    assert result["assignment_count"] == 105
+    assert result["returned_assignment_count"] == 100
+    assert result["assignments_truncated"] is True
+    assert len(result["assignments"]) == 100
+    assert len(engine.assignment_log) == 105
+    for retained, executed in zip(result["assignments"], engine.assignment_log[:100], strict=True):
+        assert retained["hourly_rate"] == str(executed.hourly_rate)
+        assert retained["hours"] == str(executed.hours)
         assert retained["timestamp"] == executed.timestamp.isoformat().replace("+00:00", "Z")
 
 
 @pytest.mark.asyncio
 async def test_server_instances_do_not_share_runtime_state() -> None:
-    engine_a, instruments_a = _runtime()
-    engine_b, instruments_b = _runtime()
+    engine_a, equipment_a = _runtime()
+    engine_b, equipment_b = _runtime()
     server_a = create_mcp_server(
         engine_a,
-        instruments_a,
+        equipment_a,
         allow_writes=True,
-        client_id="client-a",
+        organization_id="org-a",
     )
     server_b = create_mcp_server(
         engine_b,
-        instruments_b,
+        equipment_b,
         allow_writes=True,
-        client_id="client-b",
+        organization_id="org-b",
     )
 
     async with (
@@ -453,46 +588,59 @@ async def test_server_instances_do_not_share_runtime_state() -> None:
         Client(server_b, raise_exceptions=True) as client_b,
     ):
         await client_a.call_tool(
-            "submit_order",
+            "submit_work_order",
             {
-                "order_id": "isolated-order",
-                "symbol": "AAPL",
-                "side": "BUY",
-                "quantity": "1",
-                "price": "100.00",
+                "work_order_id": "isolated-order",
+                "asset_id": "PRESS-17",
+                "side": "REQUEST",
+                "requested_hours": "1",
+                "max_hourly_rate": "100.00",
             },
         )
-        snapshot_a = _structured(await client_a.call_tool("get_order_book", {"symbol": "AAPL"}))
-        snapshot_b = _structured(await client_b.call_tool("get_order_book", {"symbol": "AAPL"}))
+        snapshot_a = _structured(
+            await client_a.call_tool("get_dispatch_queue", {"asset_id": "PRESS-17"})
+        )
+        snapshot_b = _structured(
+            await client_b.call_tool("get_dispatch_queue", {"asset_id": "PRESS-17"})
+        )
 
-    assert len(snapshot_a["bids"]) == 1
-    assert snapshot_b["bids"] == []
-    assert engine_a.order_count == 1
-    assert engine_b.order_count == 0
+    assert len(snapshot_a["requests"]) == 1
+    assert snapshot_b["requests"] == []
+    assert engine_a.work_order_count == 1
+    assert engine_b.work_order_count == 0
 
 
-@pytest.mark.asyncio
-async def test_stdio_entrypoint_initializes_and_lists_read_only_tools() -> None:
-    parameters = StdioServerParameters(
-        command=sys.executable,
-        args=["-m", "qxm.mcp_server.server"],
-        cwd=Path(__file__).resolve().parents[1],
+def test_load_equipment_validates_missing_malformed_duplicate_and_empty_files(
+    tmp_path: Path,
+) -> None:
+    missing_path = tmp_path / "missing-equipment.json"
+    with pytest.raises(FileNotFoundError, match="Equipment file not found"):
+        server_module._load_equipment(missing_path)
+
+    malformed_path = tmp_path / "malformed-equipment.json"
+    malformed_path.write_text(json.dumps({"asset_id": "PRESS-17"}), encoding="utf-8")
+    with pytest.raises(ValueError, match="must contain a JSON array"):
+        server_module._load_equipment(malformed_path)
+
+    duplicate_path = tmp_path / "duplicate-equipment.json"
+    duplicate_path.write_text(
+        json.dumps([_equipment_payload("PRESS-17"), _equipment_payload("PRESS-17")]),
+        encoding="utf-8",
     )
-    async with Client(
-        stdio_client(parameters),
-        raise_exceptions=True,
-        mode="legacy",
-    ) as client:
-        tools = {tool.name for tool in (await client.list_tools()).tools}
+    with pytest.raises(ValueError, match="Duplicate equipment asset_id: PRESS-17"):
+        server_module._load_equipment(duplicate_path)
 
-    assert tools == {"calculate_risk", "get_order_book", "list_instruments"}
+    empty_path = tmp_path / "empty-equipment.json"
+    empty_path.write_text("[]", encoding="utf-8")
+    with pytest.raises(ValueError, match="contains no equipment"):
+        server_module._load_equipment(empty_path)
 
 
 def test_import_is_silent_and_entrypoint_uses_sync_run(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     completed = subprocess.run(
-        [sys.executable, "-c", "import qxm.mcp_server.server"],
+        [sys.executable, "-c", "import mittelwerk.mcp_server.server"],
         cwd=Path(__file__).resolve().parents[1],
         check=True,
         capture_output=True,

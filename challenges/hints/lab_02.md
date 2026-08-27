@@ -10,9 +10,9 @@ honest move is to ask a human, and that is an allowed move.
   **concluded**, **assumed**. Most tickets have one line in the first column and
   five in the other two.
 - Start from the reported symptom and follow the data, not the file names. Ask:
-  what path does an incoming order take before a fill exists?
+  what path does an incoming service request take before an assignment exists?
 - The worked example in
-  [../reference/invariants.md](../reference/invariants.md#1-order-book-and-matching)
+  [../reference/invariants.md](../reference/invariants.md#1-service-dispatch)
   is a ready-made reproduction. You do not have to invent a scenario.
 - If execution is blocked, use the captured failing output and label it
   `captured`. You can still localise the path and review the next action.
@@ -25,7 +25,7 @@ honest move is to ask a human, and that is an allowed move.
 - If you have been reading without a stable failure, stop opening new paths. Use
   the supplied scenario or captured output first.
 - A reproduction is only useful if it fails **for the reported reason**. Check
-  that the value you assert on is the value the desk complained about.
+  that the value you assert on is the value operations complained about.
 - Ask "which invariant does this violate?" before "what is the fix?". The
   invariant tells you what the test must assert.
 - Before a repair, write one separate focused regression check. Keep the supplied

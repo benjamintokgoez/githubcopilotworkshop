@@ -1,206 +1,133 @@
 # Business invariants and expected values
 
-**Domain knowledge is not assessed in this workshop.** Everything you need to
-judge whether a number is right is written down here, with worked examples. If a
-lab asks you to defend a change, you defend it against these invariants - not
-against your memory of derivatives pricing.
+**Domain knowledge is not assessed.** MittelWerk is a synthetic industrial
+service platform. Every organisation, site, asset, provider, work order, rate,
+telemetry reading, and event is invented.
 
-QuantCore is a **simulated** trading engine built for teaching. None of this is
-investment advice, and none of these numbers describe a real market.
+Machine values use a dot decimal separator. Human-facing German output uses a
+decimal comma. See [dach_conventions.md](dach_conventions.md).
 
-Conventions: values are computed with a dot decimal separator, as code requires.
-A DACH user interface would display `101,455` where this page writes `101.455`.
-See [dach_conventions.md](dach_conventions.md).
+## 1. Service dispatch
 
----
+**INV-DISPATCH-1 - Rate-time priority.** Eligible provider capacity is assigned
+at the lowest hourly rate first. Offers at the same rate are consumed FIFO.
 
-## 1. Order book and matching
+**INV-DISPATCH-2 - Provider offer rate is authoritative.** The assignment rate
+comes from the accepted provider offer. A request's maximum rate is an
+eligibility ceiling, not a billable rate.
 
-**INV-MATCH-1 - Price-time priority.** Orders match best price first. At the same
-price, the order that arrived earlier fills first (FIFO).
+**INV-DISPATCH-3 - Hours conservation.** Assigned hours are removed from exactly
+one provider offer and added to exactly one request. Neither side can become
+negative or exceed its original hours.
 
-**INV-MATCH-2 - Maker price wins.** A market order fills at the **resting**
-(maker) order's price. The incoming order never sets the fill price, and a fill
-price is never null.
+### Worked example
 
-**INV-MATCH-3 - Quantity conservation.** For every trade, the quantity removed
-from the buy side equals the quantity removed from the sell side. Cumulative fills
-never exceed the order quantity, and remaining quantity is never negative.
+| Offer | Rate | Hours | Offered (UTC) |
+|---|---:|---:|---|
+| CAP-1 | 110.00 EUR/h | 10 | 2026-08-19T07:14:02Z |
+| CAP-2 | 110.00 EUR/h | 5 | 2026-08-19T07:14:09Z |
+| CAP-3 | 112.00 EUR/h | 20 | 2026-08-19T07:13:55Z |
 
-**INV-MATCH-4 - No self-crossing book.** After matching completes, the best bid is
-strictly below the best ask.
+A 12-hour request capped at `118.00 EUR/h` receives 10 hours from CAP-1 and
+2 from CAP-2, all at `110.00 EUR/h`. CAP-3 is untouched. The weighted average
+rate is exactly `110.00 EUR/h`.
 
-### Worked example (use these numbers)
+## 2. SLA and workload analytics
 
-Resting asks, in arrival order:
+**INV-SLA-1 - Non-negative magnitudes.** Open hours, overdue hours, response
+minutes, estimated cost, and utilization are never reported as negative.
 
-| # | Price | Quantity | Arrived (UTC) |
-|---|---|---|---|
-| A1 | 101.20 | 100 | 2026-08-19T07:14:02Z |
-| A2 | 101.20 | 50 | 2026-08-19T07:14:09Z |
-| A3 | 101.50 | 200 | 2026-08-19T07:13:55Z |
+**INV-SLA-2 - Overdue is bounded by open.** For one snapshot,
+`0 <= overdue_hours <= open_hours`.
 
-- A market **buy** for 120 fills 100 from A1, then 20 from A2. Average fill price
-  is exactly `101.20`. A3 is untouched even though it arrived first, because
-  price beats time.
-- A follow-up market **buy** for 200 fills the remaining 30 from A2 at `101.20`
-  and 170 from A3 at `101.50`. Average fill price is
-  `(30 * 101.20 + 170 * 101.50) / 200 = 101.455`.
-- Any result where a fill price is `None`, or where the buyer pays a price that
-  never rested on the book, violates INV-MATCH-2.
+**INV-SLA-3 - Cost keeps exact rates.** Estimated service cost is the sum of
+`assigned_hours * provider_hourly_rate` using `Decimal`. Formatting and rounding
+happen only at the presentation edge.
 
----
+**INV-SLA-4 - Utilization is bounded.** With positive available capacity,
+`utilization = assigned_hours / available_hours` and lies in `[0, 1]`. Zero
+capacity returns zero rather than division by zero or invented full utilization.
 
-## 2. Risk: Value at Risk
+### Worked example
 
-**INV-VAR-1 - Sign convention.** VaR and CVaR are reported as **non-negative loss
-magnitudes** everywhere: runtime, API, dashboard, tests, docs. A negative VaR is a
-defect, not an optimistic portfolio.
+For `120.00` open hours, `24.00` overdue hours, `160.00` available hours, and
+`96.00` assigned hours:
 
-**INV-VAR-2 - Monotone in confidence.** VaR at 99 % is greater than or equal to
-VaR at 95 % for the same portfolio and horizon.
+| Metric | Expected value |
+|---|---:|
+| Overdue fraction | `0.20` |
+| Utilization | `0.60` |
+| Remaining capacity | `64.00` hours |
 
-**INV-VAR-3 - CVaR dominates VaR.** Conditional VaR (expected shortfall) at a
-given confidence is greater than or equal to VaR at that confidence.
+Twenty-four overdue hours at `110.00 EUR/h` produce an exact estimated cost of
+`2640.00 EUR`.
 
-**INV-VAR-4 - Horizon scaling.** Under the parametric assumption used here, a
-`h`-day VaR scales with `sqrt(h)`, not with `h`.
+## 3. Equipment and telemetry
 
-### Worked example (use these numbers)
+**INV-ASSET-1 - Stable identity.** Asset codes are uppercase, machine-safe
+identifiers. Human names may change without changing the asset code.
 
-Portfolio value `1_000_000.00` EUR, daily volatility `0.015`, mean return `0`,
-normal parametric method:
+**INV-ASSET-2 - Positive service values.** Service intervals, hourly rates, and
+requested hours are positive. Booleans are not accepted as numeric values.
 
-| Measure | Confidence | Horizon | Expected value (EUR) |
-|---|---|---|---|
-| VaR | 95 % | 1 day | `24672.80` |
-| VaR | 99 % | 1 day | `34895.22` |
-| VaR | 95 % | 10 days | `78022.26` |
-| CVaR | 95 % | 1 day | `30940.69` |
-| CVaR | 99 % | 1 day | `39978.21` |
+**INV-TELEM-1 - Ordered observations.** Status summaries sort readings by
+timestamp and never combine different assets into one series.
 
-Tolerance: `+/- 0.01` EUR. All five values are positive; that is INV-VAR-1 in
-action.
+**INV-TELEM-2 - Finite measurements.** NaN and infinite telemetry values are
+rejected at the boundary. Missing data remains missing; it is not converted into
+a successful zero reading.
 
----
+## 4. Work-order lifecycle
 
-## 3. Risk: options and Greeks
+**INV-WORK-1 - Identity is permanent.** A work-order identifier is reserved on
+its first submission attempt and cannot be reused after acceptance, rejection,
+cancellation, or completion.
 
-**INV-GREEK-1 - Delta bounds.** Call delta lies in `[0, 1]`. Put delta lies in
-`[-1, 0]`. A positive put delta is a defect.
+**INV-WORK-2 - Terminal states are final.** Completed, cancelled, rejected, and
+expired work orders cannot re-enter the active queue.
 
-**INV-GREEK-2 - Delta relationship.** For the same option parameters,
-`call_delta - put_delta = 1`.
+**INV-WORK-3 - Caller identity comes from authorization.** API and MCP callers
+cannot select another organisation by putting an identity in a work-order body.
 
-**INV-GREEK-3 - Non-negative curvature.** Gamma and vega are non-negative for a
-long option position, and are identical for a call and a put with the same
-parameters.
+**INV-WORK-4 - Unsupported promises fail explicitly.** A requested scheduling or
+expiry behavior that has no implementing subsystem is rejected rather than
+silently approximated.
 
-**INV-GREEK-4 - Put-call parity.** `call_price - put_price = S - K * exp(-r * T)`.
-
-### Worked example (use these numbers)
-
-Inputs: spot `S = 100.0`, strike `K = 100.0`, risk-free rate `r = 0.02`,
-volatility `sigma = 0.20`, time to expiry `T = 1.0` years, no dividends.
-
-| Quantity | Expected value |
-|---|---|
-| `d1` | `0.200000` |
-| `d2` | `0.000000` |
-| Call price | `8.916037` |
-| Put price | `6.935905` |
-| Call delta | `0.579260` |
-| Put delta | `-0.420740` |
-| Gamma | `0.019552` |
-| Vega (per 1 % vol move) | `0.391043` |
-| Call theta (per day) | `-0.013399` |
-| Put theta (per day) | `-0.008028` |
-| Call rho (per 1 % rate move) | `0.490099` |
-| Put rho (per 1 % rate move) | `-0.490099` |
-
-Tolerance: `+/- 1e-6`. Parity check: `8.916037 - 6.935905 = 1.980133` and
-`100 - 100 * exp(-0.02) = 1.980133`.
-
-Note the scaling convention: vega and rho are quoted per 1 percentage point, and
-theta per calendar day. A result that is off by a factor of 100 or 365 is a
-convention defect, not a maths defect - and it is exactly the kind of thing a
-generated "fix" gets wrong confidently.
-
----
-
-## 4. Positions and P&L
-
-**INV-POS-1 - Sign convention.** A long position has positive quantity, a short
-position has negative quantity.
-
-**INV-POS-2 - Average price changes only on increase.** Adding to a position
-updates the volume-weighted average entry price. Reducing a position does not
-change the average entry price; it realises P&L.
-
-**INV-POS-3 - Unrealised P&L.** `unrealised = (mark_price - average_price) * quantity`.
-The sign works out for shorts without a special case.
-
-**INV-POS-4 - Flat means flat.** When quantity reaches zero, unrealised P&L is
-zero and the average price is reset, not carried forward.
-
-### Worked example (use these numbers)
-
-1. Buy 100 at `101.20` -> quantity `100`, average `101.20`.
-2. Buy 100 at `101.50` -> quantity `200`, average `101.35`.
-3. Sell 50 at `102.00` -> quantity `150`, average stays `101.35`, realised P&L
-   `(102.00 - 101.35) * 50 = 32.50` EUR.
-4. Mark at `101.00` -> unrealised `(101.00 - 101.35) * 150 = -52.50` EUR.
-
----
-
-## 5. Time and calendar invariants
+## 5. Time and calendar
 
 **INV-TIME-1 - Storage is UTC.** Every persisted or exchanged timestamp is
-timezone-aware UTC. Naive timestamps are a defect.
+timezone-aware UTC. Naive timestamps are defects.
 
-**INV-TIME-2 - Display is Europe/Berlin.** Presentation converts to
-`Europe/Berlin` and shows CET or CEST as applicable, in 24-hour format.
+**INV-TIME-2 - Display is local.** Presentation converts to `Europe/Berlin` and
+uses the correct CET or CEST offset and a 24-hour clock.
 
-**INV-TIME-3 - A business day is a local day.** The reporting window for business
-date `D` is `[D 00:00 Europe/Berlin, D+1 00:00 Europe/Berlin)`, converted to UTC.
-It is **not** a fixed 24-hour UTC window and **not** UTC plus a constant offset.
+**INV-TIME-3 - A business day is a local day.** Date `D` covers
+`[D 00:00 Europe/Berlin, D+1 00:00 Europe/Berlin)`, converted to UTC.
 
-### Worked example (use these numbers)
+| Business date | UTC start | UTC end | Length |
+|---|---|---|---:|
+| 2026-03-29 | `2026-03-28T23:00:00Z` | `2026-03-29T22:00:00Z` | 23 h |
+| 2026-08-19 | `2026-08-18T22:00:00Z` | `2026-08-19T22:00:00Z` | 24 h |
+| 2026-10-25 | `2026-10-24T22:00:00Z` | `2026-10-25T23:00:00Z` | 25 h |
 
-| Business date (Europe/Berlin) | UTC window start | UTC window end | Length |
-|---|---|---|---|
-| 2026-03-29 | `2026-03-28T23:00:00Z` | `2026-03-29T22:00:00Z` | 23 hours |
-| 2026-08-19 | `2026-08-18T22:00:00Z` | `2026-08-19T22:00:00Z` | 24 hours |
-| 2026-10-25 | `2026-10-24T22:00:00Z` | `2026-10-25T23:00:00Z` | 25 hours |
+## 6. Presentation
 
-On 2026-03-29 the local hour `02:00` does not exist. On 2026-10-25 the local hour
-`02:00` happens twice. Any implementation that adds a constant offset produces
-wrong windows on both dates and correct windows on the other 363.
+**INV-FMT-1 - Decimal comma at the edge only.** German display uses
+`1.234.567,89`; JSON, code, configuration, and SQL use `1234567.89`.
 
----
+**INV-FMT-2 - Currency is explicit.** Display `1.234.567,89 EUR`, not a bare
+number. No currency conversion is implied.
 
-## 6. Presentation invariants
+**INV-FMT-3 - Rounding is display-only.** Stored values and intermediate
+arithmetic keep their exact `Decimal` representation.
 
-**INV-FMT-1 - Decimal comma at the edge only.** Displayed amounts use a decimal
-comma and dot thousands separators (`1.234.567,89`). Stored and transmitted values
-use a dot (`1234567.89`).
+**INV-FMT-4 - ISO in identifiers.** Filenames and machine identifiers use
+`2026-08-19`, not `19.08.2026`.
 
-**INV-FMT-2 - Currency is explicit.** A displayed amount carries its currency.
-`1.234.567,89 EUR`, not a bare number.
+## How to use these invariants
 
-**INV-FMT-3 - Rounding is display-only.** Rounding happens when formatting, never
-in the stored value or in intermediate arithmetic.
-
-**INV-FMT-4 - ISO in identifiers.** Filenames, keys and identifiers use ISO 8601
-dates (`2026-08-19`), never `19.08.2026`.
-
----
-
-## How to use invariants in a lab
-
-1. Before you change anything, write down which invariant is being violated.
-2. Reproduce the violation and capture the evidence.
+1. Name the invariant before changing code.
+2. Reproduce the violation.
 3. Make the smallest change that restores the invariant.
-4. Prove it with a test that fails before and passes after.
-5. State which invariants you did **not** verify. That sentence is part of the
-   deliverable - see [evidence.md](evidence.md).
+4. Prove it with fail-before and pass-after evidence.
+5. State which adjacent invariants you did not verify.

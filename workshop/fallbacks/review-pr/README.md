@@ -62,4 +62,4 @@ requires it to run.
 
 Every artifact here is synthetic and written for this workshop. There is no real
 author, no real reviewer, no customer data, and no real product output in this
-directory. Prices, portfolios and identifiers are invented.
+directory. Equipment, organisations, rates, and identifiers are invented.

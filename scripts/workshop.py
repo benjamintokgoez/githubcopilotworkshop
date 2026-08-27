@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Workshop scenario runner for the QuantCore workshop.
+"""Workshop scenario runner for the MittelWerk workshop.
 
 Stages, verifies, and restores the deterministic lab scenarios that the
 curriculum refers to.  A clean checkout is green: nothing in this repository
@@ -1937,7 +1937,7 @@ def cmd_list(root: Path, _args: argparse.Namespace) -> int:
     active = state.scenario_id if state else None
     for scenario_id in catalogue.scenario_ids:
         validate_scenario_artifacts(root, catalogue.manifests[scenario_id])
-    out(f"QuantCore workshop scenarios ({len(catalogue.scenario_ids)}):")
+    out(f"MittelWerk workshop scenarios ({len(catalogue.scenario_ids)}):")
     out("")
     id_width = max(len(scenario_id) for scenario_id in catalogue.scenario_ids)
     for scenario_id in catalogue.scenario_ids:
@@ -2370,7 +2370,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python scripts/workshop.py",
         description=(
-            "Stage, verify, and restore QuantCore workshop scenarios. "
+            "Stage, verify, and restore MittelWerk workshop scenarios. "
             "A clean checkout is green; only 'start' stages a failing state, "
             "and 'reset' restores it exactly."
         ),
@@ -2419,7 +2419,7 @@ HANDLERS: Final[dict[str, Any]] = {
 
 
 def resolve_root(explicit: str | None) -> Path:
-    candidate = explicit or os.environ.get("QXM_WORKSHOP_REPO_ROOT")
+    candidate = explicit or os.environ.get("MITTELWERK_WORKSHOP_REPO_ROOT")
     if candidate:
         root = Path(candidate).expanduser()
         if not root.is_dir():
@@ -2430,7 +2430,7 @@ def resolve_root(explicit: str | None) -> Path:
     if not (root / CATALOGUE_PATH).is_file():
         raise WorkshopError(
             f"no scenario catalogue found under {root}",
-            hint=f"Expected {CATALOGUE_PATH}. Run this from a QuantCore checkout.",
+            hint=f"Expected {CATALOGUE_PATH}. Run this from a MittelWerk checkout.",
         )
     return root
 

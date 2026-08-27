@@ -67,7 +67,7 @@ rationalised afterwards.
 
 | Lab | Scenario id | Artifacts you should find |
 |---|---|---|
-| 2 | `incident-fill-price` | `issue.md`, `logs/`, `invariants.md`, `acceptance.md` |
+| 2 | `incident-service-rate` | `issue.md`, `logs/`, `invariants.md`, `acceptance.md` |
 | 3 | `migration-legacy-models` | `issue.md`, staged legacy module set, `acceptance.md` |
 | 4 | `review-pr` | Pre-created PR diff, PR description, review thread, agent session transcript, captured automated code-review result |
 | 5 | `elective-mcp`, `elective-cli`, `elective-customization` | Elective-specific briefs and sample configuration |

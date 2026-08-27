@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "description": "Deterministic QuantCore workshop scenarios, in lab order. See workshop/scenarios/README.md.",
+  "description": "Deterministic MittelWerk workshop scenarios, in lab order. See workshop/scenarios/README.md.",
   "scenarios": [
-    "incident-fill-price",
+    "incident-service-rate",
     "migration-legacy-models",
     "review-pr",
     "elective-mcp",

@@ -39,7 +39,7 @@ At minute 18, stop adding rules. At minute 25, stop testing and explain.
 
 Use the same input for every comparison:
 
-> A draft review comment for a proposed change to `qxm/risk/var.py` says:
+> A draft review comment for a proposed change to `mittelwerk/analytics/sla.py` says:
 > "This looks risky. Consider changing it." Rewrite the comment for a pull
 > request. No diff or test output has been provided.
 

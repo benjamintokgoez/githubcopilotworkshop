@@ -1,0 +1,145 @@
+"""Bounded service-dispatch path from incident MW-4471.
+
+Regional service providers publish available engineering hours and an hourly
+rate. Customer organisations submit urgent service requests. Capacity is
+assigned at the best eligible provider rate, with FIFO priority at the same
+rate. The module is dependency-free so the incident can be reproduced quickly.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import datetime
+from decimal import Decimal
+
+ZERO = Decimal("0")
+
+
+class DispatchError(ValueError):
+    """Raised when dispatch cannot produce an honest assignment."""
+
+
+@dataclass(frozen=True)
+class CapacityOffer:
+    offer_id: str
+    provider_code: str
+    hourly_rate: Decimal
+    available_hours: Decimal
+    offered_at: datetime
+
+
+@dataclass(frozen=True)
+class ServiceRequest:
+    work_order_id: str
+    organization_id: str
+    requested_hours: Decimal
+    maximum_hourly_rate: Decimal
+
+
+@dataclass(frozen=True)
+class ServiceAssignment:
+    assignment_id: str
+    work_order_id: str
+    provider_code: str
+    provider_offer_id: str
+    hourly_rate: Decimal
+    assigned_hours: Decimal
+
+
+class CapacityQueue:
+    """Available service capacity ordered by rate and arrival time."""
+
+    def __init__(self) -> None:
+        self._offers: dict[str, CapacityOffer] = {}
+        self._remaining: dict[str, Decimal] = {}
+
+    def add(self, offer: CapacityOffer) -> None:
+        if offer.hourly_rate <= ZERO:
+            raise DispatchError(f"{offer.offer_id}: hourly rate must be positive")
+        if offer.available_hours <= ZERO:
+            raise DispatchError(f"{offer.offer_id}: available hours must be positive")
+        if offer.offer_id in self._offers:
+            raise DispatchError(f"{offer.offer_id}: offer already exists")
+        if offer.offered_at.tzinfo is None:
+            raise DispatchError(f"{offer.offer_id}: offered_at must be timezone-aware UTC")
+        self._offers[offer.offer_id] = offer
+        self._remaining[offer.offer_id] = offer.available_hours
+
+    def remaining(self, offer_id: str) -> Decimal:
+        if offer_id not in self._remaining:
+            raise DispatchError(f"{offer_id}: offer is not in the queue")
+        return self._remaining[offer_id]
+
+    @property
+    def total_available_hours(self) -> Decimal:
+        return sum(self._remaining.values(), ZERO)
+
+    def eligible(self, maximum_hourly_rate: Decimal) -> list[CapacityOffer]:
+        live = [
+            offer
+            for offer in self._offers.values()
+            if self._remaining[offer.offer_id] > ZERO
+            and offer.hourly_rate <= maximum_hourly_rate
+        ]
+        return sorted(live, key=lambda offer: (offer.hourly_rate, offer.offered_at))
+
+    def reduce(self, offer_id: str, hours: Decimal) -> None:
+        available = self.remaining(offer_id)
+        if hours <= ZERO:
+            raise DispatchError(f"{offer_id}: cannot assign {hours} hours")
+        if hours > available:
+            raise DispatchError(f"{offer_id}: cannot assign {hours} from {available}")
+        self._remaining[offer_id] = available - hours
+
+
+def dispatch_request(
+    queue: CapacityQueue,
+    request: ServiceRequest,
+) -> list[ServiceAssignment]:
+    """Assign eligible provider capacity to ``request``."""
+    if request.requested_hours <= ZERO:
+        raise DispatchError(f"{request.work_order_id}: requested hours must be positive")
+    if request.maximum_hourly_rate <= ZERO:
+        raise DispatchError(f"{request.work_order_id}: maximum rate must be positive")
+
+    remaining = request.requested_hours
+    assignments: list[ServiceAssignment] = []
+    sequence = 0
+    for offer in queue.eligible(request.maximum_hourly_rate):
+        if remaining <= ZERO:
+            break
+        assigned = min(remaining, queue.remaining(offer.offer_id))
+        sequence += 1
+        assignments.append(
+            ServiceAssignment(
+                assignment_id=f"SA-{request.work_order_id}-{sequence}",
+                work_order_id=request.work_order_id,
+                provider_code=offer.provider_code,
+                provider_offer_id=offer.offer_id,
+                hourly_rate=request.maximum_hourly_rate,
+                assigned_hours=assigned,
+            )
+        )
+        queue.reduce(offer.offer_id, assigned)
+        remaining -= assigned
+    return assignments
+
+
+def assigned_hours(assignments: list[ServiceAssignment]) -> Decimal:
+    return sum((assignment.assigned_hours for assignment in assignments), ZERO)
+
+
+def average_service_rate(assignments: list[ServiceAssignment]) -> Decimal:
+    if not assignments:
+        raise DispatchError("no assignments to average")
+    hours = assigned_hours(assignments)
+    if hours <= ZERO:
+        raise DispatchError("cannot average zero assigned hours")
+    cost = sum(
+        (
+            assignment.hourly_rate * assignment.assigned_hours
+            for assignment in assignments
+        ),
+        ZERO,
+    )
+    return cost / hours

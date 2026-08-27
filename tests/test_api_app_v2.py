@@ -1,11 +1,11 @@
-"""Focused tests for the QuantCore application factory and REST surface.
+"""Focused tests for the MittelWerk application factory and REST surface.
 
 Covers: lifespan and app-instance isolation, public vs protected routes,
 401/403 and least-privilege permission checks, explicit CORS, the authenticated
-order lifecycle (maker/taker, fractional lots, rejections, duplicates, cancel,
-ownership), client-scoped positions and risk, the dashboard payload contract,
-parameterised instrument search, trade persistence, feed-driven marking, and
-exception-safe startup/shutdown without leaked tasks.
+work-order lifecycle (maker/taker, fractional hours, rejections, duplicates,
+cancel, ownership), organization-scoped workloads and risk, the dashboard
+payload contract, parameterised equipment search, assignment persistence,
+feed-driven marking, and exception-safe startup/shutdown without leaked tasks.
 """
 
 from __future__ import annotations
@@ -24,75 +24,110 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy.exc import OperationalError
 
 import main
-from qxm.api.dependencies import API_KEY_HEADER
-from qxm.api.service import TradingService
-from qxm.auth.keys import KeyManager
-from qxm.core.engine import MatchingEngine
-from qxm.core.events import EventBus
-from qxm.core.models import Instrument, InstrumentType, Order, OrderType, Side
-from qxm.data.store import TimeSeriesStore
+from mittelwerk.api.dependencies import API_KEY_HEADER
+from mittelwerk.api.service import DispatchService
+from mittelwerk.auth.keys import KeyManager
+from mittelwerk.core.engine import DispatchEngine
+from mittelwerk.core.events import EventBus
+from mittelwerk.core.models import (
+    DispatchSide,
+    Equipment,
+    EquipmentCategory,
+    WorkOrder,
+    WorkOrderMode,
+)
+from mittelwerk.dispatch_policies.base import DispatchPolicyMeta
+from mittelwerk.telemetry.store import TelemetryStore
 
-ALICE_KEY = "qxm_test_alice_key_0123456789abc"
-BOB_KEY = "qxm_test_bob_key_0123456789abcde"
-READER_KEY = "qxm_test_reader_key_0123456789ab"
-TRADER_ONLY_KEY = "qxm_test_traderonly_key_01234567"
+ALICE_KEY = "mwk_test_alice_key_0123456789abc"
+BOB_KEY = "mwk_test_bob_key_0123456789abcde"
+READER_KEY = "mwk_test_reader_key_0123456789ab"
+DISPATCH_ONLY_KEY = "mwk_test_dispatchonly_key_01234567"
 
 ALICE = {API_KEY_HEADER: ALICE_KEY}
 BOB = {API_KEY_HEADER: BOB_KEY}
 READER = {API_KEY_HEADER: READER_KEY}
-TRADER_ONLY = {API_KEY_HEADER: TRADER_ONLY_KEY}
+DISPATCH_ONLY = {API_KEY_HEADER: DISPATCH_ONLY_KEY}
 
 DASHBOARD_KEYS = {
     "as_of",
     "currency",
     "kpis",
-    "positions",
-    "pnl_history",
+    "workloads",
+    "cost_history",
     "risk",
-    "order_books",
+    "dispatch_queues",
 }
 
 
-def build_instruments() -> dict[str, Instrument]:
+def build_equipment() -> dict[str, Equipment]:
     return {
-        "AAPL": Instrument(
-            symbol="AAPL",
-            name="Apple Inc.",
-            instrument_type=InstrumentType.EQUITY,
-            tick_size="0.01",
-            lot_size="1",
-            currency="USD",
-            exchange="NASDAQ",
-        ),
-        "SAP": Instrument(
-            symbol="SAP",
-            name="SAP SE",
-            instrument_type=InstrumentType.EQUITY,
-            tick_size="0.01",
-            lot_size="1",
+        "CNC-01": Equipment(
+            asset_id="CNC-01",
+            name="CNC Mill Line 1",
+            equipment_type=EquipmentCategory.CNC_MACHINE,
+            service_interval_days=30,
+            hourly_service_rate="85.00",
+            rate_increment="0.50",
+            hour_lot_size="0.25",
             currency="EUR",
-            exchange="XETRA",
+            site_code="MW-STUTTGART",
         ),
-        "BTC-USD": Instrument(
-            symbol="BTC-USD",
-            name="Bitcoin / US Dollar",
-            instrument_type=InstrumentType.CRYPTO,
-            tick_size="0.01",
-            lot_size="0.001",
-            currency="USD",
-            exchange="QUANTCORE",
+        "PRESS-04": Equipment(
+            asset_id="PRESS-04",
+            name="Hydraulic Press 400t",
+            equipment_type=EquipmentCategory.HYDRAULIC_PRESS,
+            service_interval_days=45,
+            hourly_service_rate="120.00",
+            rate_increment="1.00",
+            hour_lot_size="0.5",
+            currency="EUR",
+            site_code="MW-MUNICH",
+        ),
+        "ROBOT-07": Equipment(
+            asset_id="ROBOT-07",
+            name="Robotic Welding Arm 7",
+            equipment_type=EquipmentCategory.ROBOTIC_ARM,
+            service_interval_days=21,
+            hourly_service_rate="110.00",
+            rate_increment="1.00",
+            hour_lot_size="0.25",
+            currency="EUR",
+            site_code="MW-STUTTGART",
+        ),
+        "COMP-03": Equipment(
+            asset_id="COMP-03",
+            name="Industrial Compressor Unit 3",
+            equipment_type=EquipmentCategory.COMPRESSOR,
+            service_interval_days=90,
+            hourly_service_rate="78.00",
+            rate_increment="0.50",
+            hour_lot_size="0.5",
+            currency="CHF",
+            site_code="MW-ZURICH",
         ),
     }
 
 
 def build_config(**overrides: Any) -> dict[str, Any]:
     config: dict[str, Any] = {
-        "server": {"host": "127.0.0.1", "port": 8443},
-        "database": {"url": "sqlite://"},
-        "feed": {"mode": "simulated", "interval_ms": 10, "seed": 7},
-        "auth": {"key_ttl_seconds": 86400},
+        "timezone": {"application": "UTC", "presentation": "Europe/Berlin"},
+        "server": {
+            "host": "127.0.0.1",
+            "port": 8443,
+            "log_level": "info",
+            "cors_origins": [],
+            "cors_allow_credentials": False,
+        },
         "risk": {},
-        "logging": {"level": "INFO"},
+        "database": {"url": "sqlite://", "echo": False},
+        "feed": {"mode": "simulated", "interval_ms": 10, "seed": 7},
+        "dashboard": {"currency": "EUR"},
+        "auth": {"key_ttl_seconds": 86400},
+        "logging": {
+            "level": "INFO",
+            "format": "%(asctime)s [%(name)s] %(levelname)s: %(message)s",
+        },
     }
     config.update(overrides)
     return config
@@ -100,16 +135,16 @@ def build_config(**overrides: Any) -> dict[str, Any]:
 
 def build_key_manager() -> KeyManager:
     manager = KeyManager("api-test-secret")
-    manager.register_key(ALICE_KEY, "alice", permissions=["read", "trade"])
-    manager.register_key(BOB_KEY, "bob", permissions=["read", "trade"])
+    manager.register_key(ALICE_KEY, "alice", permissions=["read", "dispatch"])
+    manager.register_key(BOB_KEY, "bob", permissions=["read", "dispatch"])
     manager.register_key(READER_KEY, "reader", permissions=["read"])
-    manager.register_key(TRADER_ONLY_KEY, "trader_only", permissions=["trade"])
+    manager.register_key(DISPATCH_ONLY_KEY, "dispatch_only", permissions=["dispatch"])
     return manager
 
 
 def build_app(**kwargs: Any) -> Any:
     kwargs.setdefault("config", build_config())
-    kwargs.setdefault("instruments", build_instruments())
+    kwargs.setdefault("equipment", build_equipment())
     kwargs.setdefault("key_manager", build_key_manager())
     kwargs.setdefault("enable_feed", False)
     kwargs.setdefault("enable_store", False)
@@ -124,16 +159,16 @@ def client() -> Iterator[TestClient]:
 
 
 @pytest.fixture
-def store() -> Iterator[TimeSeriesStore]:
-    store = TimeSeriesStore("sqlite://")
+def store() -> Iterator[TelemetryStore]:
+    telemetry_store = TelemetryStore("sqlite://")
     try:
-        yield store
+        yield telemetry_store
     finally:
-        store.close()
+        telemetry_store.close()
 
 
 def submit(client: TestClient, headers: dict[str, str], **payload: Any) -> Any:
-    return client.post("/api/v1/orders", headers=headers, json=payload)
+    return client.post("/api/v1/work-orders", headers=headers, json=payload)
 
 
 # ---------------------------------------------------------------------------
@@ -143,11 +178,12 @@ def submit(client: TestClient, headers: dict[str, str], **payload: Any) -> Any:
 
 def test_app_metadata_describes_an_educational_simulator() -> None:
     app = build_app()
-    assert app.version == "0.5.0"
+    assert app.version == "1.0.0"
+    assert "MittelWerk" in app.title
     assert "Simulator" in app.title
     description = app.description.lower()
     assert "simulation-only" in description
-    assert "high-performance" not in description
+    assert "synthetic" in description
     assert "production" not in description
 
 
@@ -161,34 +197,39 @@ def test_lifespan_starts_and_stops_event_bus(client: TestClient) -> None:
 def test_app_instances_are_isolated() -> None:
     first = build_app()
     second_manager = KeyManager("other-secret")
-    second_manager.register_key(BOB_KEY, "bob", permissions=["read", "trade"])
+    second_manager.register_key(BOB_KEY, "bob", permissions=["read", "dispatch"])
     second = build_app(key_manager=second_manager)
 
     assert first.state.services.engine is not second.state.services.engine
-    assert first.state.services.trading is not second.state.services.trading
+    assert first.state.services.dispatch is not second.state.services.dispatch
 
     with TestClient(first) as first_client, TestClient(second) as second_client:
         created = submit(
-            first_client, ALICE, symbol="AAPL", side="BUY", quantity="5", price="150.00"
+            first_client,
+            ALICE,
+            asset_id="CNC-01",
+            side="REQUEST",
+            requested_hours="5",
+            mode="RATE_CAPPED",
+            max_hourly_rate="85.00",
         )
         assert created.status_code == 201
 
-        # The second application knows neither alice's key nor her order.
-        assert first_client.get("/api/v1/orders", headers=ALICE).json()["count"] == 1
-        assert second_client.get("/api/v1/orders", headers=ALICE).status_code == 403
-        assert second_client.get("/api/v1/orders", headers=BOB).json()["count"] == 0
+        assert first_client.get("/api/v1/work-orders", headers=ALICE).json()["count"] == 1
+        assert second_client.get("/api/v1/work-orders", headers=ALICE).status_code == 403
+        assert second_client.get("/api/v1/work-orders", headers=BOB).json()["count"] == 0
 
 
-def test_missing_config_and_instrument_files_raise(tmp_path: Any) -> None:
+def test_missing_config_and_equipment_files_raise(tmp_path: Any) -> None:
     with pytest.raises(FileNotFoundError):
         main.load_config(tmp_path / "absent.yaml")
     with pytest.raises(FileNotFoundError):
-        main.load_instruments(tmp_path / "absent.json")
+        main.load_equipment(tmp_path / "absent.json")
 
-    malformed = tmp_path / "instruments.json"
-    malformed.write_text('{"symbol": "AAPL"}', encoding="utf-8")
+    malformed = tmp_path / "equipment.json"
+    malformed.write_text('{"asset_id": "CNC-01"}', encoding="utf-8")
     with pytest.raises(ValueError):
-        main.load_instruments(malformed)
+        main.load_equipment(malformed)
 
     broken_yaml = tmp_path / "settings.yaml"
     broken_yaml.write_text("server: [unclosed\n", encoding="utf-8")
@@ -201,25 +242,29 @@ def test_missing_config_and_instrument_files_raise(tmp_path: Any) -> None:
         main.load_config(empty_yaml)
 
 
-def test_repository_config_and_instruments_load() -> None:
+def test_repository_config_and_equipment_load() -> None:
     config = main.load_config()
     assert main.coerce_port(config["server"]["port"]) == 8443
     assert config["server"]["host"] == "127.0.0.1"
+    assert config["database"]["url"] == "sqlite:///mittelwerk.db"
     assert config["dashboard"]["currency"] == "EUR"
     assert config["feed"]["seed"] == 7
     main.validate_config_keys(config)
-    instruments = main.load_instruments()
-    assert "SAP" in instruments
-    assert instruments["BTC-USD"].lot_size == Decimal("0.001")
+    main.validate_config_values(config)
+
+    equipment = main.load_equipment()
+    assert {"CNC-01", "PRESS-04", "ROBOT-07"}.issubset(equipment)
+    assert equipment["COMP-03"].currency == "CHF"
+    assert equipment["ROBOT-07"].hour_lot_size == Decimal("0.25")
 
 
-def test_app_requires_a_nonempty_consistent_instrument_mapping() -> None:
-    with pytest.raises(ValueError, match="At least one simulated instrument"):
-        build_app(instruments={})
+def test_app_requires_a_nonempty_consistent_equipment_mapping() -> None:
+    with pytest.raises(ValueError, match="At least one simulated equipment asset"):
+        build_app(equipment={})
 
-    instruments = build_instruments()
-    with pytest.raises(ValueError, match="does not match symbol"):
-        build_app(instruments={"WRONG": instruments["SAP"]})
+    equipment = build_equipment()
+    with pytest.raises(ValueError, match="does not match asset_id"):
+        build_app(equipment={"WRONG": equipment["PRESS-04"]})
 
 
 @pytest.mark.parametrize("value", ["8443", 8443])
@@ -250,9 +295,8 @@ def test_health_is_public_and_returns_aware_utc(client: TestClient) -> None:
     assert response.status_code == 200
     body = response.json()
     assert body["status"] == "healthy"
-    assert body["version"] == "0.5.0"
+    assert body["version"] == "1.0.0"
     assert body["mode"] == "simulation"
-    # This application runs without a feed, so nothing is missing.
     assert body["feed"] == "off"
 
     stamp = datetime.fromisoformat(body["timestamp"])
@@ -264,19 +308,20 @@ def test_dashboard_shell_is_served_same_origin_without_auth(client: TestClient) 
     response = client.get("/")
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/html")
-    assert "QuantCore" in response.text
+    assert "MittelWerk" in response.text
 
 
 @pytest.mark.parametrize(
     "path",
     [
-        "/api/v1/orders",
-        "/api/v1/positions",
-        "/api/v1/portfolio/snapshot",
-        "/api/v1/portfolio/risk",
+        "/api/v1/work-orders",
+        "/api/v1/workloads",
+        "/api/v1/organization/snapshot",
+        "/api/v1/organization/risk",
         "/api/v1/dashboard",
         "/api/v1/metrics",
-        "/api/v1/strategies",
+        "/api/v1/dispatch-policies",
+        "/api/v1/equipment/search?q=cnc",
     ],
 )
 def test_protected_endpoints_require_a_key(client: TestClient, path: str) -> None:
@@ -284,7 +329,7 @@ def test_protected_endpoints_require_a_key(client: TestClient, path: str) -> Non
     assert missing.status_code == 401
     assert API_KEY_HEADER in missing.json()["detail"]
 
-    invalid = client.get(path, headers={API_KEY_HEADER: "qxm_not_a_real_key"})
+    invalid = client.get(path, headers={API_KEY_HEADER: "mwk_not_a_real_key"})
     assert invalid.status_code == 403
 
 
@@ -296,47 +341,65 @@ def test_expired_and_revoked_keys_are_forbidden() -> None:
     revoked = manager.register_key(BOB_KEY, "bob", permissions=["read"])
 
     with TestClient(build_app(key_manager=manager)) as client:
-        assert client.get("/api/v1/positions", headers=ALICE).status_code == 200
+        assert client.get("/api/v1/workloads", headers=ALICE).status_code == 200
 
         manager.revoke_key(revoked.key_id)
-        assert client.get("/api/v1/positions", headers=BOB).status_code == 403
+        assert client.get("/api/v1/workloads", headers=BOB).status_code == 403
 
         clock["now"] = now + timedelta(seconds=61)
-        assert client.get("/api/v1/positions", headers=ALICE).status_code == 403
+        assert client.get("/api/v1/workloads", headers=ALICE).status_code == 403
 
 
 def test_permissions_are_least_privilege(client: TestClient) -> None:
-    read_only = submit(client, READER, symbol="AAPL", side="BUY", quantity="1", price="150.00")
+    read_only = submit(
+        client,
+        READER,
+        asset_id="CNC-01",
+        side="REQUEST",
+        requested_hours="1",
+        mode="RATE_CAPPED",
+        max_hourly_rate="85.00",
+    )
     assert read_only.status_code == 403
-    assert "trade" in read_only.json()["detail"]
+    assert "dispatch" in read_only.json()["detail"]
 
-    trade_only = client.get("/api/v1/orders", headers=TRADER_ONLY)
-    assert trade_only.status_code == 403
-    assert "read" in trade_only.json()["detail"]
+    dispatch_only = client.get("/api/v1/work-orders", headers=DISPATCH_ONLY)
+    assert dispatch_only.status_code == 403
+    assert "read" in dispatch_only.json()["detail"]
 
-    assert client.get("/api/v1/positions", headers=READER).status_code == 200
+    assert client.get("/api/v1/workloads", headers=READER).status_code == 200
 
 
-def test_client_identity_cannot_be_supplied_by_the_caller(client: TestClient) -> None:
+def test_organization_identity_cannot_be_supplied_by_the_caller(client: TestClient) -> None:
     response = submit(
         client,
         ALICE,
-        symbol="AAPL",
-        side="BUY",
-        quantity="1",
-        price="150.00",
-        client_id="bob",
+        asset_id="CNC-01",
+        side="REQUEST",
+        requested_hours="1",
+        mode="RATE_CAPPED",
+        max_hourly_rate="85.00",
+        organization_id="bob",
     )
     assert response.status_code == 422
 
-    accepted = submit(client, ALICE, symbol="AAPL", side="BUY", quantity="1", price="150.00")
-    assert accepted.json()["order"]["client_id"] == "alice"
+    accepted = submit(
+        client,
+        ALICE,
+        asset_id="CNC-01",
+        side="REQUEST",
+        requested_hours="1",
+        mode="RATE_CAPPED",
+        max_hourly_rate="85.00",
+    )
+    assert accepted.json()["work_order"]["organization_id"] == "alice"
 
 
 def test_no_bootstrap_key_leaves_protected_endpoints_inaccessible(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.delenv(main.BOOTSTRAP_KEY_ENV, raising=False)
+    monkeypatch.delenv(main.BOOTSTRAP_ORGANIZATION_ENV, raising=False)
     manager = KeyManager("api-test-secret")
     app = build_app(key_manager=manager)
     assert manager.key_count == 0
@@ -348,16 +411,15 @@ def test_no_bootstrap_key_leaves_protected_endpoints_inaccessible(
 
 
 def test_bootstrap_key_can_be_injected_for_local_use() -> None:
-    raw = "qxm_injected_bootstrap_key_00001"
+    raw = "mwk_injected_bootstrap_key_00001"
     app = build_app(
         key_manager=KeyManager("api-test-secret"),
         bootstrap_api_key=raw,
-        bootstrap_client_id="operator",
+        bootstrap_organization_id="operator",
     )
     with TestClient(app) as client:
         response = client.get("/api/v1/dashboard", headers={API_KEY_HEADER: raw})
         assert response.status_code == 200
-        # The raw key is never echoed back by the API.
         assert raw not in response.text
 
 
@@ -405,69 +467,124 @@ def test_wildcard_origin_never_combines_with_credentials() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Order lifecycle
+# Work-order lifecycle
 # ---------------------------------------------------------------------------
 
 
-def test_maker_taker_match_executes_at_the_resting_price(client: TestClient) -> None:
-    maker = submit(client, ALICE, symbol="SAP", side="SELL", quantity="10", price="150.00")
+def test_maker_taker_match_executes_at_the_resting_rate(client: TestClient) -> None:
+    maker = submit(
+        client,
+        ALICE,
+        asset_id="PRESS-04",
+        side="OFFER",
+        requested_hours="10",
+        mode="RATE_CAPPED",
+        max_hourly_rate="120.00",
+    )
     assert maker.status_code == 201
     assert maker.json()["status"] == "ACCEPTED"
-    assert maker.json()["trades"] == []
+    assert maker.json()["assignments"] == []
 
-    taker = submit(client, BOB, symbol="SAP", side="BUY", quantity="4", price="151.00")
+    taker = submit(
+        client,
+        BOB,
+        asset_id="PRESS-04",
+        side="REQUEST",
+        requested_hours="4",
+        mode="RATE_CAPPED",
+        max_hourly_rate="121.00",
+    )
     body = taker.json()
     assert taker.status_code == 201
-    assert body["status"] == "FILLED"
-    assert body["filled_quantity"] == "4"
-    assert [trade["price"] for trade in body["trades"]] == ["150.00"]
-    assert body["trades"][0]["aggressor_side"] == "BUY"
+    assert body["status"] == "ASSIGNED"
+    assert body["assigned_hours"] == "4"
+    assert [assignment["hourly_rate"] for assignment in body["assignments"]] == ["120.00"]
+    assert body["assignments"][0]["initiating_side"] == "REQUEST"
 
-    # The maker order object reflects its partial fill through the live registry.
-    maker_state = client.get(f"/api/v1/orders/{maker.json()['order_id']}", headers=ALICE).json()
-    assert maker_state["status"] == "PARTIALLY_FILLED"
-    assert maker_state["filled_quantity"] == "4"
+    maker_state = client.get(
+        f"/api/v1/work-orders/{maker.json()['work_order_id']}", headers=ALICE
+    ).json()
+    assert maker_state["status"] == "PARTIALLY_ASSIGNED"
+    assert maker_state["assigned_hours"] == "4"
 
 
-def test_fractional_quantities_are_supported(client: TestClient) -> None:
-    submit(client, ALICE, symbol="BTC-USD", side="SELL", quantity="0.005", price="60000.00")
-    taker = submit(client, BOB, symbol="BTC-USD", side="BUY", quantity="0.003", price="60000.00")
+def test_fractional_hours_are_supported(client: TestClient) -> None:
+    submit(
+        client,
+        ALICE,
+        asset_id="ROBOT-07",
+        side="OFFER",
+        requested_hours="0.75",
+        mode="RATE_CAPPED",
+        max_hourly_rate="110.00",
+    )
+    taker = submit(
+        client,
+        BOB,
+        asset_id="ROBOT-07",
+        side="REQUEST",
+        requested_hours="0.25",
+        mode="RATE_CAPPED",
+        max_hourly_rate="110.00",
+    )
     assert taker.status_code == 201
-    assert taker.json()["filled_quantity"] == "0.003"
-    assert taker.json()["trades"][0]["quantity"] == "0.003"
+    assert taker.json()["assigned_hours"] == "0.25"
+    assert taker.json()["assignments"][0]["hours"] == "0.25"
 
 
 @pytest.mark.parametrize(
     ("payload", "expected_fragment"),
     [
         (
-            {"symbol": "NOPE", "side": "BUY", "quantity": "1", "price": "10.00"},
-            "Unknown instrument",
-        ),
-        ({"symbol": "AAPL", "side": "BUY", "quantity": "1", "price": "150.005"}, "tick size"),
-        (
-            {"symbol": "BTC-USD", "side": "BUY", "quantity": "0.0005", "price": "100.00"},
-            "lot size",
+            {
+                "asset_id": "NOPE",
+                "side": "REQUEST",
+                "requested_hours": "1",
+                "mode": "RATE_CAPPED",
+                "max_hourly_rate": "10.00",
+            },
+            "Unknown asset",
         ),
         (
             {
-                "symbol": "AAPL",
-                "side": "BUY",
-                "quantity": "1",
-                "price": "150.00",
-                "time_in_force": "DAY",
+                "asset_id": "PRESS-04",
+                "side": "REQUEST",
+                "requested_hours": "1",
+                "mode": "RATE_CAPPED",
+                "max_hourly_rate": "120.50",
             },
-            "DAY time-in-force is not supported",
+            "rate increment",
         ),
         (
             {
-                "symbol": "AAPL",
-                "side": "BUY",
-                "quantity": "1",
-                "order_type": "STOP",
-                "stop_price": "150.00",
+                "asset_id": "ROBOT-07",
+                "side": "REQUEST",
+                "requested_hours": "0.10",
+                "mode": "RATE_CAPPED",
+                "max_hourly_rate": "110.00",
             },
-            "STOP orders are not supported",
+            "hour lot size",
+        ),
+        (
+            {
+                "asset_id": "CNC-01",
+                "side": "REQUEST",
+                "requested_hours": "1",
+                "mode": "RATE_CAPPED",
+                "max_hourly_rate": "85.00",
+                "dispatch_window": "SHIFT",
+            },
+            "SHIFT dispatch window is not supported",
+        ),
+        (
+            {
+                "asset_id": "COMP-03",
+                "side": "REQUEST",
+                "requested_hours": "1",
+                "mode": "ESCALATION",
+                "escalation_rate": "80.00",
+            },
+            "ESCALATION work orders are not supported",
         ),
     ],
 )
@@ -477,28 +594,57 @@ def test_domain_rejections_use_a_stable_contract(
     response = submit(client, ALICE, **payload)
     assert response.status_code == 400
     detail = response.json()["detail"]
-    assert detail["error"] == "order_rejected"
+    assert detail["error"] == "work_order_rejected"
     assert detail["status"] == "REJECTED"
     assert expected_fragment in detail["reason"]
-    assert client.get("/api/v1/orders", headers=ALICE).json()["count"] == 1
+    assert client.get("/api/v1/work-orders", headers=ALICE).json()["count"] == 1
 
 
-def test_schema_valid_but_domain_invalid_orders_are_reported(client: TestClient) -> None:
-    response = submit(client, ALICE, symbol="AAPL", side="BUY", quantity="1")
+def test_schema_valid_but_domain_invalid_work_orders_are_reported(client: TestClient) -> None:
+    response = submit(client, ALICE, asset_id="CNC-01", side="REQUEST", requested_hours="1")
     assert response.status_code == 400
     detail = response.json()["detail"]
-    assert detail["error"] == "invalid_order"
-    assert "price" in detail["reason"].lower()
+    assert detail["error"] == "invalid_work_order"
+    assert "max_hourly_rate" in detail["reason"]
 
 
 @pytest.mark.parametrize(
     "payload",
     [
-        {"symbol": "AAPL", "side": "SIDEWAYS", "quantity": "1", "price": "10.00"},
-        {"symbol": "AAPL", "side": "BUY", "quantity": "0", "price": "10.00"},
-        {"symbol": "AAPL", "side": "BUY", "quantity": "-5", "price": "10.00"},
-        {"symbol": "AAPL", "side": "BUY", "quantity": "1", "price": "-10.00"},
-        {"side": "BUY", "quantity": "1", "price": "10.00"},
+        {
+            "asset_id": "CNC-01",
+            "side": "SIDEWAYS",
+            "requested_hours": "1",
+            "mode": "RATE_CAPPED",
+            "max_hourly_rate": "85.00",
+        },
+        {
+            "asset_id": "CNC-01",
+            "side": "REQUEST",
+            "requested_hours": "0",
+            "mode": "RATE_CAPPED",
+            "max_hourly_rate": "85.00",
+        },
+        {
+            "asset_id": "CNC-01",
+            "side": "REQUEST",
+            "requested_hours": "-5",
+            "mode": "RATE_CAPPED",
+            "max_hourly_rate": "85.00",
+        },
+        {
+            "asset_id": "CNC-01",
+            "side": "REQUEST",
+            "requested_hours": "1",
+            "mode": "RATE_CAPPED",
+            "max_hourly_rate": "-10.00",
+        },
+        {
+            "side": "REQUEST",
+            "requested_hours": "1",
+            "mode": "RATE_CAPPED",
+            "max_hourly_rate": "85.00",
+        },
     ],
 )
 def test_schema_violations_are_rejected_before_the_engine(
@@ -507,171 +653,229 @@ def test_schema_violations_are_rejected_before_the_engine(
     assert submit(client, ALICE, **payload).status_code == 422
 
 
-def test_duplicate_order_id_conflicts_without_mutating_either_order(
+def test_duplicate_work_order_id_conflicts_without_mutating_either_work_order(
     client: TestClient,
 ) -> None:
     first = submit(
         client,
         ALICE,
-        symbol="AAPL",
-        side="BUY",
-        quantity="10",
-        price="150.00",
-        order_id="idem-1",
+        asset_id="CNC-01",
+        side="REQUEST",
+        requested_hours="10",
+        mode="RATE_CAPPED",
+        max_hourly_rate="85.00",
+        work_order_id="idem-1",
     )
     assert first.status_code == 201
-    original = client.get("/api/v1/orders/idem-1", headers=ALICE).json()
+    original = client.get("/api/v1/work-orders/idem-1", headers=ALICE).json()
 
     duplicate = submit(
         client,
         ALICE,
-        symbol="AAPL",
-        side="SELL",
-        quantity="99",
-        price="1.00",
-        order_id="idem-1",
+        asset_id="CNC-01",
+        side="OFFER",
+        requested_hours="99",
+        mode="RATE_CAPPED",
+        max_hourly_rate="1.00",
+        work_order_id="idem-1",
     )
     assert duplicate.status_code == 409
     assert duplicate.json()["detail"] == {
-        "error": "duplicate_order_id",
-        "order_id": "idem-1",
+        "error": "duplicate_work_order_id",
+        "work_order_id": "idem-1",
     }
 
-    unchanged = client.get("/api/v1/orders/idem-1", headers=ALICE).json()
+    unchanged = client.get("/api/v1/work-orders/idem-1", headers=ALICE).json()
     assert unchanged == original
-    assert client.get("/api/v1/orders", headers=ALICE).json()["count"] == 1
+    assert client.get("/api/v1/work-orders", headers=ALICE).json()["count"] == 1
 
 
 async def test_service_rejection_reason_does_not_depend_on_event_replay() -> None:
     event_bus = EventBus(persist=False)
-    engine = MatchingEngine(event_bus, build_instruments())
-    service = TradingService(engine, event_bus)
-    order = Order(
-        order_id="direct-rejection-reason",
-        client_id="alice",
-        symbol="AAPL",
-        side=Side.BUY,
-        order_type=OrderType.LIMIT,
-        quantity=Decimal("1.5"),
-        price=Decimal("90"),
+    engine = DispatchEngine(event_bus, build_equipment())
+    service = DispatchService(engine, event_bus)
+    work_order = WorkOrder(
+        work_order_id="direct-rejection-reason",
+        organization_id="alice",
+        asset_id="CNC-01",
+        side=DispatchSide.REQUEST,
+        mode=WorkOrderMode.RATE_CAPPED,
+        requested_hours=Decimal("1.1"),
+        max_hourly_rate=Decimal("90"),
     )
 
-    result = await service.submit_order("alice", order)
+    result = await service.submit_work_order("alice", work_order)
 
     assert event_bus.event_log is None
     assert result.accepted is False
-    assert result.rejection_reason == "Quantity 1.5 is not a multiple of lot size 1"
+    assert result.rejection_reason == "Hours 1.1 is not a multiple of hour lot size 0.25"
 
 
-def test_order_ids_are_never_reusable_even_after_rejection(client: TestClient) -> None:
+def test_work_order_ids_are_never_reusable_even_after_rejection(client: TestClient) -> None:
     rejected = submit(
         client,
         ALICE,
-        symbol="AAPL",
-        side="BUY",
-        quantity="1",
-        price="150.005",
-        order_id="reserved-1",
+        asset_id="PRESS-04",
+        side="REQUEST",
+        requested_hours="1",
+        mode="RATE_CAPPED",
+        max_hourly_rate="120.50",
+        work_order_id="reserved-1",
     )
     assert rejected.status_code == 400
 
     retry = submit(
         client,
         ALICE,
-        symbol="AAPL",
-        side="BUY",
-        quantity="1",
-        price="150.00",
-        order_id="reserved-1",
+        asset_id="PRESS-04",
+        side="REQUEST",
+        requested_hours="1",
+        mode="RATE_CAPPED",
+        max_hourly_rate="120.00",
+        work_order_id="reserved-1",
     )
     assert retry.status_code == 409
 
 
-def test_order_listing_is_scoped_to_the_authenticated_client(client: TestClient) -> None:
-    alice_order = submit(
-        client, ALICE, symbol="AAPL", side="BUY", quantity="1", price="150.00"
-    ).json()["order_id"]
-    submit(client, BOB, symbol="AAPL", side="BUY", quantity="2", price="149.00")
+def test_work_order_listing_is_scoped_to_the_authenticated_organization(client: TestClient) -> None:
+    alice_work_order = submit(
+        client,
+        ALICE,
+        asset_id="CNC-01",
+        side="REQUEST",
+        requested_hours="1",
+        mode="RATE_CAPPED",
+        max_hourly_rate="85.00",
+    ).json()["work_order_id"]
+    submit(
+        client,
+        BOB,
+        asset_id="CNC-01",
+        side="REQUEST",
+        requested_hours="2",
+        mode="RATE_CAPPED",
+        max_hourly_rate="85.00",
+    )
 
-    alice_orders = client.get("/api/v1/orders", headers=ALICE).json()
-    assert alice_orders["count"] == 1
-    assert alice_orders["orders"][0]["order_id"] == alice_order
-    assert all(order["client_id"] == "alice" for order in alice_orders["orders"])
+    alice_work_orders = client.get("/api/v1/work-orders", headers=ALICE).json()
+    assert alice_work_orders["count"] == 1
+    assert alice_work_orders["work_orders"][0]["work_order_id"] == alice_work_order
+    assert all(
+        work_order["organization_id"] == "alice" for work_order in alice_work_orders["work_orders"]
+    )
 
-    assert client.get("/api/v1/orders", headers=BOB).json()["count"] == 1
-    assert client.get("/api/v1/orders", headers=READER).json()["count"] == 0
-    # Another client's order id is indistinguishable from an unknown one.
-    assert client.get(f"/api/v1/orders/{alice_order}", headers=BOB).status_code == 404
+    assert client.get("/api/v1/work-orders", headers=BOB).json()["count"] == 1
+    assert client.get("/api/v1/work-orders", headers=READER).json()["count"] == 0
+    assert client.get(f"/api/v1/work-orders/{alice_work_order}", headers=BOB).status_code == 404
 
 
-def test_cancel_enforces_ownership_and_reports_terminal_orders(
+def test_cancel_enforces_ownership_and_reports_terminal_work_orders(
     client: TestClient,
 ) -> None:
-    order_id = submit(
-        client, ALICE, symbol="AAPL", side="BUY", quantity="10", price="150.00"
-    ).json()["order_id"]
+    work_order_id = submit(
+        client,
+        ALICE,
+        asset_id="CNC-01",
+        side="REQUEST",
+        requested_hours="10",
+        mode="RATE_CAPPED",
+        max_hourly_rate="85.00",
+    ).json()["work_order_id"]
 
-    assert client.delete(f"/api/v1/orders/{order_id}", headers=BOB).status_code == 404
-    assert client.delete(f"/api/v1/orders/{order_id}", headers=READER).status_code == 403
+    assert client.delete(f"/api/v1/work-orders/{work_order_id}", headers=BOB).status_code == 404
+    assert client.delete(f"/api/v1/work-orders/{work_order_id}", headers=READER).status_code == 403
 
-    cancelled = client.delete(f"/api/v1/orders/{order_id}", headers=ALICE)
+    cancelled = client.delete(f"/api/v1/work-orders/{work_order_id}", headers=ALICE)
     assert cancelled.status_code == 200
     assert cancelled.json()["status"] == "CANCELLED"
-    assert cancelled.json()["order"]["order_id"] == order_id
+    assert cancelled.json()["work_order"]["work_order_id"] == work_order_id
 
-    repeat = client.delete(f"/api/v1/orders/{order_id}", headers=ALICE)
+    repeat = client.delete(f"/api/v1/work-orders/{work_order_id}", headers=ALICE)
     assert repeat.status_code == 409
-    assert repeat.json()["detail"]["error"] == "order_not_resting"
+    assert repeat.json()["detail"]["error"] == "work_order_not_resting"
     assert repeat.json()["detail"]["status"] == "CANCELLED"
 
-    assert client.delete("/api/v1/orders/does-not-exist", headers=ALICE).status_code == 404
+    assert client.delete("/api/v1/work-orders/does-not-exist", headers=ALICE).status_code == 404
 
 
 # ---------------------------------------------------------------------------
-# Positions, portfolio, risk
+# Workloads, organization, risk
 # ---------------------------------------------------------------------------
 
 
-def test_positions_and_portfolio_are_client_scoped(client: TestClient) -> None:
-    submit(client, ALICE, symbol="SAP", side="SELL", quantity="10", price="100.00")
-    submit(client, BOB, symbol="SAP", side="BUY", quantity="10", price="100.00")
+def test_workloads_and_organization_snapshot_are_organization_scoped(
+    client: TestClient,
+) -> None:
+    submit(
+        client,
+        ALICE,
+        asset_id="PRESS-04",
+        side="OFFER",
+        requested_hours="10",
+        mode="RATE_CAPPED",
+        max_hourly_rate="100.00",
+    )
+    submit(
+        client,
+        BOB,
+        asset_id="PRESS-04",
+        side="REQUEST",
+        requested_hours="10",
+        mode="RATE_CAPPED",
+        max_hourly_rate="100.00",
+    )
 
-    alice = client.get("/api/v1/positions", headers=ALICE).json()
-    bob = client.get("/api/v1/positions", headers=BOB).json()
-    assert alice["client_id"] == "alice"
-    assert alice["positions"][0]["quantity"] == "-10"
-    assert bob["positions"][0]["quantity"] == "10"
-    assert all(p["client_id"] == "alice" for p in alice["positions"])
+    alice = client.get("/api/v1/workloads", headers=ALICE).json()
+    bob = client.get("/api/v1/workloads", headers=BOB).json()
+    assert alice["organization_id"] == "alice"
+    assert alice["workloads"][0]["net_hours"] == "-10"
+    assert bob["workloads"][0]["net_hours"] == "10"
+    assert all(workload["organization_id"] == "alice" for workload in alice["workloads"])
 
-    # Counterparties must not net each other out in a shared portfolio.
-    alice_snapshot = client.get("/api/v1/portfolio/snapshot", headers=ALICE).json()
-    bob_snapshot = client.get("/api/v1/portfolio/snapshot", headers=BOB).json()
-    assert alice_snapshot["client_id"] == "alice"
-    assert Decimal(alice_snapshot["total_market_value"]) == Decimal("-1000.00")
-    assert Decimal(bob_snapshot["total_market_value"]) == Decimal("1000.00")
+    alice_snapshot = client.get("/api/v1/organization/snapshot", headers=ALICE).json()
+    bob_snapshot = client.get("/api/v1/organization/snapshot", headers=BOB).json()
+    assert alice_snapshot["organization_id"] == "alice"
+    assert Decimal(alice_snapshot["total_exposure_value"]) == Decimal("-1000.00")
+    assert Decimal(bob_snapshot["total_exposure_value"]) == Decimal("1000.00")
 
-    assert client.get("/api/v1/positions", headers=READER).json()["positions"] == []
+    assert client.get("/api/v1/workloads", headers=READER).json()["workloads"] == []
 
 
 def test_risk_payload_is_honest_without_a_volatility_assumption(
     client: TestClient,
 ) -> None:
-    risk = client.get("/api/v1/portfolio/risk", headers=ALICE).json()
-    assert risk["var_95"] is None
-    assert risk["var_99"] is None
-    assert risk["sharpe_ratio"] is None
-    assert risk["max_drawdown"] is None
-    assert Decimal(risk["gross_exposure"]) == Decimal("0")
+    risk = client.get("/api/v1/organization/risk", headers=ALICE).json()
+    assert risk["backlog_risk_95"] is None
+    assert risk["backlog_risk_99"] is None
+    assert risk["service_level_ratio"] is None
+    assert risk["max_backlog_overrun"] is None
+    assert Decimal(risk["gross_committed_hours"]) == Decimal("0")
 
 
-def test_var_is_computed_when_a_volatility_assumption_is_configured() -> None:
-    config = build_config(risk={"daily_volatility": 0.02})
+def test_backlog_risk_is_computed_when_a_volatility_assumption_is_configured() -> None:
+    config = build_config(risk={"hours_volatility": 0.02})
     with TestClient(build_app(config=config)) as client:
-        submit(client, ALICE, symbol="SAP", side="SELL", quantity="10", price="100.00")
-        submit(client, BOB, symbol="SAP", side="BUY", quantity="10", price="100.00")
-        risk = client.get("/api/v1/portfolio/risk", headers=ALICE).json()
-        assert Decimal(risk["var_95"]) > 0
-        assert Decimal(risk["var_99"]) > Decimal(risk["var_95"])
+        submit(
+            client,
+            ALICE,
+            asset_id="PRESS-04",
+            side="OFFER",
+            requested_hours="10",
+            mode="RATE_CAPPED",
+            max_hourly_rate="100.00",
+        )
+        submit(
+            client,
+            BOB,
+            asset_id="PRESS-04",
+            side="REQUEST",
+            requested_hours="10",
+            mode="RATE_CAPPED",
+            max_hourly_rate="100.00",
+        )
+        risk = client.get("/api/v1/organization/risk", headers=ALICE).json()
+        assert Decimal(risk["backlog_risk_95"]) > 0
+        assert Decimal(risk["backlog_risk_99"]) > Decimal(risk["backlog_risk_95"])
 
 
 # ---------------------------------------------------------------------------
@@ -688,116 +892,168 @@ def test_dashboard_empty_state_matches_the_contract(client: TestClient) -> None:
     assert as_of.utcoffset() == timedelta(0)
 
     assert body["currency"] == "EUR"
-    assert body["positions"] == []
-    assert body["pnl_history"] == []
-    assert body["order_books"] == {}
+    assert body["workloads"] == []
+    assert body["cost_history"] == []
+    assert body["dispatch_queues"] == {}
     assert set(body["kpis"]) >= {
-        "portfolio_value",
-        "realized_pnl",
-        "unrealized_pnl",
-        "var_95",
-        "active_orders",
+        "exposure_value",
+        "realized_cost",
+        "unrealized_cost",
+        "backlog_risk_95",
+        "active_work_orders",
     }
-    assert body["kpis"]["active_orders"] == 0
+    assert body["kpis"]["active_work_orders"] == 0
 
 
-def test_dashboard_populated_state_exposes_positions_orders_and_books(
+def test_dashboard_populated_state_exposes_workloads_work_orders_and_queues(
     client: TestClient,
 ) -> None:
-    submit(client, ALICE, symbol="SAP", side="SELL", quantity="10", price="100.00")
-    submit(client, BOB, symbol="SAP", side="BUY", quantity="4", price="100.00")
-    submit(client, BOB, symbol="AAPL", side="BUY", quantity="3", price="149.00")
+    submit(
+        client,
+        ALICE,
+        asset_id="PRESS-04",
+        side="OFFER",
+        requested_hours="10",
+        mode="RATE_CAPPED",
+        max_hourly_rate="100.00",
+    )
+    submit(
+        client,
+        BOB,
+        asset_id="PRESS-04",
+        side="REQUEST",
+        requested_hours="4",
+        mode="RATE_CAPPED",
+        max_hourly_rate="100.00",
+    )
+    submit(
+        client,
+        BOB,
+        asset_id="COMP-03",
+        side="REQUEST",
+        requested_hours="3",
+        mode="RATE_CAPPED",
+        max_hourly_rate="78.00",
+    )
 
     body = client.get("/api/v1/dashboard", headers=BOB).json()
     assert set(body) == DASHBOARD_KEYS
 
-    position = body["positions"][0]
-    assert position["symbol"] == "SAP"
-    assert position["currency"] == "EUR"
-    assert Decimal(position["quantity"]) == Decimal("4")
-    assert Decimal(position["average_entry_price"]) == Decimal("100.00")
-    assert Decimal(position["market_price"]) == Decimal("100.00")
-    assert Decimal(position["total_pnl"]) == Decimal(position["realized_pnl"]) + Decimal(
-        position["unrealized_pnl"]
+    workload = body["workloads"][0]
+    assert workload["asset_id"] == "PRESS-04"
+    assert workload["currency"] == "EUR"
+    assert Decimal(workload["net_hours"]) == Decimal("4")
+    assert Decimal(workload["average_service_rate"]) == Decimal("100.00")
+    assert Decimal(workload["last_rate"]) == Decimal("100.00")
+    assert Decimal(workload["total_cost"]) == Decimal(workload["realized_cost"]) + Decimal(
+        workload["unrealized_cost"]
     )
 
-    assert body["kpis"]["active_orders"] == 1
-    assert Decimal(body["kpis"]["portfolio_value"]) == Decimal("400.00")
+    assert body["kpis"]["active_work_orders"] == 1
+    assert Decimal(body["kpis"]["exposure_value"]) == Decimal("400.00")
 
-    books = body["order_books"]
-    assert set(books) == {"AAPL", "SAP"}
-    assert books["AAPL"]["bids"][0]["price"] == "149.00"
-    assert books["AAPL"]["bids"][0]["quantity"] == "3"
-    assert books["AAPL"]["bids"][0]["orders"] == 1
-    assert books["AAPL"]["asks"] == []
+    queues = body["dispatch_queues"]
+    assert set(queues) == {"COMP-03", "PRESS-04"}
+    assert queues["COMP-03"]["requests"][0]["rate"] == "78.00"
+    assert queues["COMP-03"]["requests"][0]["hours"] == "3"
+    assert queues["COMP-03"]["requests"][0]["work_orders"] == 1
+    assert queues["COMP-03"]["offers"] == []
 
-    history = body["pnl_history"]
+    history = body["cost_history"]
     assert len(history) == 1
     stamp = datetime.fromisoformat(history[0]["timestamp"])
     assert stamp.utcoffset() == timedelta(0)
     assert Decimal(history[0]["value"]) == Decimal("0.00")
 
-    # The dashboard view of another client is that client's own data only.
     alice_body = client.get("/api/v1/dashboard", headers=ALICE).json()
-    assert Decimal(alice_body["positions"][0]["quantity"]) == Decimal("-4")
+    assert Decimal(alice_body["workloads"][0]["net_hours"]) == Decimal("-4")
 
 
-def test_position_payloads_carry_each_instruments_own_currency(
+def test_workload_payloads_carry_each_equipments_own_currency(
     client: TestClient,
 ) -> None:
-    submit(client, ALICE, symbol="SAP", side="SELL", quantity="1", price="100.00")
-    submit(client, BOB, symbol="SAP", side="BUY", quantity="1", price="100.00")
-    submit(client, ALICE, symbol="AAPL", side="SELL", quantity="1", price="150.00")
-    submit(client, BOB, symbol="AAPL", side="BUY", quantity="1", price="150.00")
+    submit(
+        client,
+        ALICE,
+        asset_id="PRESS-04",
+        side="OFFER",
+        requested_hours="1",
+        mode="RATE_CAPPED",
+        max_hourly_rate="100.00",
+    )
+    submit(
+        client,
+        BOB,
+        asset_id="PRESS-04",
+        side="REQUEST",
+        requested_hours="1",
+        mode="RATE_CAPPED",
+        max_hourly_rate="100.00",
+    )
+    submit(
+        client,
+        ALICE,
+        asset_id="COMP-03",
+        side="OFFER",
+        requested_hours="1",
+        mode="RATE_CAPPED",
+        max_hourly_rate="78.00",
+    )
+    submit(
+        client,
+        BOB,
+        asset_id="COMP-03",
+        side="REQUEST",
+        requested_hours="1",
+        mode="RATE_CAPPED",
+        max_hourly_rate="78.00",
+    )
 
-    positions = client.get("/api/v1/positions", headers=BOB).json()["positions"]
-    assert {position["symbol"]: position["currency"] for position in positions} == {
-        "AAPL": "USD",
-        "SAP": "EUR",
+    workloads = client.get("/api/v1/workloads", headers=BOB).json()["workloads"]
+    assert {workload["asset_id"]: workload["currency"] for workload in workloads} == {
+        "COMP-03": "CHF",
+        "PRESS-04": "EUR",
     }
 
-    dashboard_positions = client.get("/api/v1/dashboard", headers=BOB).json()["positions"]
-    assert {position["symbol"]: position["currency"] for position in dashboard_positions} == {
-        "AAPL": "USD",
-        "SAP": "EUR",
+    dashboard_workloads = client.get("/api/v1/dashboard", headers=BOB).json()["workloads"]
+    assert {workload["asset_id"]: workload["currency"] for workload in dashboard_workloads} == {
+        "COMP-03": "CHF",
+        "PRESS-04": "EUR",
     }
 
 
 # ---------------------------------------------------------------------------
-# Instrument search
+# Equipment search
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize(
     "payload",
-    ["' OR 1=1 --", "'; DROP TABLE instruments; --", "%", "_"],
+    ["' OR 1=1 --", "'; DROP TABLE equipment; --", "%", "_"],
 )
-def test_instrument_search_injection_payloads_are_inert(
-    store: TimeSeriesStore, payload: str
-) -> None:
+def test_equipment_search_injection_payloads_are_inert(store: TelemetryStore, payload: str) -> None:
     app = build_app(store=store, enable_store=True)
     with TestClient(app) as client:
-        response = client.get("/api/v1/instruments/search", headers=READER, params={"q": payload})
+        response = client.get("/api/v1/equipment/search", headers=READER, params={"q": payload})
         assert response.status_code == 200
         assert response.json()["results"] == []
-        # Reference data survives every payload.
-        assert store.count_instruments() == 3
+        assert store.count_equipment() == len(build_equipment())
 
 
-def test_instrument_search_is_seeded_bounded_and_authenticated(
-    store: TimeSeriesStore,
+def test_equipment_search_is_seeded_bounded_and_authenticated(
+    store: TelemetryStore,
 ) -> None:
     app = build_app(store=store, enable_store=True)
     with TestClient(app) as client:
-        assert client.get("/api/v1/instruments/search", params={"q": "sap"}).status_code == 401
+        assert client.get("/api/v1/equipment/search", params={"q": "400t"}).status_code == 401
 
-        found = client.get("/api/v1/instruments/search", headers=READER, params={"q": "sap"}).json()
+        found = client.get("/api/v1/equipment/search", headers=READER, params={"q": "400t"}).json()
         assert found["count"] == 1
-        assert found["results"][0]["symbol"] == "SAP"
+        assert found["results"][0]["asset_id"] == "PRESS-04"
         assert found["results"][0]["currency"] == "EUR"
 
         limited = client.get(
-            "/api/v1/instruments/search", headers=READER, params={"q": "a", "limit": 1}
+            "/api/v1/equipment/search", headers=READER, params={"q": "c", "limit": 1}
         ).json()
         assert len(limited["results"]) <= 1
 
@@ -809,36 +1065,36 @@ def test_instrument_search_is_seeded_bounded_and_authenticated(
         )
         for params in out_of_bounds:
             assert (
-                client.get("/api/v1/instruments/search", headers=READER, params=params).status_code
+                client.get("/api/v1/equipment/search", headers=READER, params=params).status_code
                 == 422
             )
 
 
-def test_instrument_search_falls_back_to_in_memory_reference_data(
+def test_equipment_search_falls_back_to_in_memory_reference_data(
     client: TestClient,
 ) -> None:
-    response = client.get("/api/v1/instruments/search", headers=READER, params={"q": "bitcoin"})
+    response = client.get("/api/v1/equipment/search", headers=READER, params={"q": "compressor"})
     assert response.status_code == 200
-    assert [row["symbol"] for row in response.json()["results"]] == ["BTC-USD"]
+    assert [row["asset_id"] for row in response.json()["results"]] == ["COMP-03"]
     assert (
-        client.get(
-            "/api/v1/instruments/search", headers=READER, params={"q": "' OR 1=1 --"}
-        ).json()["results"]
+        client.get("/api/v1/equipment/search", headers=READER, params={"q": "' OR 1=1 --"}).json()[
+            "results"
+        ]
         == []
     )
 
 
-def test_strategies_and_metrics_require_read_permission(client: TestClient) -> None:
-    strategies = client.get("/api/v1/strategies", headers=READER)
-    assert strategies.status_code == 200
-    assert "MomentumBreakout" in strategies.json()["strategies"]
+def test_dispatch_policies_and_metrics_require_read_permission(client: TestClient) -> None:
+    policies = client.get("/api/v1/dispatch-policies", headers=READER)
+    assert policies.status_code == 200
+    assert policies.json()["policies"] == sorted(DispatchPolicyMeta.list_policies())
 
     metrics = client.get("/api/v1/metrics", headers=READER)
     assert metrics.status_code == 200
     assert isinstance(metrics.json(), dict)
 
-    assert client.get("/api/v1/strategies", headers=TRADER_ONLY).status_code == 403
-    assert client.get("/api/v1/metrics", headers=TRADER_ONLY).status_code == 403
+    assert client.get("/api/v1/dispatch-policies", headers=DISPATCH_ONLY).status_code == 403
+    assert client.get("/api/v1/metrics", headers=DISPATCH_ONLY).status_code == 403
 
 
 # ---------------------------------------------------------------------------
@@ -854,7 +1110,7 @@ async def test_feed_task_starts_and_shuts_down_without_leaks() -> None:
         assert feed is not None
         assert feed.is_running is True
         assert app.state.feed_task is not None
-        assert app.state.feed_task.get_name() == "qxm-market-feed"
+        assert app.state.feed_task.get_name() == main.FEED_TASK_NAME
 
     assert app.state.feed_task is None
     assert app.state.services.feed.is_running is False
@@ -866,11 +1122,11 @@ async def test_feed_task_starts_and_shuts_down_without_leaks() -> None:
 
 
 async def test_owned_store_is_closed_on_shutdown_and_injected_store_is_not(
-    store: TimeSeriesStore,
+    store: TelemetryStore,
 ) -> None:
     owned_app = main.create_app(
         build_config(database={"url": "sqlite://"}),
-        instruments=build_instruments(),
+        equipment=build_equipment(),
         key_manager=build_key_manager(),
         enable_feed=False,
     )
@@ -918,7 +1174,6 @@ def test_explicit_disabled_modes_run_without_a_feed(mode: str) -> None:
 def test_websocket_mode_is_refused_with_an_actionable_error(
     enable_feed: bool | None,
 ) -> None:
-    """An advertised-but-unwired mode must never be silently downgraded."""
     with pytest.raises(ValueError, match="websocket") as excinfo:
         feed_app("websocket", enable_feed=enable_feed)
     message = str(excinfo.value)
@@ -928,7 +1183,7 @@ def test_websocket_mode_is_refused_with_an_actionable_error(
 
 
 @pytest.mark.parametrize("mode", ["simulted", "live", "real", "", "  "])
-def test_unknown_feed_modes_are_rejected_instead_of_disabling_market_data(
+def test_unknown_feed_modes_are_rejected_instead_of_disabling_telemetry(
     mode: str,
 ) -> None:
     with pytest.raises(ValueError, match="Unsupported feed.mode") as excinfo:
@@ -943,16 +1198,13 @@ def test_non_string_feed_modes_are_rejected(mode: Any) -> None:
 
 
 def test_enable_feed_argument_overrides_only_whether_the_simulator_runs() -> None:
-    # Argument off beats a config that asks for the simulator.
     assert feed_app("simulated", enable_feed=False).state.services.feed is None
-    # Argument on beats an explicitly disabled config, still simulated.
     turned_on = feed_app("disabled", enable_feed=True).state.services.feed
     assert turned_on is not None
-    assert type(turned_on).__name__ == "MarketDataFeed"
+    assert type(turned_on).__name__ == "TelemetryFeed"
 
 
 def test_feed_mode_is_validated_even_when_the_argument_disables_the_feed() -> None:
-    """A broken config is a config error however this process was started."""
     with pytest.raises(ValueError, match="Unsupported feed.mode"):
         feed_app("simulted", enable_feed=False)
 
@@ -982,13 +1234,13 @@ def test_feed_seed_is_passed_to_the_simulator(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     captured: dict[str, Any] = {}
-    real_feed = main.MarketDataFeed
+    real_feed = main.TelemetryFeed
 
     def recording_feed(*args: Any, **kwargs: Any) -> Any:
         captured.update(kwargs)
         return real_feed(*args, **kwargs)
 
-    monkeypatch.setattr(main, "MarketDataFeed", recording_feed)
+    monkeypatch.setattr(main, "TelemetryFeed", recording_feed)
     build_app(enable_feed=True)
     assert captured["seed"] == 7
 
@@ -1027,8 +1279,8 @@ def test_dashboard_currency_requires_a_string(currency: Any) -> None:
 
 
 @pytest.mark.parametrize("volatility", [0, -0.1, float("nan"), float("inf"), True])
-def test_daily_volatility_must_be_finite_and_positive(volatility: Any) -> None:
-    config = build_config(risk={"daily_volatility": volatility})
+def test_hours_volatility_must_be_finite_and_positive(volatility: Any) -> None:
+    config = build_config(risk={"hours_volatility": volatility})
     with pytest.raises((TypeError, ValueError)):
         build_app(config=config)
 
@@ -1039,7 +1291,6 @@ def test_daily_volatility_must_be_finite_and_positive(volatility: Any) -> None:
 
 
 async def get_health(app: Any) -> dict[str, Any]:
-    """Call the public health endpoint on the running application."""
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://health.test") as http:
         response = await http.get("/api/v1/health")
@@ -1069,11 +1320,11 @@ async def test_failed_feed_pump_degrades_liveness_without_leaking_details() -> N
     app = build_app(enable_feed=True)
     services = app.state.services
 
-    async def failing_ticks() -> Any:
+    async def failing_readings() -> Any:
         raise RuntimeError("pump exploded with secret detail")
-        yield  # pragma: no cover - generator marker
+        yield
 
-    services.feed.generate_ticks = failing_ticks  # type: ignore[method-assign]
+    services.feed.generate_readings = failing_readings  # type: ignore[method-assign]
 
     with pytest.raises(RuntimeError, match="pump exploded"):
         async with app.router.lifespan_context(app):
@@ -1086,7 +1337,6 @@ async def test_failed_feed_pump_degrades_liveness_without_leaking_details() -> N
             body = response.json()
             assert body["status"] == "degraded"
             assert body["feed"] == "stopped"
-            # The public probe never explains the failure.
             assert "pump exploded" not in response.text
             assert "secret detail" not in response.text
             assert "RuntimeError" not in response.text
@@ -1097,11 +1347,11 @@ async def test_early_feed_completion_degrades_liveness() -> None:
     app = build_app(enable_feed=True)
     services = app.state.services
 
-    async def finished_ticks() -> Any:
+    async def finished_readings() -> Any:
         return
-        yield  # pragma: no cover - generator marker
+        yield
 
-    services.feed.generate_ticks = finished_ticks  # type: ignore[method-assign]
+    services.feed.generate_readings = finished_readings  # type: ignore[method-assign]
 
     async with app.router.lifespan_context(app):
         await asyncio.sleep(0.05)
@@ -1132,8 +1382,7 @@ async def test_cancelled_feed_task_degrades_liveness() -> None:
 
 
 @pytest.fixture
-def store_client(store: TimeSeriesStore) -> Iterator[TestClient]:
-    """Client for an application backed by a seeded in-memory store."""
+def store_client(store: TelemetryStore) -> Iterator[TestClient]:
     with TestClient(build_app(store=store, enable_store=True)) as test_client:
         yield test_client
 
@@ -1142,9 +1391,8 @@ def store_client(store: TimeSeriesStore) -> Iterator[TestClient]:
 def test_blank_search_terms_are_rejected_identically_by_both_backends(
     client: TestClient, store_client: TestClient, raw_query: str
 ) -> None:
-    """Whitespace-only input is a client error, never a 500 or a full listing."""
     for backend in (client, store_client):
-        response = backend.get(f"/api/v1/instruments/search?{raw_query}", headers=READER)
+        response = backend.get(f"/api/v1/equipment/search?{raw_query}", headers=READER)
         assert response.status_code == 422
         assert response.json()["detail"][0]["loc"][-1] == "q"
 
@@ -1154,119 +1402,126 @@ def test_search_terms_are_trimmed_before_reaching_either_backend(
 ) -> None:
     for backend in (client, store_client):
         body = backend.get(
-            "/api/v1/instruments/search", headers=READER, params={"q": "  sap  "}
+            "/api/v1/equipment/search", headers=READER, params={"q": "  cnc  "}
         ).json()
-        assert body["query"] == "sap"
-        assert [row["symbol"] for row in body["results"]] == ["SAP"]
+        assert body["query"] == "cnc"
+        assert [row["asset_id"] for row in body["results"]] == ["CNC-01"]
 
 
 def test_in_memory_search_never_returns_everything_for_padded_input(
     client: TestClient,
 ) -> None:
-    total = len(build_instruments())
-    padded = client.get("/api/v1/instruments/search", headers=READER, params={"q": " s "}).json()
+    total = len(build_equipment())
+    padded = client.get("/api/v1/equipment/search", headers=READER, params={"q": " cnc "}).json()
     assert 0 < padded["count"] < total
 
 
 # ---------------------------------------------------------------------------
-# Regressions: order ids must stay addressable through the URL
+# Regressions: work-order ids must stay addressable through the URL
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize(
-    "order_id",
+    "work_order_id",
     ["a/b", "../escape", "a b", "a?b", "a#b", "a%2Fb", "a\\b", "x" * 65, "ümlaut"],
 )
-def test_unsafe_client_order_ids_are_rejected_before_the_engine(
-    client: TestClient, order_id: str
+def test_unsafe_client_work_order_ids_are_rejected_before_the_engine(
+    client: TestClient, work_order_id: str
 ) -> None:
     response = submit(
         client,
         ALICE,
-        symbol="AAPL",
-        side="BUY",
-        quantity="1",
-        price="150.00",
-        order_id=order_id,
+        asset_id="CNC-01",
+        side="REQUEST",
+        requested_hours="1",
+        mode="RATE_CAPPED",
+        max_hourly_rate="85.00",
+        work_order_id=work_order_id,
     )
     assert response.status_code == 422
-    # Nothing reached the matching engine, so no id was reserved and no order
-    # was registered.
-    assert client.app.state.services.engine.order_count == 0
-    assert client.get("/api/v1/orders", headers=ALICE).json()["count"] == 0
+    assert client.app.state.services.engine.work_order_count == 0
+    assert client.get("/api/v1/work-orders", headers=ALICE).json()["count"] == 0
 
 
 @pytest.mark.parametrize(
-    "order_id",
+    "work_order_id",
     [".", "..", "...", ".hidden", "trailing.", "-leading", "trailing-", ":x", "x:"],
 )
 def test_dot_segment_and_edge_punctuation_ids_are_rejected(
-    client: TestClient, order_id: str
+    client: TestClient, work_order_id: str
 ) -> None:
-    """``.`` and ``..`` are normalised path segments, not addressable ids."""
     response = submit(
         client,
         ALICE,
-        symbol="AAPL",
-        side="BUY",
-        quantity="1",
-        price="150.00",
-        order_id=order_id,
+        asset_id="CNC-01",
+        side="REQUEST",
+        requested_hours="1",
+        mode="RATE_CAPPED",
+        max_hourly_rate="85.00",
+        work_order_id=work_order_id,
     )
     assert response.status_code == 422
-    # Rejected before the engine, so the id is never reserved and can still be
-    # used once the client sends a well-formed one.
-    assert client.app.state.services.engine.order_count == 0
-    assert client.get("/api/v1/orders", headers=ALICE).json()["count"] == 0
+    assert client.app.state.services.engine.work_order_count == 0
+    assert client.get("/api/v1/work-orders", headers=ALICE).json()["count"] == 0
 
 
-@pytest.mark.parametrize("order_id", ["a", "9", "a.b", "a:b-c_d", "x" * 64])
-def test_boundary_safe_ids_are_accepted_and_addressable(client: TestClient, order_id: str) -> None:
-    created = submit(
-        client,
-        ALICE,
-        symbol="AAPL",
-        side="BUY",
-        quantity="1",
-        price="150.00",
-        order_id=order_id,
-    )
-    assert created.status_code == 201
-    assert client.get(f"/api/v1/orders/{order_id}", headers=ALICE).status_code == 200
-    assert client.delete(f"/api/v1/orders/{order_id}", headers=ALICE).status_code == 200
-
-
-@pytest.mark.parametrize("order_id", ["plain-1", "ok_id.2:3", "A1-b2_c3.d4:e5"])
-def test_safe_client_order_ids_round_trip_through_the_url(
-    client: TestClient, order_id: str
+@pytest.mark.parametrize("work_order_id", ["a", "9", "a.b", "a:b-c_d", "x" * 64])
+def test_boundary_safe_ids_are_accepted_and_addressable(
+    client: TestClient, work_order_id: str
 ) -> None:
     created = submit(
         client,
         ALICE,
-        symbol="AAPL",
-        side="BUY",
-        quantity="1",
-        price="150.00",
-        order_id=order_id,
+        asset_id="CNC-01",
+        side="REQUEST",
+        requested_hours="1",
+        mode="RATE_CAPPED",
+        max_hourly_rate="85.00",
+        work_order_id=work_order_id,
     )
     assert created.status_code == 201
-    assert created.json()["order_id"] == order_id
+    assert client.get(f"/api/v1/work-orders/{work_order_id}", headers=ALICE).status_code == 200
+    assert client.delete(f"/api/v1/work-orders/{work_order_id}", headers=ALICE).status_code == 200
 
-    fetched = client.get(f"/api/v1/orders/{order_id}", headers=ALICE)
+
+@pytest.mark.parametrize("work_order_id", ["plain-1", "ok_id.2:3", "A1-b2_c3.d4:e5"])
+def test_safe_client_work_order_ids_round_trip_through_the_url(
+    client: TestClient, work_order_id: str
+) -> None:
+    created = submit(
+        client,
+        ALICE,
+        asset_id="CNC-01",
+        side="REQUEST",
+        requested_hours="1",
+        mode="RATE_CAPPED",
+        max_hourly_rate="85.00",
+        work_order_id=work_order_id,
+    )
+    assert created.status_code == 201
+    assert created.json()["work_order_id"] == work_order_id
+
+    fetched = client.get(f"/api/v1/work-orders/{work_order_id}", headers=ALICE)
     assert fetched.status_code == 200
-    assert fetched.json()["order_id"] == order_id
+    assert fetched.json()["work_order_id"] == work_order_id
 
-    cancelled = client.delete(f"/api/v1/orders/{order_id}", headers=ALICE)
+    cancelled = client.delete(f"/api/v1/work-orders/{work_order_id}", headers=ALICE)
     assert cancelled.status_code == 200
     assert cancelled.json()["status"] == "CANCELLED"
 
 
 def test_engine_generated_uuid_ids_remain_addressable(client: TestClient) -> None:
-    order_id = submit(
-        client, ALICE, symbol="AAPL", side="BUY", quantity="1", price="150.00"
-    ).json()["order_id"]
-    assert client.get(f"/api/v1/orders/{order_id}", headers=ALICE).status_code == 200
-    assert client.delete(f"/api/v1/orders/{order_id}", headers=ALICE).status_code == 200
+    work_order_id = submit(
+        client,
+        ALICE,
+        asset_id="CNC-01",
+        side="REQUEST",
+        requested_hours="1",
+        mode="RATE_CAPPED",
+        max_hourly_rate="85.00",
+    ).json()["work_order_id"]
+    assert client.get(f"/api/v1/work-orders/{work_order_id}", headers=ALICE).status_code == 200
+    assert client.delete(f"/api/v1/work-orders/{work_order_id}", headers=ALICE).status_code == 200
 
 
 # ---------------------------------------------------------------------------
@@ -1288,11 +1543,7 @@ def build_cors_app(origin: str = "https://dashboard.example") -> Any:
 
 @pytest.mark.parametrize(
     ("headers", "expected_status"),
-    [
-        ({}, 401),
-        ({API_KEY_HEADER: "qxm_not_a_real_key"}, 403),
-        (ALICE, 200),
-    ],
+    [({}, 401), ({API_KEY_HEADER: "mwk_not_a_real_key"}, 403), (ALICE, 200)],
 )
 def test_cors_headers_are_present_on_auth_failures_too(
     headers: dict[str, str], expected_status: int
@@ -1301,8 +1552,6 @@ def test_cors_headers_are_present_on_auth_failures_too(
     with TestClient(build_cors_app(origin)) as client:
         response = client.get("/api/v1/dashboard", headers={"Origin": origin, **headers})
         assert response.status_code == expected_status
-        # Without this header the browser dashboard cannot read the status at
-        # all and reports an opaque network error instead of "invalid key".
         assert response.headers["access-control-allow-origin"] == origin
 
 
@@ -1310,7 +1559,7 @@ def test_cors_preflight_is_answered_without_a_key() -> None:
     origin = "https://dashboard.example"
     with TestClient(build_cors_app(origin)) as client:
         response = client.options(
-            "/api/v1/orders",
+            "/api/v1/work-orders",
             headers={
                 "Origin": origin,
                 "Access-Control-Request-Method": "POST",
@@ -1384,7 +1633,7 @@ def test_valid_cors_configuration_is_accepted_and_trimmed() -> None:
     )
     with TestClient(build_app(config=config)) as client:
         response = client.get("/api/v1/health", headers={"Origin": "https://dashboard.example"})
-        assert response.headers["access-control-allow-origin"] == ("https://dashboard.example")
+        assert response.headers["access-control-allow-origin"] == "https://dashboard.example"
         assert response.headers["access-control-allow-credentials"] == "true"
 
 
@@ -1423,16 +1672,15 @@ async def test_startup_failure_releases_already_started_resources() -> None:
 def test_construction_failure_closes_the_owned_store(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A wiring error after the engine is opened must not leak it."""
-    created: list[TimeSeriesStore] = []
-    real_store = main.TimeSeriesStore
+    created: list[TelemetryStore] = []
+    real_store = main.TelemetryStore
 
-    def recording_store(*args: Any, **kwargs: Any) -> TimeSeriesStore:
-        store = real_store(*args, **kwargs)
-        created.append(store)
-        return store
+    def recording_store(*args: Any, **kwargs: Any) -> TelemetryStore:
+        telemetry_store = real_store(*args, **kwargs)
+        created.append(telemetry_store)
+        return telemetry_store
 
-    monkeypatch.setattr(main, "TimeSeriesStore", recording_store)
+    monkeypatch.setattr(main, "TelemetryStore", recording_store)
 
     def fail_after_store_opened(*args: Any, **kwargs: Any) -> None:
         raise RuntimeError("post-store wiring failed")
@@ -1463,14 +1711,12 @@ async def test_failing_teardown_step_does_not_strand_other_resources() -> None:
         async with app.router.lifespan_context(app):
             await asyncio.sleep(0.02)
 
-    # Every remaining step still ran despite the failure above.
     assert services.event_bus.is_running is False
     assert owned_store.is_closed is True
     assert app.state.feed_task is None
 
 
 async def test_cancelled_teardown_step_still_releases_everything_and_propagates() -> None:
-    """Cancellation must keep its semantics without stranding other resources."""
     app = build_app(enable_feed=True, enable_store=True)
     services = app.state.services
     owned_store = services.store
@@ -1509,7 +1755,6 @@ async def test_interrupted_teardown_step_still_releases_everything() -> None:
         async with app.router.lifespan_context(app):
             pass
 
-    # The store still got closed even though the interrupt came first.
     assert owned_store.is_closed is True
 
 
@@ -1534,7 +1779,7 @@ async def test_cancellation_wins_over_ordinary_teardown_failure(
     services.feed.stop = failing_feed_stop  # type: ignore[method-assign]
     services.event_bus.stop = cancelling_bus_stop  # type: ignore[method-assign]
 
-    caplog.set_level(logging.ERROR, logger="qxm")
+    caplog.set_level(logging.ERROR, logger="mittelwerk")
     with pytest.raises(asyncio.CancelledError):
         async with app.router.lifespan_context(app):
             await asyncio.sleep(0.02)
@@ -1544,7 +1789,6 @@ async def test_cancellation_wins_over_ordinary_teardown_failure(
 
 
 async def test_partially_started_feed_still_receives_a_stop() -> None:
-    """A start that mutates state before failing must still be stopped."""
     app = build_app(enable_feed=True, enable_store=True)
     services = app.state.services
     owned_store = services.store
@@ -1554,7 +1798,7 @@ async def test_partially_started_feed_still_receives_a_stop() -> None:
     calls: list[str] = []
 
     async def half_start() -> None:
-        feed._running = True  # partial acquisition, then failure
+        feed._running = True
         calls.append("start")
         raise RuntimeError("half started")
 
@@ -1604,18 +1848,16 @@ async def test_failing_feed_pump_is_supervised_and_surfaced(
     owned_store = services.store
     assert owned_store is not None
 
-    async def failing_ticks() -> Any:
+    async def failing_readings() -> Any:
         raise RuntimeError("pump exploded")
-        yield  # pragma: no cover - generator marker
+        yield
 
-    services.feed.generate_ticks = failing_ticks  # type: ignore[method-assign]
+    services.feed.generate_readings = failing_readings  # type: ignore[method-assign]
 
-    caplog.set_level(logging.ERROR, logger="qxm")
+    caplog.set_level(logging.ERROR, logger="mittelwerk")
     with pytest.raises(RuntimeError, match="pump exploded"):
         async with app.router.lifespan_context(app):
             await asyncio.sleep(0.05)
-            # The supervisor reports the dead pump immediately, not only at
-            # shutdown.
             assert any(main.FEED_TASK_NAME in record.getMessage() for record in caplog.records)
 
     assert services.event_bus.is_running is False
@@ -1631,13 +1873,13 @@ async def test_early_feed_completion_is_reported(
     app = build_app(enable_feed=True, enable_store=False)
     services = app.state.services
 
-    async def finished_ticks() -> Any:
+    async def finished_readings() -> Any:
         return
-        yield  # pragma: no cover - generator marker
+        yield
 
-    services.feed.generate_ticks = finished_ticks  # type: ignore[method-assign]
+    services.feed.generate_readings = finished_readings  # type: ignore[method-assign]
 
-    caplog.set_level(logging.ERROR, logger="qxm")
+    caplog.set_level(logging.ERROR, logger="mittelwerk")
     async with app.router.lifespan_context(app):
         await asyncio.sleep(0.05)
         assert any("finished before shutdown" in record.getMessage() for record in caplog.records)
@@ -1659,7 +1901,7 @@ async def test_body_failure_wins_over_cleanup_failure(
 
     services.feed.stop = failing_stop  # type: ignore[method-assign]
 
-    caplog.set_level(logging.ERROR, logger="qxm")
+    caplog.set_level(logging.ERROR, logger="mittelwerk")
     with pytest.raises(ValueError, match="body boom"):
         async with app.router.lifespan_context(app):
             raise ValueError("body boom")
@@ -1670,173 +1912,246 @@ async def test_body_failure_wins_over_cleanup_failure(
 
 
 # ---------------------------------------------------------------------------
-# Regressions: order-flow persistence and feed-driven marking
+# Regressions: assignment persistence and feed-driven marking
 # ---------------------------------------------------------------------------
 
 
-def test_executed_trades_are_persisted_exactly_once(store: TimeSeriesStore) -> None:
+def test_executed_assignments_are_persisted_exactly_once(store: TelemetryStore) -> None:
     with TestClient(build_app(store=store, enable_store=True)) as client:
         maker = submit(
-            client, ALICE, symbol="SAP", side="SELL", quantity="10", price="150.55"
+            client,
+            ALICE,
+            asset_id="CNC-01",
+            side="OFFER",
+            requested_hours="10",
+            mode="RATE_CAPPED",
+            max_hourly_rate="150.50",
         ).json()
-        taker = submit(client, BOB, symbol="SAP", side="BUY", quantity="4", price="151.00").json()
+        taker = submit(
+            client,
+            BOB,
+            asset_id="CNC-01",
+            side="REQUEST",
+            requested_hours="4",
+            mode="RATE_CAPPED",
+            max_hourly_rate="151.00",
+        ).json()
 
-        assert taker["status"] == "FILLED"
-        trade = taker["trades"][0]
+        assert taker["status"] == "ASSIGNED"
+        assignment = taker["assignments"][0]
 
-        rows = store.get_trades("SAP")
+        rows = store.get_assignments("CNC-01")
         assert len(rows) == 1
         row = rows[0]
-        assert row.trade_id == trade["trade_id"]
-        assert row.symbol == "SAP"
-        assert row.buy_order_id == taker["order_id"]
-        assert row.sell_order_id == maker["order_id"]
-        assert row.price == Decimal("150.55")
-        assert row.quantity == Decimal("4")
-        assert row.buyer_client_id == "bob"
-        assert row.seller_client_id == "alice"
+        assert row.assignment_id == assignment["assignment_id"]
+        assert row.asset_id == "CNC-01"
+        assert row.requester_work_order_id == taker["work_order_id"]
+        assert row.provider_work_order_id == maker["work_order_id"]
+        assert row.hourly_rate == Decimal("150.50")
+        assert row.hours == Decimal("4")
+        assert row.requester_organization_id == "bob"
+        assert row.provider_organization_id == "alice"
         assert row.timestamp.utcoffset() == timedelta(0)
-        assert row.timestamp == datetime.fromisoformat(trade["timestamp"])
+        assert row.timestamp == datetime.fromisoformat(assignment["timestamp"])
 
-        # A second execution appends exactly one more row.
-        submit(client, BOB, symbol="SAP", side="BUY", quantity="6", price="151.00")
-        assert store.count_trades("SAP") == 2
+        submit(
+            client,
+            BOB,
+            asset_id="CNC-01",
+            side="REQUEST",
+            requested_hours="6",
+            mode="RATE_CAPPED",
+            max_hourly_rate="151.00",
+        )
+        assert store.count_assignments("CNC-01") == 2
 
-        # Resting-only orders produce no trades and therefore no rows.
-        submit(client, ALICE, symbol="AAPL", side="BUY", quantity="1", price="150.00")
-        assert store.count_trades() == 2
+        submit(
+            client,
+            ALICE,
+            asset_id="COMP-03",
+            side="REQUEST",
+            requested_hours="1",
+            mode="RATE_CAPPED",
+            max_hourly_rate="78.00",
+        )
+        assert store.count_assignments() == 2
 
 
 def test_persistence_failure_reports_the_execution_honestly(
-    store: TimeSeriesStore,
+    store: TelemetryStore,
 ) -> None:
     def failing_insert(rows: Any) -> int:
         raise OperationalError(
-            "INSERT INTO trades ...", {}, Exception("sqlite:///secret/path.db is gone")
+            "INSERT INTO assignments ...", {}, Exception("sqlite:///secret/path.db is gone")
         )
 
-    store.insert_trades = failing_insert  # type: ignore[method-assign]
+    store.insert_assignments = failing_insert  # type: ignore[method-assign]
 
     app = build_app(store=store, enable_store=True)
     with TestClient(app, raise_server_exceptions=False) as client:
-        submit(client, ALICE, symbol="SAP", side="SELL", quantity="10", price="100.00")
-        response = submit(client, BOB, symbol="SAP", side="BUY", quantity="4", price="100.00")
+        submit(
+            client,
+            ALICE,
+            asset_id="PRESS-04",
+            side="OFFER",
+            requested_hours="10",
+            mode="RATE_CAPPED",
+            max_hourly_rate="100.00",
+        )
+        response = submit(
+            client,
+            BOB,
+            asset_id="PRESS-04",
+            side="REQUEST",
+            requested_hours="4",
+            mode="RATE_CAPPED",
+            max_hourly_rate="100.00",
+        )
 
         assert response.status_code == 500
         detail = response.json()["detail"]
-        assert detail["error"] == "trade_persistence_failed"
-        assert detail["status"] == "FILLED"
-        assert detail["filled_quantity"] == "4"
-        assert len(detail["trade_ids"]) == 1
+        assert detail["error"] == "assignment_persistence_failed"
+        assert detail["status"] == "ASSIGNED"
+        assert detail["assigned_hours"] == "4"
+        assert len(detail["assignment_ids"]) == 1
         assert "do not resubmit" in detail["message"].lower()
 
-        # No store internals or credentials leak into the response.
         assert "secret/path.db" not in response.text
         assert "INSERT INTO" not in response.text
 
-        # The execution is not disowned: the engine state stands.
-        orders = client.get("/api/v1/orders", headers=BOB).json()["orders"]
-        assert [order["status"] for order in orders] == ["FILLED"]
-        assert client.get("/api/v1/positions", headers=BOB).json()["count"] == 1
+        work_orders = client.get("/api/v1/work-orders", headers=BOB).json()["work_orders"]
+        assert [work_order["status"] for work_order in work_orders] == ["ASSIGNED"]
+        assert client.get("/api/v1/workloads", headers=BOB).json()["count"] == 1
 
 
 def test_persistence_is_optional_when_no_store_is_configured(
     client: TestClient,
 ) -> None:
     assert client.app.state.services.store is None
-    submit(client, ALICE, symbol="SAP", side="SELL", quantity="10", price="100.00")
-    taker = submit(client, BOB, symbol="SAP", side="BUY", quantity="4", price="100.00")
+    submit(
+        client,
+        ALICE,
+        asset_id="PRESS-04",
+        side="OFFER",
+        requested_hours="10",
+        mode="RATE_CAPPED",
+        max_hourly_rate="100.00",
+    )
+    taker = submit(
+        client,
+        BOB,
+        asset_id="PRESS-04",
+        side="REQUEST",
+        requested_hours="4",
+        mode="RATE_CAPPED",
+        max_hourly_rate="100.00",
+    )
     assert taker.status_code == 201
-    assert taker.json()["status"] == "FILLED"
+    assert taker.json()["status"] == "ASSIGNED"
 
 
 def test_closed_configured_store_is_a_persistence_failure(
-    store: TimeSeriesStore,
+    store: TelemetryStore,
 ) -> None:
-    """A configured store that is closed is a malfunction, not "no persistence"."""
     app = build_app(store=store, enable_store=True)
     with TestClient(app, raise_server_exceptions=False) as client:
-        submit(client, ALICE, symbol="SAP", side="SELL", quantity="10", price="100.00")
+        submit(
+            client,
+            ALICE,
+            asset_id="PRESS-04",
+            side="OFFER",
+            requested_hours="10",
+            mode="RATE_CAPPED",
+            max_hourly_rate="100.00",
+        )
         store.close()
 
-        response = submit(client, BOB, symbol="SAP", side="BUY", quantity="4", price="100.00")
+        response = submit(
+            client,
+            BOB,
+            asset_id="PRESS-04",
+            side="REQUEST",
+            requested_hours="4",
+            mode="RATE_CAPPED",
+            max_hourly_rate="100.00",
+        )
         assert response.status_code == 500
         detail = response.json()["detail"]
-        assert detail["error"] == "trade_persistence_failed"
-        assert detail["status"] == "FILLED"
-        assert detail["filled_quantity"] == "4"
-        assert len(detail["trade_ids"]) == 1
+        assert detail["error"] == "assignment_persistence_failed"
+        assert detail["status"] == "ASSIGNED"
+        assert detail["assigned_hours"] == "4"
+        assert len(detail["assignment_ids"]) == 1
 
-        # The execution still stands and is reported honestly.
-        assert client.get("/api/v1/positions", headers=BOB).json()["count"] == 1
+        assert client.get("/api/v1/workloads", headers=BOB).json()["count"] == 1
 
 
-def test_long_client_order_ids_persist_intact(store: TimeSeriesStore) -> None:
-    """The trade columns match the API's 64-character order-id contract."""
+def test_long_client_work_order_ids_persist_intact(store: TelemetryStore) -> None:
     maker_id = "m" * 64
     taker_id = "t" * 64
     with TestClient(build_app(store=store, enable_store=True)) as client:
         submit(
             client,
             ALICE,
-            symbol="SAP",
-            side="SELL",
-            quantity="10",
-            price="100.00",
-            order_id=maker_id,
+            asset_id="PRESS-04",
+            side="OFFER",
+            requested_hours="10",
+            mode="RATE_CAPPED",
+            max_hourly_rate="100.00",
+            work_order_id=maker_id,
         )
         taker = submit(
             client,
             BOB,
-            symbol="SAP",
-            side="BUY",
-            quantity="4",
-            price="100.00",
-            order_id=taker_id,
+            asset_id="PRESS-04",
+            side="REQUEST",
+            requested_hours="4",
+            mode="RATE_CAPPED",
+            max_hourly_rate="100.00",
+            work_order_id=taker_id,
         )
         assert taker.status_code == 201
 
-    row = store.get_trades("SAP")[0]
-    assert row.buy_order_id == taker_id
-    assert row.sell_order_id == maker_id
-    assert len(row.buy_order_id) == 64
+    row = store.get_assignments("PRESS-04")[0]
+    assert row.requester_work_order_id == taker_id
+    assert row.provider_work_order_id == maker_id
+    assert len(row.requester_work_order_id) == 64
 
 
-async def test_feed_marks_engine_positions_from_generated_ticks() -> None:
+async def test_feed_marks_engine_workloads_from_generated_readings() -> None:
     app = build_app(enable_feed=True, enable_store=False)
     engine = app.state.services.engine
 
     async with app.router.lifespan_context(app):
-        await engine.submit_order(
-            Order(
-                client_id="alice",
-                symbol="AAPL",
-                side=Side.SELL,
-                order_type=OrderType.LIMIT,
-                quantity=1,
-                price="185.00",
+        await engine.submit_work_order(
+            WorkOrder(
+                organization_id="alice",
+                asset_id="CNC-01",
+                side=DispatchSide.OFFER,
+                mode=WorkOrderMode.RATE_CAPPED,
+                requested_hours=1,
+                max_hourly_rate="85.00",
             )
         )
-        await engine.submit_order(
-            Order(
-                client_id="bob",
-                symbol="AAPL",
-                side=Side.BUY,
-                order_type=OrderType.LIMIT,
-                quantity=1,
-                price="185.00",
+        await engine.submit_work_order(
+            WorkOrder(
+                organization_id="bob",
+                asset_id="CNC-01",
+                side=DispatchSide.REQUEST,
+                mode=WorkOrderMode.RATE_CAPPED,
+                requested_hours=1,
+                max_hourly_rate="85.00",
             )
         )
-        position = engine.position_manager.get_position("bob", "AAPL")
-        assert position.last_price == Decimal("185.00")
+        workload = engine.workload_manager.get_workloads("bob")["CNC-01"]
+        assert workload.last_rate == Decimal("85.00")
 
         for _ in range(50):
             await asyncio.sleep(0.02)
-            if position.last_price != Decimal("185.00"):
+            if workload.last_rate != Decimal("85.00"):
                 break
 
-        assert position.last_price != Decimal("185.00")
+        assert workload.last_rate != Decimal("85.00")
         assert (
-            position.unrealized_pnl
-            == (position.last_price - position.average_entry_price) * position.quantity
+            workload.unrealized_cost
+            == (workload.last_rate - workload.average_service_rate) * workload.net_hours
         )

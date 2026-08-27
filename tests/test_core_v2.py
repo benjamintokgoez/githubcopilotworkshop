@@ -1,11 +1,12 @@
-"""Focused tests for the rebuilt QXM core runtime (Pydantic v2).
+"""Focused tests for the MittelWerk core runtime (Pydantic v2).
 
-Covers FIFO price-time priority, maker fill pricing, depth after partial
-fills, IOC/FOK time-in-force, cancellation, pre-trade risk rejection,
-instrument/tick/lot boundary validation, event delivery/replay,
-long/short/crossing position P&L, aware-UTC timestamp enforcement, honest
-DAY/GTD rejection, order lifecycle boundaries (duplicate ids / non-NEW), and
-EventBus configuration/subscriber-id hardening.
+Covers FIFO rate-time priority, maker assignment pricing, depth after partial
+assignments, IMMEDIATE/COMPLETE dispatch windows, cancellation, pre-dispatch
+check rejection, equipment/rate/hour-lot boundary validation, event
+delivery/replay, requester/provider workload cost accounting, aware-UTC
+timestamp enforcement, honest SHIFT/SCHEDULED_END rejection, work order
+lifecycle boundaries (duplicate ids / non-NEW), and EventBus
+configuration/subscriber-id hardening.
 """
 
 from __future__ import annotations
@@ -17,21 +18,21 @@ from decimal import Decimal
 import pytest
 from pydantic import ValidationError
 
-from qxm.core.engine import DuplicateOrderError, MatchingEngine, OrderSubmission
-from qxm.core.events import DomainEvent, EventBus, EventLog, EventType
-from qxm.core.models import (
-    Instrument,
-    InstrumentType,
-    Order,
-    OrderStatus,
-    OrderType,
-    PortfolioSnapshot,
-    Position,
-    RiskMetrics,
-    Side,
-    Tick,
-    TimeInForce,
-    Trade,
+from mittelwerk.core.engine import DispatchEngine, DispatchResult, DuplicateWorkOrderError
+from mittelwerk.core.events import DispatchEventType, DomainEvent, EventBus, EventLog
+from mittelwerk.core.models import (
+    DispatchSide,
+    DispatchWindow,
+    Equipment,
+    EquipmentCategory,
+    OperationalRiskMetrics,
+    OrganizationSnapshot,
+    ServiceAssignment,
+    TelemetryReading,
+    Workload,
+    WorkOrder,
+    WorkOrderMode,
+    WorkOrderStatus,
 )
 
 D = Decimal
@@ -42,218 +43,234 @@ D = Decimal
 # ---------------------------------------------------------------------------
 
 
-def _instruments() -> dict[str, Instrument]:
+def _equipment() -> dict[str, Equipment]:
     return {
-        "AAPL": Instrument(
-            symbol="AAPL",
-            name="Apple Inc.",
-            instrument_type=InstrumentType.EQUITY,
-            tick_size="0.01",
-            lot_size="1",
+        "CNC-01": Equipment(
+            asset_id="CNC-01",
+            name="CNC Mill Line 1",
+            equipment_type=EquipmentCategory.CNC_MACHINE,
+            service_interval_days=30,
+            hourly_service_rate="85.00",
+            rate_increment="0.01",
+            hour_lot_size="1",
         ),
-        "BTC-USD": Instrument(
-            symbol="BTC-USD",
-            name="Bitcoin / US Dollar",
-            instrument_type=InstrumentType.CRYPTO,
-            tick_size="0.01",
-            lot_size="0.001",
+        "ROBOT-07": Equipment(
+            asset_id="ROBOT-07",
+            name="Robotic Welding Arm 7",
+            equipment_type=EquipmentCategory.ROBOTIC_ARM,
+            service_interval_days=21,
+            hourly_service_rate="110.00",
+            rate_increment="0.01",
+            hour_lot_size="0.001",
         ),
     }
 
 
-def _engine(risk_check=None) -> MatchingEngine:
-    return MatchingEngine(
+def _engine(pre_dispatch_check=None) -> DispatchEngine:
+    return DispatchEngine(
         event_bus=EventBus(),
-        instruments=_instruments(),
-        risk_check=risk_check,
+        equipment=_equipment(),
+        pre_dispatch_check=pre_dispatch_check,
     )
 
 
-def _order(
-    side: Side,
-    quantity,
-    price=None,
+def _work_order(
+    side: DispatchSide,
+    requested_hours,
+    max_hourly_rate=None,
     *,
-    symbol: str = "AAPL",
-    order_type: OrderType = OrderType.LIMIT,
-    tif: TimeInForce = TimeInForce.GTC,
-    client_id: str = "c1",
-    stop_price=None,
-) -> Order:
-    return Order(
-        client_id=client_id,
-        symbol=symbol,
+    asset_id: str = "CNC-01",
+    mode: WorkOrderMode = WorkOrderMode.RATE_CAPPED,
+    dispatch_window: DispatchWindow = DispatchWindow.OPEN,
+    organization_id: str = "c1",
+    escalation_rate=None,
+) -> WorkOrder:
+    return WorkOrder(
+        organization_id=organization_id,
+        asset_id=asset_id,
         side=side,
-        order_type=order_type,
-        quantity=D(str(quantity)),
-        price=None if price is None else D(str(price)),
-        stop_price=None if stop_price is None else D(str(stop_price)),
-        time_in_force=tif,
+        mode=mode,
+        requested_hours=D(str(requested_hours)),
+        max_hourly_rate=None if max_hourly_rate is None else D(str(max_hourly_rate)),
+        escalation_rate=None if escalation_rate is None else D(str(escalation_rate)),
+        dispatch_window=dispatch_window,
     )
 
 
-def _events_for(eng: MatchingEngine, order_id: str) -> list[DomainEvent]:
-    """Return all events correlated to ``order_id``, in publication order."""
-    return [e for e in eng._event_bus.replay() if e.correlation_id == order_id]
+def _events_for(eng: DispatchEngine, work_order_id: str) -> list[DomainEvent]:
+    """Return all events correlated to ``work_order_id``, in publication order."""
+    return [e for e in eng._event_bus.replay() if e.correlation_id == work_order_id]
 
 
 # ---------------------------------------------------------------------------
-# FIFO price-time priority
+# FIFO rate-time priority
 # ---------------------------------------------------------------------------
 
 
-async def test_fifo_price_time_priority() -> None:
+async def test_fifo_rate_time_priority() -> None:
     eng = _engine()
-    maker_a = _order(Side.SELL, 5, 100, client_id="A")
-    maker_b = _order(Side.SELL, 5, 100, client_id="B")
-    await eng.submit_order(maker_a)
-    await eng.submit_order(maker_b)
+    maker_a = _work_order(DispatchSide.OFFER, 5, 100, organization_id="A")
+    maker_b = _work_order(DispatchSide.OFFER, 5, 100, organization_id="B")
+    await eng.submit_work_order(maker_a)
+    await eng.submit_work_order(maker_b)
 
-    taker = _order(Side.BUY, 6, 100, client_id="T")
-    result = await eng.submit_order(taker)
+    taker = _work_order(DispatchSide.REQUEST, 6, 100, organization_id="T")
+    result = await eng.submit_work_order(taker)
 
-    assert isinstance(result, OrderSubmission)
-    # First resting order (A) must be consumed before B (time priority).
-    assert result.trades[0].sell_order_id == maker_a.order_id
-    assert result.trades[0].quantity == D("5")
-    assert result.trades[1].sell_order_id == maker_b.order_id
-    assert result.trades[1].quantity == D("1")
-    assert taker.status is OrderStatus.FILLED
+    assert isinstance(result, DispatchResult)
+    # First resting work order (A) must be consumed before B (time priority).
+    assert result.assignments[0].provider_work_order_id == maker_a.work_order_id
+    assert result.assignments[0].hours == D("5")
+    assert result.assignments[1].provider_work_order_id == maker_b.work_order_id
+    assert result.assignments[1].hours == D("1")
+    assert taker.status is WorkOrderStatus.ASSIGNED
     # B has 4 left resting.
-    book = eng.get_book("AAPL")
-    assert book is not None
-    assert book.best_ask == D("100")
-    assert book.ask_levels()[0].total_quantity == D("4")
+    queue = eng.get_queue("CNC-01")
+    assert queue is not None
+    assert queue.best_offer_rate == D("100")
+    assert queue.offer_levels()[0].total_hours == D("4")
 
 
-async def test_price_priority_best_level_first() -> None:
+async def test_rate_priority_best_level_first() -> None:
     eng = _engine()
-    await eng.submit_order(_order(Side.SELL, 5, 101, client_id="A"))
-    await eng.submit_order(_order(Side.SELL, 5, 100, client_id="B"))
-    taker = _order(Side.BUY, 5, 101, client_id="T")
-    result = await eng.submit_order(taker)
-    # Best (lowest) ask 100 fills first.
-    assert result.trades[0].price == D("100")
+    await eng.submit_work_order(_work_order(DispatchSide.OFFER, 5, 101, organization_id="A"))
+    await eng.submit_work_order(_work_order(DispatchSide.OFFER, 5, 100, organization_id="B"))
+    taker = _work_order(DispatchSide.REQUEST, 5, 101, organization_id="T")
+    result = await eng.submit_work_order(taker)
+    # Best (lowest) offer 100 fills first.
+    assert result.assignments[0].hourly_rate == D("100")
 
 
 # ---------------------------------------------------------------------------
-# Maker (resting) fill price
+# Maker (resting) assignment rate
 # ---------------------------------------------------------------------------
 
 
-async def test_fill_at_resting_maker_price_limit() -> None:
+async def test_assignment_at_resting_maker_rate() -> None:
     eng = _engine()
-    await eng.submit_order(_order(Side.SELL, 5, 101, client_id="M"))
-    taker = _order(Side.BUY, 5, 105, client_id="T")  # crosses aggressively
-    result = await eng.submit_order(taker)
-    assert len(result.trades) == 1
-    assert result.trades[0].price == D("101")  # maker's price, not 105
-    assert taker.average_fill_price == D("101")
+    await eng.submit_work_order(_work_order(DispatchSide.OFFER, 5, 101, organization_id="M"))
+    taker = _work_order(DispatchSide.REQUEST, 5, 105, organization_id="T")  # crosses aggressively
+    result = await eng.submit_work_order(taker)
+    assert len(result.assignments) == 1
+    assert result.assignments[0].hourly_rate == D("101")  # maker's rate, not 105
+    assert taker.average_service_rate == D("101")
 
 
-async def test_market_order_fills_at_maker_price_and_never_rests() -> None:
+async def test_any_rate_work_order_assigns_at_maker_rate_and_never_rests() -> None:
     eng = _engine()
-    await eng.submit_order(_order(Side.SELL, 4, 102, client_id="M"))
-    taker = _order(Side.BUY, 10, order_type=OrderType.MARKET, client_id="T")
-    result = await eng.submit_order(taker)
-    assert result.trades[0].price == D("102")
-    assert taker.filled_quantity == D("4")
+    await eng.submit_work_order(_work_order(DispatchSide.OFFER, 4, 102, organization_id="M"))
+    taker = _work_order(DispatchSide.REQUEST, 10, mode=WorkOrderMode.ANY_RATE, organization_id="T")
+    result = await eng.submit_work_order(taker)
+    assert result.assignments[0].hourly_rate == D("102")
+    assert taker.assigned_hours == D("4")
     # Residual must be cancelled, never rested.
-    book = eng.get_book("AAPL")
-    assert book is not None
-    assert book.bid_depth == 0
-    # A partially filled market order whose residual is cancelled ends terminal.
-    assert taker.status is OrderStatus.CANCELLED
+    queue = eng.get_queue("CNC-01")
+    assert queue is not None
+    assert queue.request_depth == 0
+    # A partially assigned ANY_RATE order whose residual is cancelled ends terminal.
+    assert taker.status is WorkOrderStatus.CANCELLED
     assert taker.status.is_terminal
 
 
 # ---------------------------------------------------------------------------
-# Depth after partial fills
+# Depth after partial assignment
 # ---------------------------------------------------------------------------
 
 
-async def test_depth_accurate_after_partial_fill() -> None:
+async def test_depth_accurate_after_partial_assignment() -> None:
     eng = _engine()
-    await eng.submit_order(_order(Side.SELL, 10, 100, client_id="M"))
-    await eng.submit_order(_order(Side.BUY, 3, 100, client_id="T"))
-    book = eng.get_book("AAPL")
-    assert book is not None
-    level = book.ask_levels()[0]
-    assert level.total_quantity == D("7")
-    assert level.order_count == 1
-    snap = book.depth_snapshot()
-    assert snap["asks"][0]["quantity"] == "7"
+    await eng.submit_work_order(_work_order(DispatchSide.OFFER, 10, 100, organization_id="M"))
+    await eng.submit_work_order(_work_order(DispatchSide.REQUEST, 3, 100, organization_id="T"))
+    queue = eng.get_queue("CNC-01")
+    assert queue is not None
+    level = queue.offer_levels()[0]
+    assert level.total_hours == D("7")
+    assert level.work_order_count == 1
+    snap = queue.depth_snapshot()
+    assert snap["offers"][0]["hours"] == "7"
 
 
 # ---------------------------------------------------------------------------
-# Time in force: IOC / FOK
+# Dispatch window: IMMEDIATE / COMPLETE
 # ---------------------------------------------------------------------------
 
 
-async def test_ioc_cancels_residual() -> None:
+async def test_immediate_cancels_residual() -> None:
     eng = _engine()
-    await eng.submit_order(_order(Side.SELL, 3, 100, client_id="M"))
-    taker = _order(Side.BUY, 10, 100, tif=TimeInForce.IOC, client_id="T")
-    result = await eng.submit_order(taker)
-    assert taker.filled_quantity == D("3")
-    # Residual cancelled -> terminal CANCELLED, not left nonterminal off-book.
-    assert taker.status is OrderStatus.CANCELLED
+    await eng.submit_work_order(_work_order(DispatchSide.OFFER, 3, 100, organization_id="M"))
+    taker = _work_order(
+        DispatchSide.REQUEST, 10, 100, dispatch_window=DispatchWindow.IMMEDIATE, organization_id="T"
+    )
+    result = await eng.submit_work_order(taker)
+    assert taker.assigned_hours == D("3")
+    # Residual cancelled -> terminal CANCELLED, not left nonterminal off-queue.
+    assert taker.status is WorkOrderStatus.CANCELLED
     assert taker.status.is_terminal
-    book = eng.get_book("AAPL")
-    assert book is not None
-    assert book.bid_depth == 0  # residual not rested
-    assert len(result.trades) == 1
-    # The partial-fill event must precede the cancellation event.
+    queue = eng.get_queue("CNC-01")
+    assert queue is not None
+    assert queue.request_depth == 0  # residual not rested
+    assert len(result.assignments) == 1
+    # The partial-assignment event must precede the cancellation event.
     kinds = [
         e.event_type
-        for e in _events_for(eng, taker.order_id)
-        if e.event_type in (EventType.ORDER_PARTIALLY_FILLED, EventType.ORDER_CANCELLED)
+        for e in _events_for(eng, taker.work_order_id)
+        if e.event_type
+        in (DispatchEventType.WORK_ORDER_PARTIALLY_ASSIGNED, DispatchEventType.WORK_ORDER_CANCELLED)
     ]
-    assert kinds == [EventType.ORDER_PARTIALLY_FILLED, EventType.ORDER_CANCELLED]
-
-
-async def test_ioc_no_liquidity_is_cancelled() -> None:
-    eng = _engine()
-    taker = _order(Side.BUY, 5, 100, tif=TimeInForce.IOC, client_id="T")
-    result = await eng.submit_order(taker)
-    assert result.trades == []
-    assert taker.status is OrderStatus.CANCELLED
-    book = eng.get_book("AAPL")
-    assert book is not None
-    assert book.bid_depth == 0
-
-
-async def test_fok_killed_when_not_fully_fillable() -> None:
-    eng = _engine()
-    await eng.submit_order(_order(Side.SELL, 3, 100, client_id="M"))
-    taker = _order(Side.BUY, 10, 100, tif=TimeInForce.FOK, client_id="T")
-    result = await eng.submit_order(taker)
-    assert result.trades == []
-    # An unfillable FOK is accepted then killed (cancelled), not rejected.
-    assert taker.status is OrderStatus.CANCELLED
-    kinds = [e.event_type for e in _events_for(eng, taker.order_id)]
     assert kinds == [
-        EventType.ORDER_SUBMITTED,
-        EventType.ORDER_ACCEPTED,
-        EventType.ORDER_CANCELLED,
+        DispatchEventType.WORK_ORDER_PARTIALLY_ASSIGNED,
+        DispatchEventType.WORK_ORDER_CANCELLED,
     ]
-    cancel_evt = _events_for(eng, taker.order_id)[-1]
-    assert "fully filled" in cancel_evt.payload["reason"]
-    # Resting liquidity untouched.
-    book = eng.get_book("AAPL")
-    assert book is not None
-    assert book.ask_levels()[0].total_quantity == D("3")
 
 
-async def test_fok_fills_when_fully_available() -> None:
+async def test_immediate_no_capacity_is_cancelled() -> None:
     eng = _engine()
-    await eng.submit_order(_order(Side.SELL, 6, 100, client_id="M1"))
-    await eng.submit_order(_order(Side.SELL, 6, 100, client_id="M2"))
-    taker = _order(Side.BUY, 10, 100, tif=TimeInForce.FOK, client_id="T")
-    result = await eng.submit_order(taker)
-    assert taker.status is OrderStatus.FILLED
-    assert taker.filled_quantity == D("10")
-    assert sum(t.quantity for t in result.trades) == D("10")
+    taker = _work_order(
+        DispatchSide.REQUEST, 5, 100, dispatch_window=DispatchWindow.IMMEDIATE, organization_id="T"
+    )
+    result = await eng.submit_work_order(taker)
+    assert result.assignments == []
+    assert taker.status is WorkOrderStatus.CANCELLED
+    queue = eng.get_queue("CNC-01")
+    assert queue is not None
+    assert queue.request_depth == 0
+
+
+async def test_complete_stood_down_when_not_fully_assignable() -> None:
+    eng = _engine()
+    await eng.submit_work_order(_work_order(DispatchSide.OFFER, 3, 100, organization_id="M"))
+    taker = _work_order(
+        DispatchSide.REQUEST, 10, 100, dispatch_window=DispatchWindow.COMPLETE, organization_id="T"
+    )
+    result = await eng.submit_work_order(taker)
+    assert result.assignments == []
+    # An unassignable COMPLETE order is accepted then stood down, not rejected.
+    assert taker.status is WorkOrderStatus.CANCELLED
+    kinds = [e.event_type for e in _events_for(eng, taker.work_order_id)]
+    assert kinds == [
+        DispatchEventType.WORK_ORDER_SUBMITTED,
+        DispatchEventType.WORK_ORDER_ACCEPTED,
+        DispatchEventType.WORK_ORDER_CANCELLED,
+    ]
+    cancel_evt = _events_for(eng, taker.work_order_id)[-1]
+    assert "fully assigned" in cancel_evt.payload["reason"]
+    # Resting capacity untouched.
+    queue = eng.get_queue("CNC-01")
+    assert queue is not None
+    assert queue.offer_levels()[0].total_hours == D("3")
+
+
+async def test_complete_assigns_when_fully_available() -> None:
+    eng = _engine()
+    await eng.submit_work_order(_work_order(DispatchSide.OFFER, 6, 100, organization_id="M1"))
+    await eng.submit_work_order(_work_order(DispatchSide.OFFER, 6, 100, organization_id="M2"))
+    taker = _work_order(
+        DispatchSide.REQUEST, 10, 100, dispatch_window=DispatchWindow.COMPLETE, organization_id="T"
+    )
+    result = await eng.submit_work_order(taker)
+    assert taker.status is WorkOrderStatus.ASSIGNED
+    assert taker.assigned_hours == D("10")
+    assert sum(a.hours for a in result.assignments) == D("10")
 
 
 # ---------------------------------------------------------------------------
@@ -261,111 +278,125 @@ async def test_fok_fills_when_fully_available() -> None:
 # ---------------------------------------------------------------------------
 
 
-async def test_cancel_resting_order() -> None:
+async def test_cancel_resting_work_order() -> None:
     eng = _engine()
-    resting = _order(Side.BUY, 5, 99, client_id="M")
-    await eng.submit_order(resting)
-    cancelled = await eng.cancel_order(resting.order_id)  # symbol omitted
+    resting = _work_order(DispatchSide.REQUEST, 5, 99, organization_id="M")
+    await eng.submit_work_order(resting)
+    cancelled = await eng.cancel_work_order(resting.work_order_id)  # asset_id omitted
     assert cancelled is not None
-    assert cancelled.order_id == resting.order_id
-    assert cancelled.status is OrderStatus.CANCELLED
-    book = eng.get_book("AAPL")
-    assert book is not None
-    assert book.total_orders == 0
+    assert cancelled.work_order_id == resting.work_order_id
+    assert cancelled.status is WorkOrderStatus.CANCELLED
+    queue = eng.get_queue("CNC-01")
+    assert queue is not None
+    assert queue.total_work_orders == 0
     # Cancelling again returns None (no stale index).
-    assert await eng.cancel_order(resting.order_id) is None
+    assert await eng.cancel_work_order(resting.work_order_id) is None
 
 
-async def test_cancel_with_symbol_hint() -> None:
+async def test_cancel_with_asset_id_hint() -> None:
     eng = _engine()
-    resting = _order(Side.SELL, 5, 101, client_id="M")
-    await eng.submit_order(resting)
-    cancelled = await eng.cancel_order(resting.order_id, symbol="AAPL")
+    resting = _work_order(DispatchSide.OFFER, 5, 101, organization_id="M")
+    await eng.submit_work_order(resting)
+    cancelled = await eng.cancel_work_order(resting.work_order_id, asset_id="CNC-01")
     assert cancelled is not None
-    assert await eng.cancel_order("does-not-exist", symbol="AAPL") is None
+    assert await eng.cancel_work_order("does-not-exist", asset_id="CNC-01") is None
 
 
 # ---------------------------------------------------------------------------
-# Risk rejection
+# Pre-dispatch check rejection
 # ---------------------------------------------------------------------------
 
 
-class _RejectAll:
-    def can_execute(self, order: Order, position: Position | None) -> tuple[bool, str]:
-        return False, "blocked by risk"
+class _RejectAllPolicy:
+    def can_dispatch(self, work_order: WorkOrder, workload: Workload | None) -> tuple[bool, str]:
+        return False, "blocked by pre-dispatch check"
 
 
-async def test_risk_check_rejection() -> None:
-    eng = _engine(risk_check=_RejectAll())
-    taker = _order(Side.BUY, 5, 100, client_id="T")
-    result = await eng.submit_order(taker)
-    assert result.trades == []
-    assert result.rejection_reason == "blocked by risk"
-    assert taker.status is OrderStatus.REJECTED
-    rejected = eng._event_bus.replay(event_types={EventType.ORDER_REJECTED})
-    assert rejected and rejected[-1].payload["reason"] == "blocked by risk"
+async def test_pre_dispatch_check_rejection() -> None:
+    eng = _engine(pre_dispatch_check=_RejectAllPolicy())
+    taker = _work_order(DispatchSide.REQUEST, 5, 100, organization_id="T")
+    result = await eng.submit_work_order(taker)
+    assert result.assignments == []
+    assert result.rejection_reason == "blocked by pre-dispatch check"
+    assert taker.status is WorkOrderStatus.REJECTED
+    rejected = eng._event_bus.replay(event_types={DispatchEventType.WORK_ORDER_REJECTED})
+    assert rejected and rejected[-1].payload["reason"] == "blocked by pre-dispatch check"
 
 
 # ---------------------------------------------------------------------------
-# Boundary validation: instrument / tick / lot / unsupported type
+# Boundary validation: equipment / rate / hours-lot / unsupported mode
 # ---------------------------------------------------------------------------
 
 
-async def test_reject_unknown_instrument() -> None:
+async def test_reject_unknown_asset() -> None:
     eng = _engine()
-    order = _order(Side.BUY, 1, 100, symbol="ZZZZ", client_id="T")
-    result = await eng.submit_order(order)
-    assert order.status is OrderStatus.REJECTED
-    assert result.trades == []
+    order = _work_order(DispatchSide.REQUEST, 1, 100, asset_id="ZZZZ", organization_id="T")
+    result = await eng.submit_work_order(order)
+    assert order.status is WorkOrderStatus.REJECTED
+    assert result.assignments == []
 
 
-async def test_reject_invalid_tick() -> None:
+async def test_reject_invalid_rate() -> None:
     eng = _engine()
-    order = _order(Side.BUY, 1, "150.005", client_id="T")  # not a multiple of 0.01
-    await eng.submit_order(order)
-    assert order.status is OrderStatus.REJECTED
+    order = _work_order(
+        DispatchSide.REQUEST, 1, "150.005", organization_id="T"
+    )  # not a multiple of 0.01
+    await eng.submit_work_order(order)
+    assert order.status is WorkOrderStatus.REJECTED
 
 
-async def test_reject_invalid_lot() -> None:
+async def test_reject_invalid_hours_lot() -> None:
     eng = _engine()
-    order = _order(Side.BUY, "0.0005", 100, symbol="BTC-USD", client_id="T")
-    await eng.submit_order(order)
-    assert order.status is OrderStatus.REJECTED
+    order = _work_order(
+        DispatchSide.REQUEST, "0.0005", 100, asset_id="ROBOT-07", organization_id="T"
+    )
+    await eng.submit_work_order(order)
+    assert order.status is WorkOrderStatus.REJECTED
 
 
-async def test_valid_fractional_lot_accepted() -> None:
+async def test_valid_fractional_hours_accepted() -> None:
     eng = _engine()
-    order = _order(Side.BUY, "0.002", 100, symbol="BTC-USD", client_id="T")
-    await eng.submit_order(order)
-    assert order.status is OrderStatus.ACCEPTED  # resting, no crossing liquidity
+    order = _work_order(
+        DispatchSide.REQUEST, "0.002", 100, asset_id="ROBOT-07", organization_id="T"
+    )
+    await eng.submit_work_order(order)
+    assert order.status is WorkOrderStatus.ACCEPTED  # resting, no crossing capacity
 
 
-def test_instrument_currency_is_normalized_and_rejects_non_codes() -> None:
-    instrument = Instrument(
-        symbol="SAP",
-        name="SAP SE",
-        instrument_type=InstrumentType.EQUITY,
-        tick_size="0.01",
+def test_equipment_currency_is_normalized_and_rejects_non_codes() -> None:
+    equipment = Equipment(
+        asset_id="GEN-09",
+        name="Backup Generator Unit 9",
+        equipment_type=EquipmentCategory.GENERATOR,
+        service_interval_days=180,
+        hourly_service_rate="95.00",
         currency=" eur ",
     )
-    assert instrument.currency == "EUR"
+    assert equipment.currency == "EUR"
 
     with pytest.raises(ValueError, match="three-letter ASCII"):
-        Instrument(
-            symbol="SAP",
-            name="SAP SE",
-            instrument_type=InstrumentType.EQUITY,
-            tick_size="0.01",
+        Equipment(
+            asset_id="GEN-09",
+            name="Backup Generator Unit 9",
+            equipment_type=EquipmentCategory.GENERATOR,
+            service_interval_days=180,
+            hourly_service_rate="95.00",
             currency="€€€",
         )
 
 
-async def test_reject_bare_stop_order() -> None:
+async def test_reject_bare_escalation_work_order() -> None:
     eng = _engine()
-    order = _order(Side.BUY, 1, order_type=OrderType.STOP, stop_price=100, client_id="T")
-    result = await eng.submit_order(order)
-    assert order.status is OrderStatus.REJECTED
-    assert result.trades == []
+    order = _work_order(
+        DispatchSide.REQUEST,
+        1,
+        mode=WorkOrderMode.ESCALATION,
+        escalation_rate=100,
+        organization_id="T",
+    )
+    result = await eng.submit_work_order(order)
+    assert order.status is WorkOrderStatus.REJECTED
+    assert result.assignments == []
 
 
 # ---------------------------------------------------------------------------
@@ -375,38 +406,40 @@ async def test_reject_bare_stop_order() -> None:
 
 async def test_callback_delivery_after_start() -> None:
     bus = EventBus()
-    eng = MatchingEngine(event_bus=bus, instruments=_instruments())
+    eng = DispatchEngine(event_bus=bus, equipment=_equipment())
     received: list[DomainEvent] = []
 
     async def handler(event: DomainEvent) -> None:
         received.append(event)
 
     await bus.start()
-    bus.subscribe({EventType.ORDER_ACCEPTED, EventType.TRADE_EXECUTED}, handler)
+    bus.subscribe(
+        {DispatchEventType.WORK_ORDER_ACCEPTED, DispatchEventType.ASSIGNMENT_EXECUTED}, handler
+    )
 
-    await eng.submit_order(_order(Side.SELL, 5, 100, client_id="M"))
-    await eng.submit_order(_order(Side.BUY, 5, 100, client_id="T"))
+    await eng.submit_work_order(_work_order(DispatchSide.OFFER, 5, 100, organization_id="M"))
+    await eng.submit_work_order(_work_order(DispatchSide.REQUEST, 5, 100, organization_id="T"))
     await bus.stop()  # drains queued events before returning
 
     types = {e.event_type for e in received}
-    assert EventType.ORDER_ACCEPTED in types
-    assert EventType.TRADE_EXECUTED in types
+    assert DispatchEventType.WORK_ORDER_ACCEPTED in types
+    assert DispatchEventType.ASSIGNMENT_EXECUTED in types
 
 
 async def test_engine_bus_replay() -> None:
     eng = _engine()
-    await eng.submit_order(_order(Side.SELL, 5, 100, client_id="M"))
-    await eng.submit_order(_order(Side.BUY, 5, 100, client_id="T"))
-    accepted = eng._event_bus.replay(event_types={EventType.ORDER_ACCEPTED})
-    filled = eng._event_bus.replay(event_types={EventType.ORDER_FILLED})
+    await eng.submit_work_order(_work_order(DispatchSide.OFFER, 5, 100, organization_id="M"))
+    await eng.submit_work_order(_work_order(DispatchSide.REQUEST, 5, 100, organization_id="T"))
+    accepted = eng._event_bus.replay(event_types={DispatchEventType.WORK_ORDER_ACCEPTED})
+    assigned = eng._event_bus.replay(event_types={DispatchEventType.WORK_ORDER_ASSIGNED})
     assert len(accepted) == 2
-    # Both the incoming taker and the fully-consumed resting maker are filled.
-    assert len(filled) == 2
+    # Both the incoming taker and the fully-consumed resting maker are assigned.
+    assert len(assigned) == 2
 
 
 def test_event_log_bounded_replay() -> None:
     log = EventLog(max_size=3)
-    seqs = [log.append(DomainEvent(event_type=EventType.SYSTEM_STATUS)) for _ in range(5)]
+    seqs = [log.append(DomainEvent(event_type=DispatchEventType.SYSTEM_STATUS)) for _ in range(5)]
     assert seqs == [0, 1, 2, 3, 4]
     assert log.size == 3
     assert log.base_sequence == 2
@@ -417,119 +450,123 @@ def test_event_log_bounded_replay() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Position accounting: long / short / crossing
+# Workload accounting: requester / provider / crossing
 # ---------------------------------------------------------------------------
 
 
-def test_long_position_realized_and_unrealized() -> None:
-    pos = Position(client_id="c", symbol="AAPL")
-    pos.apply_fill(Side.BUY, D("10"), D("100"))
-    assert pos.quantity == D("10")
-    assert pos.average_entry_price == D("100")
-    realised = pos.apply_fill(Side.SELL, D("4"), D("110"))
+def test_requester_workload_realized_and_unrealized_cost() -> None:
+    wl = Workload(organization_id="c", asset_id="CNC-01")
+    wl.apply_assignment(DispatchSide.REQUEST, D("10"), D("100"))
+    assert wl.net_hours == D("10")
+    assert wl.average_service_rate == D("100")
+    realised = wl.apply_assignment(DispatchSide.OFFER, D("4"), D("110"))
     assert realised == D("40")
-    assert pos.realized_pnl == D("40")
-    assert pos.quantity == D("6")
-    assert pos.average_entry_price == D("100")
-    pos.mark_to_market(D("110"))
-    assert pos.unrealized_pnl == D("60")  # (110-100)*6
+    assert wl.realized_cost == D("40")
+    assert wl.net_hours == D("6")
+    assert wl.average_service_rate == D("100")
+    wl.reprice(D("110"))
+    assert wl.unrealized_cost == D("60")  # (110-100)*6
 
 
-def test_short_position_realized_pnl() -> None:
-    pos = Position(client_id="c", symbol="AAPL")
-    pos.apply_fill(Side.SELL, D("10"), D("100"))
-    assert pos.quantity == D("-10")
-    realised = pos.apply_fill(Side.BUY, D("4"), D("90"))
+def test_provider_workload_realized_cost() -> None:
+    wl = Workload(organization_id="c", asset_id="CNC-01")
+    wl.apply_assignment(DispatchSide.OFFER, D("10"), D("100"))
+    assert wl.net_hours == D("-10")
+    realised = wl.apply_assignment(DispatchSide.REQUEST, D("4"), D("90"))
     assert realised == D("40")  # covered 4 @ 90 vs avg 100
-    assert pos.quantity == D("-6")
-    assert pos.average_entry_price == D("100")
-    pos.mark_to_market(D("90"))
-    assert pos.unrealized_pnl == D("60")  # (90-100)*-6
+    assert wl.net_hours == D("-6")
+    assert wl.average_service_rate == D("100")
+    wl.reprice(D("90"))
+    assert wl.unrealized_cost == D("60")  # (90-100)*-6
 
 
-def test_position_average_price_on_increase() -> None:
-    pos = Position(client_id="c", symbol="AAPL")
-    pos.apply_fill(Side.BUY, D("10"), D("100"))
-    pos.apply_fill(Side.BUY, D("10"), D("120"))
-    assert pos.quantity == D("20")
-    assert pos.average_entry_price == D("110")
+def test_workload_average_rate_on_increase() -> None:
+    wl = Workload(organization_id="c", asset_id="CNC-01")
+    wl.apply_assignment(DispatchSide.REQUEST, D("10"), D("100"))
+    wl.apply_assignment(DispatchSide.REQUEST, D("10"), D("120"))
+    assert wl.net_hours == D("20")
+    assert wl.average_service_rate == D("110")
 
 
-def test_position_crossing_through_zero() -> None:
-    pos = Position(client_id="c", symbol="AAPL")
-    pos.apply_fill(Side.BUY, D("5"), D("100"))
-    realised = pos.apply_fill(Side.SELL, D("8"), D("110"))
+def test_workload_crossing_through_zero() -> None:
+    wl = Workload(organization_id="c", asset_id="CNC-01")
+    wl.apply_assignment(DispatchSide.REQUEST, D("5"), D("100"))
+    realised = wl.apply_assignment(DispatchSide.OFFER, D("8"), D("110"))
     assert realised == D("50")  # closed 5 @ +10
-    assert pos.quantity == D("-3")  # flipped short
-    assert pos.average_entry_price == D("110")  # remainder opens at fill price
+    assert wl.net_hours == D("-3")  # flipped to net provider
+    assert wl.average_service_rate == D("110")  # remainder opens at assignment rate
 
 
-async def test_engine_updates_both_sides_positions() -> None:
+async def test_engine_updates_both_sides_workloads() -> None:
     eng = _engine()
-    await eng.submit_order(_order(Side.SELL, 5, 100, client_id="seller"))
-    await eng.submit_order(_order(Side.BUY, 5, 100, client_id="buyer"))
-    buyer = eng.position_manager.get_position("buyer", "AAPL")
-    seller = eng.position_manager.get_position("seller", "AAPL")
-    assert buyer.quantity == D("5")
-    assert seller.quantity == D("-5")
-    assert eng.position_manager.get_positions("buyer")["AAPL"].quantity == D("5")
+    await eng.submit_work_order(_work_order(DispatchSide.OFFER, 5, 100, organization_id="provider"))
+    await eng.submit_work_order(
+        _work_order(DispatchSide.REQUEST, 5, 100, organization_id="requester")
+    )
+    requester = eng.workload_manager.get_workload("requester", "CNC-01")
+    provider = eng.workload_manager.get_workload("provider", "CNC-01")
+    assert requester.net_hours == D("5")
+    assert provider.net_hours == D("-5")
+    assert eng.workload_manager.get_workloads("requester")["CNC-01"].net_hours == D("5")
 
 
 # ---------------------------------------------------------------------------
-# Resting (maker) order finalization
+# Resting (maker) work order finalization
 # ---------------------------------------------------------------------------
 
 
-async def test_resting_order_partial_fill_status_and_event() -> None:
+async def test_resting_work_order_partial_assignment_status_and_event() -> None:
     eng = _engine()
-    maker = _order(Side.SELL, 10, 100, client_id="M")
-    await eng.submit_order(maker)
-    await eng.submit_order(_order(Side.BUY, 4, 100, client_id="T"))
+    maker = _work_order(DispatchSide.OFFER, 10, 100, organization_id="M")
+    await eng.submit_work_order(maker)
+    await eng.submit_work_order(_work_order(DispatchSide.REQUEST, 4, 100, organization_id="T"))
 
-    # Resting order state updated in place.
-    assert maker.status is OrderStatus.PARTIALLY_FILLED
-    assert maker.filled_quantity == D("4")
+    # Resting work order state updated in place.
+    assert maker.status is WorkOrderStatus.PARTIALLY_ASSIGNED
+    assert maker.assigned_hours == D("4")
     assert maker.updated_at is not None
-    # Exactly one partial-fill lifecycle event for the resting order.
+    # Exactly one partial-assignment lifecycle event for the resting work order.
     maker_events = [
         e.event_type
-        for e in _events_for(eng, maker.order_id)
-        if e.event_type in (EventType.ORDER_PARTIALLY_FILLED, EventType.ORDER_FILLED)
+        for e in _events_for(eng, maker.work_order_id)
+        if e.event_type
+        in (DispatchEventType.WORK_ORDER_PARTIALLY_ASSIGNED, DispatchEventType.WORK_ORDER_ASSIGNED)
     ]
-    assert maker_events == [EventType.ORDER_PARTIALLY_FILLED]
+    assert maker_events == [DispatchEventType.WORK_ORDER_PARTIALLY_ASSIGNED]
 
 
-async def test_resting_order_full_fill_status_and_event() -> None:
+async def test_resting_work_order_full_assignment_status_and_event() -> None:
     eng = _engine()
-    maker = _order(Side.SELL, 5, 100, client_id="M")
-    await eng.submit_order(maker)
-    await eng.submit_order(_order(Side.BUY, 5, 100, client_id="T"))
+    maker = _work_order(DispatchSide.OFFER, 5, 100, organization_id="M")
+    await eng.submit_work_order(maker)
+    await eng.submit_work_order(_work_order(DispatchSide.REQUEST, 5, 100, organization_id="T"))
 
-    assert maker.status is OrderStatus.FILLED
+    assert maker.status is WorkOrderStatus.ASSIGNED
     assert maker.updated_at is not None
-    maker_fill_events = [
+    maker_assignment_events = [
         e.event_type
-        for e in _events_for(eng, maker.order_id)
-        if e.event_type in (EventType.ORDER_PARTIALLY_FILLED, EventType.ORDER_FILLED)
+        for e in _events_for(eng, maker.work_order_id)
+        if e.event_type
+        in (DispatchEventType.WORK_ORDER_PARTIALLY_ASSIGNED, DispatchEventType.WORK_ORDER_ASSIGNED)
     ]
-    # Consumed in a single fill -> exactly one ORDER_FILLED, no partial.
-    assert maker_fill_events == [EventType.ORDER_FILLED]
+    # Consumed in a single assignment -> exactly one WORK_ORDER_ASSIGNED, no partial.
+    assert maker_assignment_events == [DispatchEventType.WORK_ORDER_ASSIGNED]
 
 
-async def test_risk_check_receives_none_position_and_creates_none() -> None:
-    seen: list[Position | None] = []
+async def test_pre_dispatch_check_receives_none_workload_and_creates_none() -> None:
+    seen: list[Workload | None] = []
 
     class _Recorder:
-        def can_execute(self, order, position):
-            seen.append(position)
+        def can_dispatch(self, work_order, workload):
+            seen.append(workload)
             return False, "no"
 
-    eng = _engine(risk_check=_Recorder())
-    await eng.submit_order(_order(Side.BUY, 5, 100, client_id="fresh"))
-    # The check saw None (no pre-existing position) and none was stored.
+    eng = _engine(pre_dispatch_check=_Recorder())
+    await eng.submit_work_order(_work_order(DispatchSide.REQUEST, 5, 100, organization_id="fresh"))
+    # The check saw None (no pre-existing workload) and none was stored.
     assert seen == [None]
-    assert eng.position_manager.peek_position("fresh", "AAPL") is None
-    assert eng.position_manager.all_positions() == []
+    assert eng.workload_manager.peek_workload("fresh", "CNC-01") is None
+    assert eng.workload_manager.all_workloads() == []
 
 
 # ---------------------------------------------------------------------------
@@ -540,76 +577,76 @@ _PLUS2 = timezone(timedelta(hours=2))
 
 
 def test_defaults_are_aware_utc() -> None:
-    order = _order(Side.BUY, 1, 100)
+    order = _work_order(DispatchSide.REQUEST, 1, 100)
     assert order.created_at.tzinfo == UTC
-    trade = Trade(
-        symbol="AAPL",
-        buy_order_id="b",
-        sell_order_id="s",
-        price=D("100"),
-        quantity=D("1"),
-        buyer_client_id="b",
-        seller_client_id="s",
-        aggressor_side=Side.BUY,
+    assignment = ServiceAssignment(
+        asset_id="CNC-01",
+        requester_work_order_id="r",
+        provider_work_order_id="p",
+        hourly_rate=D("100"),
+        hours=D("1"),
+        requester_organization_id="r",
+        provider_organization_id="p",
+        initiating_side=DispatchSide.REQUEST,
     )
-    assert trade.timestamp.tzinfo == UTC
-    assert Tick("AAPL", D("1"), D("2"), D("1.5"), 10).timestamp.tzinfo == UTC
+    assert assignment.timestamp.tzinfo == UTC
+    assert TelemetryReading("CNC-01", D("1"), D("2"), D("1.5"), 10).timestamp.tzinfo == UTC
     assert DomainEvent().timestamp.tzinfo == UTC
 
 
-def test_order_normalizes_aware_offset_to_utc() -> None:
+def test_work_order_normalizes_aware_offset_to_utc() -> None:
     naive_wall = datetime(2026, 1, 1, 12, 0, 0)
-    order = Order(
-        client_id="c",
-        symbol="AAPL",
-        side=Side.BUY,
-        order_type=OrderType.LIMIT,
-        quantity=D("1"),
-        price=D("100"),
+    order = WorkOrder(
+        organization_id="c",
+        asset_id="CNC-01",
+        side=DispatchSide.REQUEST,
+        mode=WorkOrderMode.RATE_CAPPED,
+        requested_hours=D("1"),
+        max_hourly_rate=D("100"),
         created_at=naive_wall.replace(tzinfo=_PLUS2),
     )
     assert order.created_at.tzinfo == UTC
     assert order.created_at == datetime(2026, 1, 1, 10, 0, 0, tzinfo=UTC)
 
 
-def test_order_rejects_naive_datetime() -> None:
+def test_work_order_rejects_naive_datetime() -> None:
     with pytest.raises(ValidationError):
-        Order(
-            client_id="c",
-            symbol="AAPL",
-            side=Side.BUY,
-            order_type=OrderType.LIMIT,
-            quantity=D("1"),
-            price=D("100"),
+        WorkOrder(
+            organization_id="c",
+            asset_id="CNC-01",
+            side=DispatchSide.REQUEST,
+            mode=WorkOrderMode.RATE_CAPPED,
+            requested_hours=D("1"),
+            max_hourly_rate=D("100"),
             created_at=datetime(2026, 1, 1, 12, 0, 0),  # naive
         )
 
 
-def test_trade_and_position_reject_naive_and_normalize() -> None:
+def test_assignment_and_workload_reject_naive_and_normalize() -> None:
     ts = datetime(2026, 1, 1, 12, 0, 0, tzinfo=_PLUS2)
-    trade = Trade(
-        symbol="AAPL",
-        buy_order_id="b",
-        sell_order_id="s",
-        price=D("100"),
-        quantity=D("1"),
-        buyer_client_id="b",
-        seller_client_id="s",
-        aggressor_side=Side.BUY,
+    assignment = ServiceAssignment(
+        asset_id="CNC-01",
+        requester_work_order_id="r",
+        provider_work_order_id="p",
+        hourly_rate=D("100"),
+        hours=D("1"),
+        requester_organization_id="r",
+        provider_organization_id="p",
+        initiating_side=DispatchSide.REQUEST,
         timestamp=ts,
     )
-    assert trade.timestamp == datetime(2026, 1, 1, 10, 0, 0, tzinfo=UTC)
+    assert assignment.timestamp == datetime(2026, 1, 1, 10, 0, 0, tzinfo=UTC)
     with pytest.raises(ValidationError):
-        Position(client_id="c", symbol="AAPL", last_updated=datetime(2026, 1, 1))
-    snap = PortfolioSnapshot(client_id="c", timestamp=ts)
+        Workload(organization_id="c", asset_id="CNC-01", last_updated=datetime(2026, 1, 1))
+    snap = OrganizationSnapshot(organization_id="c", timestamp=ts)
     assert snap.timestamp.tzinfo == UTC
-    metrics = RiskMetrics(computed_at=ts)
+    metrics = OperationalRiskMetrics(computed_at=ts)
     assert metrics.computed_at.tzinfo == UTC
 
 
-def test_tick_and_event_reject_naive() -> None:
+def test_reading_and_event_reject_naive() -> None:
     with pytest.raises(ValueError):
-        Tick("AAPL", D("1"), D("2"), D("1.5"), 10, timestamp=datetime(2026, 1, 1))
+        TelemetryReading("CNC-01", D("1"), D("2"), D("1.5"), 10, timestamp=datetime(2026, 1, 1))
     with pytest.raises(ValueError):
         DomainEvent(timestamp=datetime(2026, 1, 1))
     # Aware offset is normalized to UTC.
@@ -618,108 +655,108 @@ def test_tick_and_event_reject_naive() -> None:
 
 
 @pytest.mark.parametrize(
-    ("bid", "ask", "last", "volume", "message"),
+    ("min_reading", "max_reading", "last_reading", "sample_count", "message"),
     [
-        ("2", "1", "1.5", 10, "bid must not exceed ask"),
+        ("2", "1", "1.5", 10, "min_reading must not exceed max_reading"),
         ("0", "1", "0.5", 10, "finite and positive"),
         ("1", "2", "1.5", -1, "non-negative integer"),
         ("1", "2", "1.5", True, "non-negative integer"),
     ],
 )
-def test_tick_rejects_invalid_market_data(
-    bid: str,
-    ask: str,
-    last: str,
-    volume: int,
+def test_reading_rejects_invalid_telemetry_data(
+    min_reading: str,
+    max_reading: str,
+    last_reading: str,
+    sample_count: int,
     message: str,
 ) -> None:
     with pytest.raises(ValueError, match=message):
-        Tick("AAPL", D(bid), D(ask), D(last), volume)
+        TelemetryReading("CNC-01", D(min_reading), D(max_reading), D(last_reading), sample_count)
 
 
 # ---------------------------------------------------------------------------
-# Honest DAY / GTD rejection
+# Honest SHIFT / SCHEDULED_END rejection
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("tif", [TimeInForce.DAY, TimeInForce.GTD])
-async def test_day_and_gtd_rejected(tif: TimeInForce) -> None:
+@pytest.mark.parametrize("window", [DispatchWindow.SHIFT, DispatchWindow.SCHEDULED_END])
+async def test_shift_and_scheduled_end_rejected(window: DispatchWindow) -> None:
     eng = _engine()
-    order = _order(Side.BUY, 1, 100, tif=tif, client_id="T")
-    result = await eng.submit_order(order)
-    assert order.status is OrderStatus.REJECTED
-    assert result.trades == []
-    reason = _events_for(eng, order.order_id)[-1].payload["reason"]
-    assert "session" in reason or "expiry" in reason
+    order = _work_order(DispatchSide.REQUEST, 1, 100, dispatch_window=window, organization_id="T")
+    result = await eng.submit_work_order(order)
+    assert order.status is WorkOrderStatus.REJECTED
+    assert result.assignments == []
+    reason = _events_for(eng, order.work_order_id)[-1].payload["reason"]
+    assert "shift" in reason or "expiry" in reason
     # Nothing rested.
-    book = eng.get_book("AAPL")
-    assert book is None or book.total_orders == 0
+    queue = eng.get_queue("CNC-01")
+    assert queue is None or queue.total_work_orders == 0
 
 
 # ---------------------------------------------------------------------------
-# Lifecycle boundaries: updated_at, non-NEW, duplicate order id
+# Lifecycle boundaries: updated_at, non-NEW, duplicate work order id
 # ---------------------------------------------------------------------------
 
 
 async def test_updated_at_set_on_accept_and_reject() -> None:
     eng = _engine()
-    resting = _order(Side.BUY, 1, 99, client_id="T")
-    await eng.submit_order(resting)
-    assert resting.status is OrderStatus.ACCEPTED
+    resting = _work_order(DispatchSide.REQUEST, 1, 99, organization_id="T")
+    await eng.submit_work_order(resting)
+    assert resting.status is WorkOrderStatus.ACCEPTED
     assert resting.updated_at is not None
     assert resting.updated_at.tzinfo == UTC
 
-    bad = _order(Side.BUY, 1, 100, symbol="ZZZZ", client_id="T")
-    await eng.submit_order(bad)
-    assert bad.status is OrderStatus.REJECTED
+    bad = _work_order(DispatchSide.REQUEST, 1, 100, asset_id="ZZZZ", organization_id="T")
+    await eng.submit_work_order(bad)
+    assert bad.status is WorkOrderStatus.REJECTED
     assert bad.updated_at is not None
 
 
-async def test_non_new_order_rejected() -> None:
+async def test_non_new_work_order_rejected() -> None:
     eng = _engine()
-    order = _order(Side.BUY, 1, 100, client_id="T")
-    order.status = OrderStatus.ACCEPTED  # pretend it was already processed
-    result = await eng.submit_order(order)
-    assert order.status is OrderStatus.REJECTED
-    assert result.trades == []
-    assert "only NEW" in _events_for(eng, order.order_id)[-1].payload["reason"]
+    order = _work_order(DispatchSide.REQUEST, 1, 100, organization_id="T")
+    order.status = WorkOrderStatus.ACCEPTED  # pretend it was already processed
+    result = await eng.submit_work_order(order)
+    assert order.status is WorkOrderStatus.REJECTED
+    assert result.assignments == []
+    assert "only NEW" in _events_for(eng, order.work_order_id)[-1].payload["reason"]
 
 
 async def test_duplicate_same_object_resubmission_raises_and_preserves_original() -> None:
     eng = _engine()
-    resting = _order(Side.BUY, 5, 99, client_id="T")
-    await eng.submit_order(resting)
-    assert resting.status is OrderStatus.ACCEPTED
+    resting = _work_order(DispatchSide.REQUEST, 5, 99, organization_id="T")
+    await eng.submit_work_order(resting)
+    assert resting.status is WorkOrderStatus.ACCEPTED
 
-    with pytest.raises(DuplicateOrderError) as excinfo:
-        await eng.submit_order(resting)  # same object, already resting
-    assert excinfo.value.order_id == resting.order_id
-    # Original is untouched: still ACCEPTED, unfilled, still on the book.
-    assert resting.status is OrderStatus.ACCEPTED
-    assert resting.filled_quantity == D("0")
-    book = eng.get_book("AAPL")
-    assert book is not None
-    assert book.total_orders == 1
+    with pytest.raises(DuplicateWorkOrderError) as excinfo:
+        await eng.submit_work_order(resting)  # same object, already resting
+    assert excinfo.value.work_order_id == resting.work_order_id
+    # Original is untouched: still ACCEPTED, unassigned, still on the queue.
+    assert resting.status is WorkOrderStatus.ACCEPTED
+    assert resting.assigned_hours == D("0")
+    queue = eng.get_queue("CNC-01")
+    assert queue is not None
+    assert queue.total_work_orders == 1
 
 
 async def test_duplicate_distinct_object_same_id_raises() -> None:
     eng = _engine()
-    first = _order(Side.BUY, 5, 99, client_id="T")
-    await eng.submit_order(first)
-    clone = Order(
-        order_id=first.order_id,
-        client_id="T",
-        symbol="AAPL",
-        side=Side.SELL,
-        order_type=OrderType.LIMIT,
-        quantity=D("5"),
-        price=D("101"),
+    first = _work_order(DispatchSide.REQUEST, 5, 99, organization_id="T")
+    await eng.submit_work_order(first)
+    clone = WorkOrder(
+        work_order_id=first.work_order_id,
+        organization_id="T",
+        asset_id="CNC-01",
+        side=DispatchSide.OFFER,
+        mode=WorkOrderMode.RATE_CAPPED,
+        requested_hours=D("5"),
+        max_hourly_rate=D("101"),
     )
-    with pytest.raises(DuplicateOrderError):
-        await eng.submit_order(clone)
+    with pytest.raises(DuplicateWorkOrderError):
+        await eng.submit_work_order(clone)
     # The distinct clone is not mutated by the engine.
-    assert clone.status is OrderStatus.NEW
-    assert first.status is OrderStatus.ACCEPTED
+    assert clone.status is WorkOrderStatus.NEW
+    assert first.status is WorkOrderStatus.ACCEPTED
 
 
 # ---------------------------------------------------------------------------
@@ -754,7 +791,7 @@ async def test_duplicate_callback_subscriber_id_rejected_without_orphaning() -> 
     assert bus._dispatch_tasks["dup"] is task
     assert not task.cancelled()
 
-    await bus.publish(DomainEvent(event_type=EventType.SYSTEM_STATUS))
+    await bus.publish(DomainEvent(event_type=DispatchEventType.SYSTEM_STATUS))
     await bus.stop()
     assert len(received) == 1
 
@@ -780,48 +817,48 @@ async def test_duplicate_stream_subscriber_id_rejected() -> None:
 async def test_concurrent_same_id_submissions_only_one_proceeds() -> None:
     eng = _engine()
     oid = "race-1"
-    first = Order(
-        order_id=oid,
-        client_id="T",
-        symbol="AAPL",
-        side=Side.BUY,
-        order_type=OrderType.LIMIT,
-        quantity=D("5"),
-        price=D("99"),
+    first = WorkOrder(
+        work_order_id=oid,
+        organization_id="T",
+        asset_id="CNC-01",
+        side=DispatchSide.REQUEST,
+        mode=WorkOrderMode.RATE_CAPPED,
+        requested_hours=D("5"),
+        max_hourly_rate=D("99"),
     )
     # A distinct object carrying the same id, submitted concurrently.
-    second = Order(
-        order_id=oid,
-        client_id="T",
-        symbol="AAPL",
-        side=Side.BUY,
-        order_type=OrderType.LIMIT,
-        quantity=D("3"),
-        price=D("98"),
+    second = WorkOrder(
+        work_order_id=oid,
+        organization_id="T",
+        asset_id="CNC-01",
+        side=DispatchSide.REQUEST,
+        mode=WorkOrderMode.RATE_CAPPED,
+        requested_hours=D("3"),
+        max_hourly_rate=D("98"),
     )
     results = await asyncio.gather(
-        eng.submit_order(first),
-        eng.submit_order(second),
+        eng.submit_work_order(first),
+        eng.submit_work_order(second),
         return_exceptions=True,
     )
-    dupes = [r for r in results if isinstance(r, DuplicateOrderError)]
-    oks = [r for r in results if isinstance(r, OrderSubmission)]
+    dupes = [r for r in results if isinstance(r, DuplicateWorkOrderError)]
+    oks = [r for r in results if isinstance(r, DispatchResult)]
     assert len(dupes) == 1
     assert len(oks) == 1
-    assert dupes[0].order_id == oid
+    assert dupes[0].work_order_id == oid
 
-    winner = oks[0].order
-    assert winner.status is OrderStatus.ACCEPTED
-    # Exactly one order rested — no duplicate book entry from the loser.
-    book = eng.get_book("AAPL")
-    assert book is not None
-    assert book.total_orders == 1
+    winner = oks[0].work_order
+    assert winner.status is WorkOrderStatus.ACCEPTED
+    # Exactly one work order rested — no duplicate queue entry from the loser.
+    queue = eng.get_queue("CNC-01")
+    assert queue is not None
+    assert queue.total_work_orders == 1
 
     # The loser emitted no lifecycle events: exactly one SUBMITTED/ACCEPTED
     # exists for the id, both belonging to the winner.
     events = _events_for(eng, oid)
-    submitted = [e for e in events if e.event_type is EventType.ORDER_SUBMITTED]
-    accepted = [e for e in events if e.event_type is EventType.ORDER_ACCEPTED]
+    submitted = [e for e in events if e.event_type is DispatchEventType.WORK_ORDER_SUBMITTED]
+    accepted = [e for e in events if e.event_type is DispatchEventType.WORK_ORDER_ACCEPTED]
     assert len(submitted) == 1
     assert len(accepted) == 1
 
@@ -829,33 +866,33 @@ async def test_concurrent_same_id_submissions_only_one_proceeds() -> None:
 async def test_id_from_rejected_submission_is_not_reusable() -> None:
     eng = _engine()
     oid = "reuse-1"
-    rejected = Order(
-        order_id=oid,
-        client_id="T",
-        symbol="ZZZZ",  # unknown instrument -> boundary rejection
-        side=Side.BUY,
-        order_type=OrderType.LIMIT,
-        quantity=D("1"),
-        price=D("100"),
+    rejected = WorkOrder(
+        work_order_id=oid,
+        organization_id="T",
+        asset_id="ZZZZ",  # unknown asset -> boundary rejection
+        side=DispatchSide.REQUEST,
+        mode=WorkOrderMode.RATE_CAPPED,
+        requested_hours=D("1"),
+        max_hourly_rate=D("100"),
     )
-    result = await eng.submit_order(rejected)
-    assert rejected.status is OrderStatus.REJECTED
-    assert result.trades == []
+    result = await eng.submit_work_order(rejected)
+    assert rejected.status is WorkOrderStatus.REJECTED
+    assert result.assignments == []
 
     # The id is known permanently even though the submission was rejected.
-    reuse = Order(
-        order_id=oid,
-        client_id="T",
-        symbol="AAPL",
-        side=Side.BUY,
-        order_type=OrderType.LIMIT,
-        quantity=D("1"),
-        price=D("100"),
+    reuse = WorkOrder(
+        work_order_id=oid,
+        organization_id="T",
+        asset_id="CNC-01",
+        side=DispatchSide.REQUEST,
+        mode=WorkOrderMode.RATE_CAPPED,
+        requested_hours=D("1"),
+        max_hourly_rate=D("100"),
     )
-    with pytest.raises(DuplicateOrderError):
-        await eng.submit_order(reuse)
+    with pytest.raises(DuplicateWorkOrderError):
+        await eng.submit_work_order(reuse)
     # The reuse attempt was not processed at all.
-    assert reuse.status is OrderStatus.NEW
+    assert reuse.status is WorkOrderStatus.NEW
 
 
 if __name__ == "__main__":  # pragma: no cover

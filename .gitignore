@@ -65,11 +65,11 @@ db.sqlite3-journal
 instance/
 .webassets-cache
 
-# QuantCore local SQLite store (created by `python main.py`, see settings.yaml
+# MittelWerk local SQLite store (created by `python main.py`, see settings.yaml
 # `database.url`) — simulated data only, never committed.
-quantcore.db
-quantcore.db-journal
-quantcore.db-*
+mittelwerk.db
+mittelwerk.db-journal
+mittelwerk.db-*
 data/*.db
 sample_data/
 
@@ -214,7 +214,7 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 
-# QuantCore workshop scenario runtime state (scripts/workshop.py).
+# MittelWerk workshop scenario runtime state (scripts/workshop.py).
 # Holds the active scenario record, pre-start byte backups, and timestamped
 # archives of participant attempts. Local and disposable once no scenario is
 # active; never commit it.

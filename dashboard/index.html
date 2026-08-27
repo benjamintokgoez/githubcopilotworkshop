@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>QuantCore Dashboard</title>
+<title>MittelWerk Dashboard</title>
 <script>
   (() => {
     const param = new URLSearchParams(window.location.search).get("scoutTheme");
@@ -39,6 +39,7 @@
     --cp-sheen: rgba(255, 255, 255, 0.55);
     --cp-highlight: rgba(177, 31, 75, 0.12);
   }
+
   html[data-theme="dark"] {
     color-scheme: dark;
     --cp-bg: #3d3b3a;
@@ -83,8 +84,10 @@
 
   .visually-hidden {
     position: absolute !important;
-    width: 1px; height: 1px;
-    padding: 0; margin: -1px;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
     overflow: hidden;
     clip: rect(0, 0, 0, 0);
     white-space: nowrap;
@@ -104,6 +107,7 @@
     font-weight: 600;
     transition: top 0.15s ease;
   }
+
   .skip-link:focus { top: 8px; }
 
   :focus-visible {
@@ -156,11 +160,13 @@
   }
 
   .status-dot {
-    width: 10px; height: 10px;
+    width: 10px;
+    height: 10px;
     border-radius: 50%;
     background: var(--cp-text-soft);
     flex-shrink: 0;
   }
+
   .status-dot[data-state="online"] { background: var(--cp-success); }
   .status-dot[data-state="degraded"] { background: var(--cp-warning); }
   .status-dot[data-state="offline"] { background: var(--cp-danger); }
@@ -178,13 +184,20 @@
     padding: 8px 14px;
     cursor: pointer;
   }
+
   button:hover { background: var(--cp-accent-soft); border-color: var(--cp-accent); }
+
   button.btn-primary {
     background: var(--cp-accent);
     color: var(--cp-accent-fg);
     border-color: var(--cp-accent);
   }
-  button.btn-primary:hover { background: var(--cp-accent-hover); border-color: var(--cp-accent-hover); }
+
+  button.btn-primary:hover {
+    background: var(--cp-accent-hover);
+    border-color: var(--cp-accent-hover);
+  }
+
   button:disabled { opacity: 0.55; cursor: not-allowed; }
 
   select, input[type="password"], input[type="text"] {
@@ -225,6 +238,7 @@
     font-size: 13px;
     border: 1px solid var(--cp-border);
   }
+
   .banner[data-tone="error"] { background: var(--cp-accent-soft); border-color: var(--cp-danger); }
   .banner[data-tone="info"] { background: var(--cp-surface-soft); border-color: var(--cp-border-strong); }
   .banner .banner-icon { flex-shrink: 0; font-weight: 700; }
@@ -238,23 +252,26 @@
     background: var(--cp-surface);
     padding: 4px 16px 16px;
   }
+
   details.key-panel summary {
     cursor: pointer;
     padding: 12px 0;
     font-weight: 600;
     list-style: none;
   }
+
   details.key-panel summary::-webkit-details-marker { display: none; }
+
   details.key-panel summary::before {
     content: "\25B8 ";
     color: var(--cp-accent);
   }
+
   details.key-panel[open] summary::before { content: "\25BE "; }
-  details.key-panel[open] {
-    box-shadow: var(--cp-shadow);
-  }
+  details.key-panel[open] { box-shadow: var(--cp-shadow); }
 
   .key-body { padding-top: 8px; }
+
   .privacy-note {
     background: var(--cp-surface-soft);
     border: 1px solid var(--cp-border);
@@ -264,12 +281,14 @@
     color: var(--cp-text-muted);
     margin: 0 0 14px;
   }
+
   .key-row {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 8px;
   }
+
   .key-row label { font-size: 13px; color: var(--cp-text-muted); }
   .key-row input { flex: 1 1 220px; min-width: 180px; }
   .key-status { font-size: 13px; color: var(--cp-text-muted); margin: 10px 0 0; min-height: 1.2em; }
@@ -279,12 +298,14 @@
     grid-template-columns: repeat(5, 1fr);
     gap: 16px;
   }
+
   .kpi-card {
     background: var(--cp-surface-soft);
     border: 1px solid var(--cp-border);
     border-radius: 16px;
     padding: 16px;
   }
+
   .kpi-label {
     font-size: 12px;
     text-transform: uppercase;
@@ -292,12 +313,14 @@
     color: var(--cp-text-muted);
     margin: 0 0 8px;
   }
+
   .kpi-value {
     font-size: 24px;
     font-weight: 700;
     margin: 0;
     font-family: Consolas, "Courier New", Courier, monospace;
   }
+
   .kpi-sub { font-size: 12px; color: var(--cp-text-soft); margin-top: 4px; }
 
   .grid-two {
@@ -311,17 +334,45 @@
     height: 160px;
     display: block;
   }
-  .pnl-line { fill: none; stroke: var(--cp-accent); stroke-width: 2; }
-  .pnl-zero-line { stroke: var(--cp-border-strong); stroke-width: 1; stroke-dasharray: 4 3; }
-  .pnl-dot { fill: var(--cp-accent); }
+
+  .cost-line { fill: none; stroke: var(--cp-accent); stroke-width: 2; }
+  .cost-baseline { stroke: var(--cp-border-strong); stroke-width: 1; stroke-dasharray: 4 3; }
+  .cost-dot { fill: var(--cp-accent); }
   .chart-summary { font-size: 13px; color: var(--cp-text-muted); margin-top: 8px; }
 
   .risk-bars { list-style: none; margin: 0; padding: 0; }
-  .risk-bars li { display: grid; grid-template-columns: 70px 1fr 90px; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 13px; }
-  .bar-track { background: var(--cp-surface-soft); border: 1px solid var(--cp-border); border-radius: 10px; height: 10px; overflow: hidden; }
+
+  .risk-bars li {
+    display: grid;
+    grid-template-columns: 120px 1fr 110px;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+    font-size: 13px;
+  }
+
+  .bar-track {
+    background: var(--cp-surface-soft);
+    border: 1px solid var(--cp-border);
+    border-radius: 10px;
+    height: 10px;
+    overflow: hidden;
+  }
+
   .bar-fill { background: var(--cp-accent); height: 100%; display: block; }
   .risk-value { font-family: Consolas, "Courier New", Courier, monospace; text-align: right; }
-  .risk-stats { list-style: none; margin: 14px 0 0; padding: 12px 0 0; border-top: 1px solid var(--cp-border); display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 13px; }
+
+  .risk-stats {
+    list-style: none;
+    margin: 14px 0 0;
+    padding: 12px 0 0;
+    border-top: 1px solid var(--cp-border);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    font-size: 13px;
+  }
+
   .risk-stats li { display: flex; justify-content: space-between; gap: 8px; }
   .risk-stats .risk-stat-value { font-family: Consolas, "Courier New", Courier, monospace; }
 
@@ -332,15 +383,15 @@
   td.num, th.num { text-align: right; font-family: Consolas, "Courier New", Courier, monospace; }
 
   .signed-value { display: inline-flex; align-items: center; gap: 4px; }
-  .signed-value[data-sign="pos"] { color: var(--cp-success); }
-  .signed-value[data-sign="neg"] { color: var(--cp-danger); }
+  .signed-value[data-sign="up"] { color: var(--cp-danger); }
+  .signed-value[data-sign="down"] { color: var(--cp-success); }
   .sign-icon { font-weight: 700; }
 
-  .orderbook-controls { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
-  .orderbook-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-  .orderbook-grid h3 { font-size: 13px; margin-bottom: 8px; color: var(--cp-text-muted); }
-  .book-side-bid { color: var(--cp-success); }
-  .book-side-ask { color: var(--cp-danger); }
+  .queue-controls { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .queue-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .queue-grid h3 { font-size: 13px; margin-bottom: 8px; color: var(--cp-text-muted); }
+  .queue-side-request { color: var(--cp-warning); }
+  .queue-side-offer { color: var(--cp-success); }
 
   .empty-note { color: var(--cp-text-soft); font-size: 13px; font-style: italic; }
 
@@ -349,6 +400,7 @@
     max-width: 1400px;
     margin: 0 auto;
   }
+
   .disclaimer {
     background: var(--cp-surface-soft);
     border: 1px solid var(--cp-border);
@@ -357,16 +409,20 @@
     font-size: 12.5px;
     color: var(--cp-text-muted);
   }
+
   .disclaimer p { margin: 0 0 6px; }
   .disclaimer p:last-child { margin-bottom: 0; }
   .as-of-note { font-size: 12px; color: var(--cp-text-soft); margin-top: 10px; }
 
   @media (max-width: 1100px) {
     .kpi-grid { grid-template-columns: repeat(3, 1fr); }
-    .grid-two, .orderbook-grid { grid-template-columns: 1fr; }
+    .grid-two, .queue-grid { grid-template-columns: 1fr; }
   }
+
   @media (max-width: 640px) {
     .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    .risk-bars li,
+    .risk-stats { grid-template-columns: 1fr; }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -384,8 +440,8 @@
 
 <header class="app-header" role="banner">
   <div class="title-row">
-    <h1>QuantCore Dashboard</h1>
-    <span class="subtitle" data-i18n="subtitle">Simulated trading dashboard for workshop use</span>
+    <h1>MittelWerk Dashboard</h1>
+    <span class="subtitle" data-i18n="subtitle">Simulated field-service operations dashboard for workshop use</span>
   </div>
   <div class="control-row">
     <span class="status-pill" id="connectivity-pill">
@@ -401,7 +457,7 @@
     </span>
     <span class="control-group">
       <label for="auto-refresh-select" data-i18n="autoRefreshLabel">Auto-refresh</label>
-      <select id="auto-refresh-select">
+      <select id="auto-refresh-select" aria-label="Auto-refresh interval">
         <option value="0" data-i18n="optManual">Manual</option>
         <option value="5000" data-i18n="opt5">Every 5 seconds</option>
         <option value="15000" data-i18n="opt15">Every 15 seconds</option>
@@ -437,7 +493,7 @@
         </p>
         <div class="key-row">
           <label for="api-key-input" data-i18n="apiKeyInputLabel">API key</label>
-          <input id="api-key-input" type="password" autocomplete="off" spellcheck="false" aria-describedby="api-key-status">
+          <input id="api-key-input" type="password" autocomplete="off" spellcheck="false" aria-describedby="api-key-status" aria-label="API key input">
           <button type="button" id="toggle-key-visibility" aria-pressed="false" data-i18n="showKeyBtn">Show</button>
           <button type="button" id="save-key-btn" class="btn-primary" data-i18n="saveKeyBtn">Save</button>
           <button type="button" id="clear-key-btn" data-i18n="clearKeyBtn">Clear</button>
@@ -451,139 +507,142 @@
     <h2 id="kpi-heading" data-i18n="kpiHeading">Key metrics</h2>
     <div class="kpi-grid">
       <article class="kpi-card">
-        <p class="kpi-label" data-i18n="kpiPortfolioValue">Portfolio value</p>
-        <p class="kpi-value" id="kpi-portfolio-value">&mdash;</p>
+        <p class="kpi-label" data-i18n="kpiExposureValue">Exposure value</p>
+        <p class="kpi-value" id="kpi-exposure-value">&mdash;</p>
       </article>
       <article class="kpi-card">
-        <p class="kpi-label" data-i18n="kpiRealised">Realised P&amp;L</p>
-        <p class="kpi-value" id="kpi-realised-pnl">&mdash;</p>
+        <p class="kpi-label" data-i18n="kpiRealizedCost">Realized cost</p>
+        <p class="kpi-value" id="kpi-realized-cost">&mdash;</p>
       </article>
       <article class="kpi-card">
-        <p class="kpi-label" data-i18n="kpiUnrealised">Unrealised P&amp;L</p>
-        <p class="kpi-value" id="kpi-unrealised-pnl">&mdash;</p>
+        <p class="kpi-label" data-i18n="kpiUnrealizedCost">Unrealized cost</p>
+        <p class="kpi-value" id="kpi-unrealized-cost">&mdash;</p>
       </article>
       <article class="kpi-card">
-        <p class="kpi-label" data-i18n="kpiVar">Value at Risk (95%)</p>
-        <p class="kpi-value" id="kpi-var-value">&mdash;</p>
-        <p class="kpi-sub" data-i18n="kpiVarSub">Estimated potential loss</p>
+        <p class="kpi-label" data-i18n="kpiBacklogRisk">Backlog-at-Risk (95%)</p>
+        <p class="kpi-value" id="kpi-backlog-risk">&mdash;</p>
+        <p class="kpi-sub" data-i18n="kpiBacklogRiskSub">Estimated cost pressure from open service demand</p>
       </article>
       <article class="kpi-card">
-        <p class="kpi-label" data-i18n="kpiActiveOrders">Active orders</p>
-        <p class="kpi-value" id="kpi-active-orders">&mdash;</p>
+        <p class="kpi-label" data-i18n="kpiActiveWorkOrders">Active work orders</p>
+        <p class="kpi-value" id="kpi-active-work-orders">&mdash;</p>
       </article>
     </div>
   </section>
 
   <div class="grid-two">
-    <section class="card chart-wrap" aria-labelledby="pnl-heading">
-      <h2 id="pnl-heading" data-i18n="pnlHeading">P&amp;L trend</h2>
-      <svg id="pnl-svg" viewBox="0 0 400 140" preserveAspectRatio="none" role="img" aria-labelledby="pnl-svg-title pnl-svg-desc">
-        <title id="pnl-svg-title" data-i18n="pnlChartTitle">P&amp;L history chart</title>
-        <desc id="pnl-svg-desc" data-i18n="pnlNoData">No data loaded yet.</desc>
+    <section class="card chart-wrap" aria-labelledby="cost-heading">
+      <h2 id="cost-heading" data-i18n="costHeading">Cost trend</h2>
+      <svg id="cost-svg" viewBox="0 0 400 140" preserveAspectRatio="none" role="img" aria-labelledby="cost-svg-title cost-svg-desc">
+        <title id="cost-svg-title" data-i18n="costChartTitle">Cost history chart</title>
+        <desc id="cost-svg-desc" data-i18n="costNoData">No cost history is available yet.</desc>
       </svg>
-      <p class="chart-summary" id="pnl-summary"></p>
+      <p class="chart-summary" id="cost-summary"></p>
       <details>
-        <summary data-i18n="pnlShowTable">Show data as table</summary>
-        <table id="pnl-table">
-          <caption data-i18n="pnlHeading">P&amp;L trend</caption>
+        <summary data-i18n="costShowTable">Show data as table</summary>
+        <table id="cost-table">
+          <caption data-i18n="costHeading">Cost trend</caption>
           <thead>
             <tr>
-              <th scope="col" data-i18n="pnlColTime">Time (Europe/Berlin)</th>
-              <th scope="col" class="num" data-i18n="pnlColValue">Value</th>
+              <th scope="col" data-i18n="costColTime">Time (Europe/Berlin)</th>
+              <th scope="col" class="num" data-i18n="costColValue">Value</th>
             </tr>
           </thead>
-          <tbody id="pnl-table-body"></tbody>
+          <tbody id="cost-table-body"></tbody>
         </table>
       </details>
     </section>
 
     <section class="card" aria-labelledby="risk-heading">
-      <h2 id="risk-heading" data-i18n="riskHeading">Risk breakdown</h2>
+      <h2 id="risk-heading" data-i18n="riskHeading">Operational risk</h2>
       <ul class="risk-bars" id="risk-bars-list"></ul>
       <ul class="risk-stats" id="risk-stats-list"></ul>
     </section>
   </div>
 
-  <section class="card" aria-labelledby="positions-heading">
-    <h2 id="positions-heading" data-i18n="positionsHeading">Positions</h2>
-    <table id="positions-table">
-      <caption data-i18n="positionsCaption">Open positions with quantity, average entry price, market price and profit or loss.</caption>
+  <section class="card" aria-labelledby="workloads-heading">
+    <h2 id="workloads-heading" data-i18n="workloadsHeading">Workloads</h2>
+    <table id="workloads-table">
+      <caption data-i18n="workloadsCaption">Current workload by asset with service hours, rates, and cost totals.</caption>
       <thead>
         <tr>
-          <th scope="col" data-i18n="positionsColSymbol">Symbol</th>
-          <th scope="col" class="num" data-i18n="positionsColQty">Quantity</th>
-          <th scope="col" class="num" data-i18n="positionsColAvgPrice">Avg. entry price</th>
-          <th scope="col" class="num" data-i18n="positionsColMarketPrice">Market price</th>
-          <th scope="col" class="num" data-i18n="positionsColPnl">Total P&amp;L</th>
+          <th scope="col" data-i18n="workloadsColAssetId">Asset ID</th>
+          <th scope="col" data-i18n="workloadsColOrganizationId">Organization ID</th>
+          <th scope="col" class="num" data-i18n="workloadsColNetHours">Net hours</th>
+          <th scope="col" class="num" data-i18n="workloadsColAverageRate">Avg. service rate</th>
+          <th scope="col" class="num" data-i18n="workloadsColLastRate">Last rate</th>
+          <th scope="col" class="num" data-i18n="workloadsColRealizedCost">Realized cost</th>
+          <th scope="col" class="num" data-i18n="workloadsColUnrealizedCost">Unrealized cost</th>
+          <th scope="col" class="num" data-i18n="workloadsColTotalCost">Total cost</th>
         </tr>
       </thead>
-      <tbody id="positions-table-body"></tbody>
+      <tbody id="workloads-table-body"></tbody>
     </table>
   </section>
 
-  <section class="card" aria-labelledby="orderbook-heading">
-    <h2 id="orderbook-heading" data-i18n="orderbookHeading">Order book</h2>
-    <div class="orderbook-controls">
-      <label for="symbol-select" data-i18n="orderbookSymbolLabel">Symbol</label>
-      <select id="symbol-select" aria-describedby="orderbook-empty-note"></select>
+  <section class="card" aria-labelledby="queue-heading">
+    <h2 id="queue-heading" data-i18n="queueHeading">Dispatch queue</h2>
+    <div class="queue-controls">
+      <label for="asset-select" data-i18n="queueAssetLabel">Asset ID</label>
+      <select id="asset-select" aria-describedby="queue-empty-note" aria-label="Asset selector"></select>
     </div>
-    <p class="empty-note" id="orderbook-empty-note" hidden data-i18n="orderbookNoData">No order book data available.</p>
-    <div class="orderbook-grid" id="orderbook-grid">
+    <p class="empty-note" id="queue-empty-note" hidden data-i18n="queueNoData">No dispatch queue data available.</p>
+    <div class="queue-grid" id="queue-grid">
       <div>
-        <h3 class="book-side-bid" data-i18n="orderbookBids">Bids (buy side)</h3>
-        <table id="bids-table">
-          <caption data-i18n="orderbookBidsCaption">Resting buy orders, best price first.</caption>
+        <h3 class="queue-side-request" data-i18n="queueRequests">Requests</h3>
+        <table id="requests-table">
+          <caption data-i18n="queueRequestsCaption">Open service requests, best rate first.</caption>
           <thead>
             <tr>
-              <th scope="col" class="num" data-i18n="orderbookColPrice">Price</th>
-              <th scope="col" class="num" data-i18n="orderbookColQty">Quantity</th>
-              <th scope="col" class="num" data-i18n="orderbookColOrders">Orders</th>
+              <th scope="col" class="num" data-i18n="queueColRate">Rate</th>
+              <th scope="col" class="num" data-i18n="queueColHours">Hours</th>
+              <th scope="col" class="num" data-i18n="queueColWorkOrders">Work orders</th>
             </tr>
           </thead>
-          <tbody id="bids-table-body"></tbody>
+          <tbody id="requests-table-body"></tbody>
         </table>
       </div>
       <div>
-        <h3 class="book-side-ask" data-i18n="orderbookAsks">Asks (sell side)</h3>
-        <table id="asks-table">
-          <caption data-i18n="orderbookAsksCaption">Resting sell orders, best price first.</caption>
+        <h3 class="queue-side-offer" data-i18n="queueOffers">Offers</h3>
+        <table id="offers-table">
+          <caption data-i18n="queueOffersCaption">Available service offers, best rate first.</caption>
           <thead>
             <tr>
-              <th scope="col" class="num" data-i18n="orderbookColPrice">Price</th>
-              <th scope="col" class="num" data-i18n="orderbookColQty">Quantity</th>
-              <th scope="col" class="num" data-i18n="orderbookColOrders">Orders</th>
+              <th scope="col" class="num" data-i18n="queueColRate">Rate</th>
+              <th scope="col" class="num" data-i18n="queueColHours">Hours</th>
+              <th scope="col" class="num" data-i18n="queueColWorkOrders">Work orders</th>
             </tr>
           </thead>
-          <tbody id="asks-table-body"></tbody>
+          <tbody id="offers-table-body"></tbody>
         </table>
       </div>
     </div>
   </section>
 
-  <section class="card" aria-labelledby="orders-heading">
-    <h2 id="orders-heading" data-i18n="ordersHeading">Active orders</h2>
-    <p class="empty-note" id="orders-empty-note" data-i18n="ordersUnavailable">Enter an API key to load active orders.</p>
-    <table id="orders-table" hidden>
-      <caption data-i18n="ordersCaption">Currently active orders submitted to the matching engine.</caption>
+  <section class="card" aria-labelledby="work-orders-heading">
+    <h2 id="work-orders-heading" data-i18n="workOrdersHeading">Work orders</h2>
+    <p class="empty-note" id="work-orders-empty-note" data-i18n="workOrdersUnavailable">Enter an API key to load work orders.</p>
+    <table id="work-orders-table" hidden>
+      <caption data-i18n="workOrdersCaption">Work orders visible to the authenticated organization.</caption>
       <thead>
         <tr>
-          <th scope="col" data-i18n="ordersColId">Order ID</th>
-          <th scope="col" data-i18n="ordersColSymbol">Symbol</th>
-          <th scope="col" data-i18n="ordersColSide">Side</th>
-          <th scope="col" class="num" data-i18n="ordersColQty">Quantity</th>
-          <th scope="col" class="num" data-i18n="ordersColPrice">Price</th>
-          <th scope="col" data-i18n="ordersColStatus">Status</th>
+          <th scope="col" data-i18n="workOrdersColId">Work order ID</th>
+          <th scope="col" data-i18n="workOrdersColAssetId">Asset ID</th>
+          <th scope="col" data-i18n="workOrdersColSide">Side</th>
+          <th scope="col" class="num" data-i18n="workOrdersColHours">Requested hours</th>
+          <th scope="col" class="num" data-i18n="workOrdersColRate">Rate cap</th>
+          <th scope="col" data-i18n="workOrdersColStatus">Status</th>
         </tr>
       </thead>
-      <tbody id="orders-table-body"></tbody>
+      <tbody id="work-orders-table-body"></tbody>
     </table>
   </section>
 </main>
 
 <footer role="contentinfo">
   <div class="disclaimer">
-    <p><strong>EN:</strong> All data shown is simulated for educational purposes only and does not constitute investment advice. Portfolio totals are nominal simulator sums; no FX conversion is performed, so mixed-currency totals are not economic valuations.</p>
-    <p><strong>DE:</strong> Alle angezeigten Daten sind simuliert und dienen ausschlie&szlig;lich Schulungszwecken. Dies stellt keine Anlageberatung dar. Portfoliosummen sind nominale Simulationswerte; es erfolgt keine W&auml;hrungsumrechnung, daher sind gemischte W&auml;hrungssummen keine wirtschaftliche Bewertung.</p>
+    <p><strong>EN:</strong> MittelWerk is a fictional, synthetic field-service operations simulator for workshop use. It is not a real company, is not connected to real equipment or organizations, and does not provide maintenance or safety advice. Mixed-currency totals are nominal simulator values; no FX conversion is performed.</p>
+    <p><strong>DE:</strong> MittelWerk ist eine fiktive, synthetische Field-Service-Operations-Simulation f&uuml;r den Workshop. Es handelt sich nicht um ein reales Unternehmen und es besteht keine Verbindung zu realen Anlagen oder Organisationen. Die Anwendung liefert keine Wartungs- oder Sicherheitshinweise. Summen &uuml;ber mehrere W&auml;hrungen hinweg sind nominelle Simulationswerte; eine W&auml;hrungsumrechnung erfolgt nicht.</p>
   </div>
   <p class="as-of-note" id="as-of-note"></p>
 </footer>
@@ -592,17 +651,34 @@
 (function () {
   'use strict';
 
-  var API_BASE = '/api/v1';
-  var SESSION_KEY = 'qxm.dashboard.apiKey';
+  const API_BASE = '/api/v1';
+  const SESSION_KEY = 'mittelwerk.dashboard.apiKey';
+  const ENDPOINTS = {
+    health: '/health',
+    dashboard: '/dashboard',
+    workOrders: '/work-orders',
+    equipmentSearch: '/equipment/search',
+    dispatchPolicies: '/dispatch-policies',
+    metrics: '/metrics',
+    organizationSnapshot: '/organization/snapshot',
+    organizationRisk: '/organization/risk'
+  };
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+  const TERMINAL_STATUSES = {
+    ASSIGNED: true,
+    CANCELLED: true,
+    REJECTED: true,
+    EXPIRED: true
+  };
 
-  var STRINGS = {
+  const STRINGS = {
     en: {
-      subtitle: 'Simulated trading dashboard for workshop use',
+      subtitle: 'Simulated field-service operations dashboard for workshop use',
       statusUnknown: 'Status unknown',
       statusOnline: 'Connected',
       statusDegraded: 'Degraded',
       statusOffline: 'Offline',
-      statusRefreshing: 'Refreshing\u2026',
+      statusRefreshing: 'Refreshing…',
       statusRefreshed: 'Data refreshed.',
       lastUpdatedLabel: 'Last updated',
       utcLabel: 'stored as UTC',
@@ -627,71 +703,89 @@
       keyStatusEmpty: 'Enter an API key before saving.',
       keyStatusNoStorage: 'Session storage is unavailable; the key will only be kept in memory for this page view.',
       kpiHeading: 'Key metrics',
-      kpiPortfolioValue: 'Portfolio value',
-      kpiRealised: 'Realised P&L',
-      kpiUnrealised: 'Unrealised P&L',
-      kpiVar: 'Value at Risk (95%)',
-      kpiVarSub: 'Estimated potential loss',
-      kpiActiveOrders: 'Active orders',
-      gainWord: 'gain',
-      lossWord: 'loss',
-      flatWord: 'flat',
-      pnlHeading: 'P&L trend',
-      pnlChartTitle: 'P&L history chart',
-      pnlNoData: 'No P&L history is available yet.',
-      pnlShowTable: 'Show data as table',
-      pnlColTime: 'Time (Europe/Berlin)',
-      pnlColValue: 'Value',
-      pnlSummaryTemplate: 'Chart of {count} points from {first} to {last}. Trend: {direction} of {delta}.',
-      riskHeading: 'Risk breakdown',
-      riskNoData: 'No risk data is available yet.',
-      riskVar95Label: 'VaR (95%)',
-      riskVar99Label: 'VaR (99%)',
-      riskSharpeLabel: 'Sharpe ratio',
-      riskMaxDrawdownLabel: 'Max drawdown',
-      positionsHeading: 'Positions',
-      positionsCaption: 'Open positions with quantity, average entry price, market price and profit or loss.',
-      positionsNoData: 'No open positions.',
-      positionsColSymbol: 'Symbol',
-      positionsColQty: 'Quantity',
-      positionsColAvgPrice: 'Avg. entry price',
-      positionsColMarketPrice: 'Market price',
-      positionsColPnl: 'Total P&L',
-      orderbookHeading: 'Order book',
-      orderbookSymbolLabel: 'Symbol',
-      orderbookNoData: 'No order book data available.',
-      orderbookBids: 'Bids (buy side)',
-      orderbookAsks: 'Asks (sell side)',
-      orderbookBidsCaption: 'Resting buy orders, best price first.',
-      orderbookAsksCaption: 'Resting sell orders, best price first.',
-      orderbookColPrice: 'Price',
-      orderbookColQty: 'Quantity',
-      orderbookColOrders: 'Orders',
-      ordersHeading: 'Active orders',
-      ordersCaption: 'Currently active orders submitted to the matching engine.',
-      ordersUnavailable: 'Enter an API key to load active orders.',
-      ordersNoData: 'No active orders.',
-      ordersLoadFailed: 'Active order data could not be loaded from this deployment.',
-      ordersColId: 'Order ID',
-      ordersColSymbol: 'Symbol',
-      ordersColSide: 'Side',
-      ordersColQty: 'Quantity',
-      ordersColPrice: 'Price',
-      ordersColStatus: 'Status',
+      kpiExposureValue: 'Exposure value',
+      kpiRealizedCost: 'Realized cost',
+      kpiUnrealizedCost: 'Unrealized cost',
+      kpiBacklogRisk: 'Backlog-at-Risk (95%)',
+      kpiBacklogRiskSub: 'Estimated cost pressure from open service demand',
+      kpiActiveWorkOrders: 'Active work orders',
+      upWord: 'up',
+      downWord: 'down',
+      steadyWord: 'steady',
+      costHeading: 'Cost trend',
+      costChartTitle: 'Cost history chart',
+      costNoData: 'No cost history is available yet.',
+      costShowTable: 'Show data as table',
+      costColTime: 'Time (Europe/Berlin)',
+      costColValue: 'Value',
+      costSummaryTemplate: 'Chart of {count} points from {first} to {last}. Trend: {direction} by {delta}.',
+      riskHeading: 'Operational risk',
+      riskNoData: 'No operational risk data is available yet.',
+      riskUtilizationLabel: 'Utilization',
+      riskSlaLabel: 'SLA',
+      riskServiceLevelLabel: 'Service level',
+      riskBacklog95Label: 'Backlog-at-Risk (95%)',
+      riskBacklog99Label: 'Backlog-at-Risk (99%)',
+      riskLeadTimeLabel: 'Lead time',
+      riskGrossHoursLabel: 'Gross hours',
+      riskOverrunLabel: 'Backlog overrun',
+      riskComputedAtLabel: 'Computed at',
+      workloadsHeading: 'Workloads',
+      workloadsCaption: 'Current workload by asset with service hours, rates, and cost totals.',
+      workloadsNoData: 'No workloads are currently open.',
+      workloadsColAssetId: 'Asset ID',
+      workloadsColOrganizationId: 'Organization ID',
+      workloadsColNetHours: 'Net hours',
+      workloadsColAverageRate: 'Avg. service rate',
+      workloadsColLastRate: 'Last rate',
+      workloadsColRealizedCost: 'Realized cost',
+      workloadsColUnrealizedCost: 'Unrealized cost',
+      workloadsColTotalCost: 'Total cost',
+      queueHeading: 'Dispatch queue',
+      queueAssetLabel: 'Asset ID',
+      queueNoData: 'No dispatch queue data available.',
+      queueRequests: 'Requests',
+      queueOffers: 'Offers',
+      queueRequestsCaption: 'Open service requests, best rate first.',
+      queueOffersCaption: 'Available service offers, best rate first.',
+      queueColRate: 'Rate',
+      queueColHours: 'Hours',
+      queueColWorkOrders: 'Work orders',
+      workOrdersHeading: 'Work orders',
+      workOrdersCaption: 'Work orders visible to the authenticated organization.',
+      workOrdersUnavailable: 'Enter an API key to load work orders.',
+      workOrdersNoData: 'No work orders are available.',
+      workOrdersLoadFailed: 'Work order data could not be loaded from this deployment.',
+      workOrdersColId: 'Work order ID',
+      workOrdersColAssetId: 'Asset ID',
+      workOrdersColSide: 'Side',
+      workOrdersColHours: 'Requested hours',
+      workOrdersColRate: 'Rate cap',
+      workOrdersColStatus: 'Status',
+      sideRequest: 'REQUEST',
+      sideOffer: 'OFFER',
+      statusNew: 'New',
+      statusAccepted: 'Accepted',
+      statusPartiallyAssigned: 'Partially assigned',
+      statusAssigned: 'Assigned',
+      statusCancelled: 'Cancelled',
+      statusRejected: 'Rejected',
+      statusExpired: 'Expired',
       errorMissingKey: 'Enter your API key above to load dashboard data.',
-      errorUnauthorized: 'The API rejected your API key (unauthorized). Check the key and try again.',
+      errorUnauthorized: 'The API rejected your API key. Check the key and try again.',
       errorNetwork: 'Could not reach the API. You appear to be offline.',
       errorMalformed: 'The API returned data that could not be read.',
       errorHttp: 'The API returned an error (status {status}).',
-      errorEmpty: 'The API returned no dashboard data.'
+      errorEmpty: 'The API returned no dashboard data.',
+      asOfPrefix: 'Data as of: '
     },
     de: {
-      subtitle: 'Simulierte Handels\u00fcbersicht f\u00fcr den Workshop',
+      subtitle: 'Simuliertes Field-Service-Operations-Dashboard f\u00fcr den Workshop',
       statusUnknown: 'Status unbekannt',
       statusOnline: 'Verbunden',
       statusDegraded: 'Eingeschr\u00e4nkt',
       statusOffline: 'Offline',
-      statusRefreshing: 'Wird aktualisiert\u2026',
+      statusRefreshing: 'Wird aktualisiert…',
       statusRefreshed: 'Daten aktualisiert.',
       lastUpdatedLabel: 'Zuletzt aktualisiert',
       utcLabel: 'gespeichert als UTC',
@@ -716,67 +810,85 @@
       keyStatusEmpty: 'Bitte geben Sie vor dem Speichern einen API-Schl\u00fcssel ein.',
       keyStatusNoStorage: 'Sitzungsspeicher ist nicht verf\u00fcgbar; der Schl\u00fcssel wird nur f\u00fcr diese Seitenansicht im Arbeitsspeicher gehalten.',
       kpiHeading: 'Kennzahlen',
-      kpiPortfolioValue: 'Portfoliowert',
-      kpiRealised: 'Realisierter G/V',
-      kpiUnrealised: 'Unrealisierter G/V',
-      kpiVar: 'Value at Risk (95 %)',
-      kpiVarSub: 'Gesch\u00e4tzter potenzieller Verlust',
-      kpiActiveOrders: 'Aktive Orders',
-      gainWord: 'Gewinn',
-      lossWord: 'Verlust',
-      flatWord: 'unver\u00e4ndert',
-      pnlHeading: 'Gewinn-/Verlustverlauf',
-      pnlChartTitle: 'Diagramm: Gewinn-/Verlustverlauf',
-      pnlNoData: 'Es sind noch keine Verlaufsdaten verf\u00fcgbar.',
-      pnlShowTable: 'Daten als Tabelle anzeigen',
-      pnlColTime: 'Zeit (Europe/Berlin)',
-      pnlColValue: 'Wert',
-      pnlSummaryTemplate: 'Diagramm mit {count} Punkten von {first} bis {last}. Trend: {direction} von {delta}.',
-      riskHeading: 'Risikoaufschl\u00fcsselung',
-      riskNoData: 'Es sind noch keine Risikodaten verf\u00fcgbar.',
-      riskVar95Label: 'VaR (95 %)',
-      riskVar99Label: 'VaR (99 %)',
-      riskSharpeLabel: 'Sharpe-Ratio',
-      riskMaxDrawdownLabel: 'Maximaler Drawdown',
-      positionsHeading: 'Positionen',
-      positionsCaption: 'Offene Positionen mit Menge, durchschnittlichem Einstiegspreis, Marktpreis und Gewinn/Verlust.',
-      positionsNoData: 'Keine offenen Positionen.',
-      positionsColSymbol: 'Symbol',
-      positionsColQty: 'Menge',
-      positionsColAvgPrice: '\u00d8 Einstiegspreis',
-      positionsColMarketPrice: 'Marktpreis',
-      positionsColPnl: 'Gesamt-G/V',
-      orderbookHeading: 'Orderbuch',
-      orderbookSymbolLabel: 'Symbol',
-      orderbookNoData: 'Keine Orderbuchdaten verf\u00fcgbar.',
-      orderbookBids: 'Geldseite (Bid)',
-      orderbookAsks: 'Briefseite (Ask)',
-      orderbookBidsCaption: 'Offene Kaufauftr\u00e4ge, bester Preis zuerst.',
-      orderbookAsksCaption: 'Offene Verkaufsauftr\u00e4ge, bester Preis zuerst.',
-      orderbookColPrice: 'Preis',
-      orderbookColQty: 'Menge',
-      orderbookColOrders: 'Auftr\u00e4ge',
-      ordersHeading: 'Aktive Orders',
-      ordersCaption: 'Derzeit aktive, an die Matching Engine \u00fcbermittelte Orders.',
-      ordersUnavailable: 'Geben Sie einen API-Schl\u00fcssel ein, um aktive Orders zu laden.',
-      ordersNoData: 'Keine aktiven Orders.',
-      ordersLoadFailed: 'Aktive Orderdaten konnten in dieser Umgebung nicht geladen werden.',
-      ordersColId: 'Order-ID',
-      ordersColSymbol: 'Symbol',
-      ordersColSide: 'Richtung',
-      ordersColQty: 'Menge',
-      ordersColPrice: 'Preis',
-      ordersColStatus: 'Status',
+      kpiExposureValue: 'Expositionswert',
+      kpiRealizedCost: 'Realisierte Kosten',
+      kpiUnrealizedCost: 'Nicht realisierte Kosten',
+      kpiBacklogRisk: 'R\u00fcckstandsrisiko (95 %)',
+      kpiBacklogRiskSub: 'Gesch\u00e4tzter Kostendruck aus offener Service-Nachfrage',
+      kpiActiveWorkOrders: 'Aktive Arbeitsauftr\u00e4ge',
+      upWord: 'gestiegen',
+      downWord: 'gesunken',
+      steadyWord: 'stabil',
+      costHeading: 'Kostenverlauf',
+      costChartTitle: 'Diagramm: Kostenverlauf',
+      costNoData: 'Es sind noch keine Kostenverlaufsdaten verf\u00fcgbar.',
+      costShowTable: 'Daten als Tabelle anzeigen',
+      costColTime: 'Zeit (Europe/Berlin)',
+      costColValue: 'Wert',
+      costSummaryTemplate: 'Diagramm mit {count} Punkten von {first} bis {last}. Trend: {direction} um {delta}.',
+      riskHeading: 'Operatives Risiko',
+      riskNoData: 'Es sind noch keine operativen Risikodaten verf\u00fcgbar.',
+      riskUtilizationLabel: 'Auslastung',
+      riskSlaLabel: 'SLA',
+      riskServiceLevelLabel: 'Service-Level',
+      riskBacklog95Label: 'R\u00fcckstandsrisiko (95 %)',
+      riskBacklog99Label: 'R\u00fcckstandsrisiko (99 %)',
+      riskLeadTimeLabel: 'Vorlaufzeit',
+      riskGrossHoursLabel: 'Bruttostunden',
+      riskOverrunLabel: 'R\u00fcckstands\u00fcberhang',
+      riskComputedAtLabel: 'Berechnet am',
+      workloadsHeading: 'Auslastung',
+      workloadsCaption: 'Aktuelle Arbeitslast je Anlage mit Service-Stunden, S\u00e4tzen und Kostensummen.',
+      workloadsNoData: 'Aktuell sind keine Arbeitslasten offen.',
+      workloadsColAssetId: 'Anlagen-ID',
+      workloadsColOrganizationId: 'Organisations-ID',
+      workloadsColNetHours: 'Nettostunden',
+      workloadsColAverageRate: 'Ø Service-Satz',
+      workloadsColLastRate: 'Letzter Satz',
+      workloadsColRealizedCost: 'Realisierte Kosten',
+      workloadsColUnrealizedCost: 'Nicht realisierte Kosten',
+      workloadsColTotalCost: 'Gesamtkosten',
+      queueHeading: 'Dispatch-Warteschlange',
+      queueAssetLabel: 'Anlagen-ID',
+      queueNoData: 'Keine Daten zur Dispatch-Warteschlange verf\u00fcgbar.',
+      queueRequests: 'Anfragen',
+      queueOffers: 'Angebote',
+      queueRequestsCaption: 'Offene Service-Anfragen, bester Satz zuerst.',
+      queueOffersCaption: 'Verf\u00fcgbare Service-Angebote, bester Satz zuerst.',
+      queueColRate: 'Satz',
+      queueColHours: 'Stunden',
+      queueColWorkOrders: 'Arbeitsauftr\u00e4ge',
+      workOrdersHeading: 'Arbeitsauftr\u00e4ge',
+      workOrdersCaption: 'F\u00fcr die authentifizierte Organisation sichtbare Arbeitsauftr\u00e4ge.',
+      workOrdersUnavailable: 'Geben Sie einen API-Schl\u00fcssel ein, um Arbeitsauftr\u00e4ge zu laden.',
+      workOrdersNoData: 'Keine Arbeitsauftr\u00e4ge verf\u00fcgbar.',
+      workOrdersLoadFailed: 'Arbeitsauftragsdaten konnten in dieser Umgebung nicht geladen werden.',
+      workOrdersColId: 'Arbeitsauftrags-ID',
+      workOrdersColAssetId: 'Anlagen-ID',
+      workOrdersColSide: 'Seite',
+      workOrdersColHours: 'Angeforderte Stunden',
+      workOrdersColRate: 'Satzgrenze',
+      workOrdersColStatus: 'Status',
+      sideRequest: 'ANFRAGE',
+      sideOffer: 'ANGEBOT',
+      statusNew: 'Neu',
+      statusAccepted: 'Akzeptiert',
+      statusPartiallyAssigned: 'Teilweise disponiert',
+      statusAssigned: 'Disponiert',
+      statusCancelled: 'Storniert',
+      statusRejected: 'Abgelehnt',
+      statusExpired: 'Abgelaufen',
       errorMissingKey: 'Geben Sie oben Ihren API-Schl\u00fcssel ein, um Dashboarddaten zu laden.',
-      errorUnauthorized: 'Die API hat Ihren API-Schl\u00fcssel abgelehnt (nicht autorisiert). Bitte pr\u00fcfen und erneut versuchen.',
-      errorNetwork: 'Die API war nicht erreichbar. M\u00f6glicherweise besteht keine Internetverbindung.',
+      errorUnauthorized: 'Die API hat Ihren API-Schl\u00fcssel abgelehnt. Bitte pr\u00fcfen und erneut versuchen.',
+      errorNetwork: 'Die API war nicht erreichbar. M\u00f6glicherweise besteht keine Verbindung.',
       errorMalformed: 'Die API hat Daten zur\u00fcckgegeben, die nicht gelesen werden konnten.',
       errorHttp: 'Die API hat einen Fehler zur\u00fcckgegeben (Status {status}).',
-      errorEmpty: 'Die API hat keine Dashboarddaten zur\u00fcckgegeben.'
+      errorEmpty: 'Die API hat keine Dashboarddaten zur\u00fcckgegeben.',
+      asOfPrefix: 'Datenstand: '
     }
   };
 
-  var state = {
+  const state = {
     lang: (navigator.language || 'en').toLowerCase().indexOf('de') === 0 ? 'de' : 'en',
     locale: 'en-GB',
     apiKey: '',
@@ -785,108 +897,172 @@
     timer: null,
     controllers: {},
     lastDashboard: null,
-    lastOrders: null,
-    selectedSymbol: null,
+    lastWorkOrders: null,
+    workOrdersNoteKey: 'workOrdersUnavailable',
+    lastOrganizationSnapshot: null,
+    selectedAssetId: null,
     inFlight: false
   };
   state.locale = state.lang === 'de' ? 'de-DE' : 'en-GB';
 
   function t(key) {
-    var dict = STRINGS[state.lang] || STRINGS.en;
-    return dict[key] || STRINGS.en[key] || key;
+    const dictionary = STRINGS[state.lang] || STRINGS.en;
+    return dictionary[key] || STRINGS.en[key] || key;
   }
 
-  function el(id) { return document.getElementById(id); }
+  function el(id) {
+    return document.getElementById(id);
+  }
 
   function clearChildren(node) {
-    while (node.firstChild) node.removeChild(node.firstChild);
-  }
-
-  function safeNumber(v) {
-    if (v === null || v === undefined || v === '') return null;
-    var n = typeof v === 'number' ? v : parseFloat(v);
-    return Number.isFinite(n) ? n : null;
-  }
-
-  function fmtCurrency(value, currency) {
-    var n = safeNumber(value);
-    if (n === null) return '\u2014';
-    var cur = currency || 'EUR';
-    try {
-      return new Intl.NumberFormat(state.locale, { style: 'currency', currency: cur, signDisplay: 'exceptZero' }).format(n);
-    } catch (e) {
-      return new Intl.NumberFormat(state.locale, { style: 'currency', currency: 'EUR' }).format(n);
+    while (node.firstChild) {
+      node.removeChild(node.firstChild);
     }
   }
 
-  function fmtNumber(value, opts) {
-    var n = safeNumber(value);
-    if (n === null) return '\u2014';
-    return new Intl.NumberFormat(state.locale, opts || {}).format(n);
+  function safeNumber(value) {
+    if (value === null || value === undefined || value === '') {
+      return null;
+    }
+    const parsed = typeof value === 'number' ? value : parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  function fmtCurrency(value, currency) {
+    const numeric = safeNumber(value);
+    if (numeric === null) {
+      return '—';
+    }
+    const code = currency || 'EUR';
+    try {
+      return new Intl.NumberFormat(state.locale, {
+        style: 'currency',
+        currency: code,
+        signDisplay: 'exceptZero'
+      }).format(numeric);
+    } catch (error) {
+      return new Intl.NumberFormat(state.locale, {
+        style: 'currency',
+        currency: 'EUR'
+      }).format(numeric);
+    }
+  }
+
+  function fmtNumber(value, options) {
+    const numeric = safeNumber(value);
+    if (numeric === null) {
+      return '—';
+    }
+    return new Intl.NumberFormat(state.locale, options || {}).format(numeric);
+  }
+
+  function fmtHours(value) {
+    return fmtNumber(value, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function fmtPercent(value) {
+    let numeric = safeNumber(value);
+    if (numeric === null) {
+      return '—';
+    }
+    if (Math.abs(numeric) > 1.5) {
+      numeric = numeric / 100;
+    }
+    return new Intl.NumberFormat(state.locale, {
+      style: 'percent',
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1
+    }).format(numeric);
+  }
+
+  function percentWidth(value) {
+    let numeric = safeNumber(value);
+    if (numeric === null) {
+      return 0;
+    }
+    if (Math.abs(numeric) <= 1.5) {
+      numeric = numeric * 100;
+    }
+    return Math.max(0, Math.min(100, numeric));
   }
 
   function berlinAbbrev(date) {
     try {
-      var parts = new Intl.DateTimeFormat('de-DE', { timeZone: 'Europe/Berlin', timeZoneName: 'short' }).formatToParts(date);
-      var found = parts.filter(function (p) { return p.type === 'timeZoneName'; })[0];
-      var raw = found ? found.value : '';
+      const parts = new Intl.DateTimeFormat('de-DE', {
+        timeZone: 'Europe/Berlin',
+        timeZoneName: 'short'
+      }).formatToParts(date);
+      const found = parts.filter(function (part) {
+        return part.type === 'timeZoneName';
+      })[0];
+      const raw = found ? found.value : '';
       if (raw.indexOf('MESZ') !== -1) return { de: 'MESZ', en: 'CEST' };
       if (raw.indexOf('MEZ') !== -1) return { de: 'MEZ', en: 'CET' };
       return { de: raw, en: raw };
-    } catch (e) {
+    } catch (error) {
       return { de: '', en: '' };
     }
   }
 
   function fmtBerlin(isoString) {
-    if (!isoString) return null;
-    var d = new Date(isoString);
-    if (Number.isNaN(d.getTime())) return null;
-    var dtf = new Intl.DateTimeFormat(state.locale, {
-      timeZone: 'Europe/Berlin', year: 'numeric', month: '2-digit', day: '2-digit',
-      hour: '2-digit', minute: '2-digit', second: '2-digit'
+    if (!isoString) {
+      return null;
+    }
+    const date = new Date(isoString);
+    if (Number.isNaN(date.getTime())) {
+      return null;
+    }
+    const formatter = new Intl.DateTimeFormat(state.locale, {
+      timeZone: 'Europe/Berlin',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
     });
-    var abbrev = berlinAbbrev(d);
-    var label = abbrev[state.lang] || abbrev.en;
-    return dtf.format(d) + (label ? ' (' + label + ')' : '');
+    const label = berlinAbbrev(date)[state.lang] || berlinAbbrev(date).en;
+    return formatter.format(date) + (label ? ' (' + label + ')' : '');
   }
 
-  function announce(msg) {
-    var region = el('live-region');
+  function announce(message) {
+    const region = el('live-region');
     region.textContent = '';
-    window.setTimeout(function () { region.textContent = msg; }, 30);
+    window.setTimeout(function () {
+      region.textContent = message;
+    }, 30);
   }
 
   function buildSignedValue(value, currency) {
-    var n = safeNumber(value);
-    var wrap = document.createElement('span');
-    wrap.className = 'signed-value';
-    if (n === null) {
-      wrap.textContent = '\u2014';
-      return wrap;
+    const numeric = safeNumber(value);
+    const wrapper = document.createElement('span');
+    wrapper.className = 'signed-value';
+    if (numeric === null) {
+      wrapper.textContent = '—';
+      return wrapper;
     }
-    var sign = n > 0 ? 'pos' : (n < 0 ? 'neg' : 'flat');
-    wrap.setAttribute('data-sign', sign);
-    var icon = document.createElement('span');
+    const sign = numeric > 0 ? 'up' : (numeric < 0 ? 'down' : 'steady');
+    wrapper.setAttribute('data-sign', sign);
+    const icon = document.createElement('span');
     icon.className = 'sign-icon';
     icon.setAttribute('aria-hidden', 'true');
-    icon.textContent = n > 0 ? '\u25B2' : (n < 0 ? '\u25BC' : '\u2013');
-    var sr = document.createElement('span');
-    sr.className = 'visually-hidden';
-    sr.textContent = n > 0 ? t('gainWord') : (n < 0 ? t('lossWord') : t('flatWord'));
-    var text = document.createElement('span');
-    text.textContent = fmtCurrency(n, currency);
-    wrap.appendChild(icon);
-    wrap.appendChild(sr);
-    wrap.appendChild(text);
-    return wrap;
+    icon.textContent = numeric > 0 ? '▲' : (numeric < 0 ? '▼' : '–');
+    const srText = document.createElement('span');
+    srText.className = 'visually-hidden';
+    srText.textContent = numeric > 0 ? t('upWord') : (numeric < 0 ? t('downWord') : t('steadyWord'));
+    const amount = document.createElement('span');
+    amount.textContent = fmtCurrency(numeric, currency);
+    wrapper.appendChild(icon);
+    wrapper.appendChild(srText);
+    wrapper.appendChild(amount);
+    return wrapper;
   }
 
   function loadApiKey() {
     try {
       state.keyPersisted = true;
       return sessionStorage.getItem(SESSION_KEY) || '';
-    } catch (e) {
+    } catch (error) {
       state.keyPersisted = false;
       return '';
     }
@@ -897,347 +1073,407 @@
       sessionStorage.setItem(SESSION_KEY, value);
       state.keyPersisted = true;
       return true;
-    } catch (e) {
+    } catch (error) {
       state.keyPersisted = false;
       return false;
     }
   }
 
   function removeApiKey() {
-    try { sessionStorage.removeItem(SESSION_KEY); } catch (e) { /* nothing to remove */ }
+    try {
+      sessionStorage.removeItem(SESSION_KEY);
+    } catch (error) {
+      return;
+    }
   }
 
   function classifyResponse(response) {
-    if (response.status === 401 || response.status === 403) return { type: 'unauthorized', status: response.status };
+    if (response.status === 401 || response.status === 403) {
+      return { type: 'unauthorized', status: response.status };
+    }
     return { type: 'http', status: response.status };
   }
 
-  function fetchJson(path, opts) {
-    opts = opts || {};
-    var headers = { Accept: 'application/json' };
-    if (opts.auth) {
+  function fetchJson(path, options) {
+    const requestOptions = options || {};
+    const headers = { Accept: 'application/json' };
+    if (requestOptions.auth) {
       if (!state.apiKey) {
-        var missing = new Error('missing-key');
+        const missing = new Error('missing-key');
         missing.classification = { type: 'missing-key' };
         return Promise.reject(missing);
       }
       headers['X-API-Key'] = state.apiKey;
     }
-    return fetch(API_BASE + path, { headers: headers, signal: opts.signal, cache: 'no-store' })
-      .catch(function (networkErr) {
-        if (networkErr && networkErr.name === 'AbortError') throw networkErr;
-        var err = new Error('network-error');
-        err.classification = { type: 'network' };
-        throw err;
-      })
-      .then(function (response) {
-        if (!response.ok) {
-          var err = new Error('http-error-' + response.status);
-          err.classification = classifyResponse(response);
-          throw err;
-        }
-        return response.json().catch(function () {
-          var perr = new Error('malformed-json');
-          perr.classification = { type: 'malformed' };
-          throw perr;
-        });
+    return fetch(API_BASE + path, {
+      headers: headers,
+      signal: requestOptions.signal,
+      cache: 'no-store'
+    }).catch(function (networkError) {
+      if (networkError && networkError.name === 'AbortError') {
+        const aborted = new Error('aborted');
+        aborted.classification = { type: 'aborted' };
+        throw aborted;
+      }
+      const error = new Error('network-error');
+      error.classification = { type: 'network' };
+      throw error;
+    }).then(function (response) {
+      if (!response.ok) {
+        const error = new Error('http-error-' + response.status);
+        error.classification = classifyResponse(response);
+        throw error;
+      }
+      return response.json().catch(function () {
+        const parseError = new Error('malformed-json');
+        parseError.classification = { type: 'malformed' };
+        throw parseError;
       });
+    });
   }
 
   function showErrorBanner(message) {
-    var banner = el('error-banner');
     el('error-banner-text').textContent = message;
-    banner.hidden = false;
+    el('error-banner').hidden = false;
   }
+
   function hideErrorBanner() {
     el('error-banner').hidden = true;
   }
 
-  function messageForClassification(cls) {
-    if (!cls) return t('errorNetwork');
-    switch (cls.type) {
-      case 'missing-key': return t('errorMissingKey');
-      case 'unauthorized': return t('errorUnauthorized');
-      case 'network': return t('errorNetwork');
-      case 'malformed': return t('errorMalformed');
-      case 'http': return t('errorHttp').replace('{status}', String(cls.status));
-      default: return t('errorNetwork');
+  function messageForClassification(classification) {
+    if (!classification) {
+      return t('errorNetwork');
+    }
+    switch (classification.type) {
+      case 'missing-key':
+        return t('errorMissingKey');
+      case 'unauthorized':
+        return t('errorUnauthorized');
+      case 'network':
+        return t('errorNetwork');
+      case 'malformed':
+        return t('errorMalformed');
+      case 'http':
+        return t('errorHttp').replace('{status}', String(classification.status));
+      default:
+        return t('errorNetwork');
     }
   }
 
-  function normalizePnlHistory(history) {
-    if (!Array.isArray(history)) return [];
-    var out = [];
-    for (var i = 0; i < history.length; i++) {
-      var item = history[i];
-      if (!item || typeof item !== 'object') continue;
-      var ts = item.timestamp || item.time || item.ts || item.date || null;
-      var rawValue = item.value !== undefined ? item.value : (item.pnl !== undefined ? item.pnl : (item.total_pnl !== undefined ? item.total_pnl : item.v));
-      var v = safeNumber(rawValue);
-      if (ts === null || v === null) continue;
-      out.push({ t: ts, v: v });
+  function normalizeCostHistory(history) {
+    if (!Array.isArray(history)) {
+      return [];
     }
-    return out;
+    return history.reduce(function (points, item) {
+      if (!item || typeof item !== 'object') {
+        return points;
+      }
+      const stamp = item.timestamp;
+      const value = safeNumber(item.value);
+      if (!stamp || value === null) {
+        return points;
+      }
+      points.push({ timestamp: stamp, value: value });
+      return points;
+    }, []);
   }
 
-  function buildPnlChart(history) {
-    var svg = el('pnl-svg');
-    var toRemove = [];
-    for (var c = 0; c < svg.children.length; c++) {
-      var child = svg.children[c];
-      if (child.tagName !== 'title' && child.tagName !== 'desc') toRemove.push(child);
+  function buildCostChart(history) {
+    const svg = el('cost-svg');
+    const removable = [];
+    for (let index = 0; index < svg.children.length; index += 1) {
+      const child = svg.children[index];
+      if (child.tagName !== 'title' && child.tagName !== 'desc') {
+        removable.push(child);
+      }
     }
-    toRemove.forEach(function (n) { svg.removeChild(n); });
+    removable.forEach(function (node) {
+      svg.removeChild(node);
+    });
 
-    var desc = el('pnl-svg-desc');
-    var summaryEl = el('pnl-summary');
+    const desc = el('cost-svg-desc');
+    const summary = el('cost-summary');
+    const tableBody = el('cost-table-body');
+    clearChildren(tableBody);
 
     if (!history.length) {
-      desc.textContent = t('pnlNoData');
-      summaryEl.textContent = t('pnlNoData');
-      clearChildren(el('pnl-table-body'));
+      desc.textContent = t('costNoData');
+      summary.textContent = t('costNoData');
       return;
     }
 
-    var width = 400, height = 140, padX = 8, padY = 12;
-    var values = history.map(function (p) { return p.v; });
-    var min = Math.min.apply(null, values.concat([0]));
-    var max = Math.max.apply(null, values.concat([0]));
-    var range = (max - min) || 1;
-    var stepX = history.length > 1 ? (width - padX * 2) / (history.length - 1) : 0;
-    var points = history.map(function (p, i) {
-      var x = padX + i * stepX;
-      var y = height - padY - ((p.v - min) / range) * (height - padY * 2);
+    const width = 400;
+    const height = 140;
+    const padX = 8;
+    const padY = 12;
+    const values = history.map(function (point) { return point.value; });
+    const min = Math.min.apply(null, values.concat([0]));
+    const max = Math.max.apply(null, values.concat([0]));
+    const range = (max - min) || 1;
+    const stepX = history.length > 1 ? (width - padX * 2) / (history.length - 1) : 0;
+    const points = history.map(function (point, index) {
+      const x = padX + index * stepX;
+      const y = height - padY - ((point.value - min) / range) * (height - padY * 2);
       return [x, y];
     });
-    var zeroY = height - padY - ((0 - min) / range) * (height - padY * 2);
+    const baselineY = height - padY - ((0 - min) / range) * (height - padY * 2);
 
-    var ns = 'http://www.w3.org/2000/svg';
-    var zeroLine = document.createElementNS(ns, 'line');
-    zeroLine.setAttribute('x1', String(padX));
-    zeroLine.setAttribute('x2', String(width - padX));
-    zeroLine.setAttribute('y1', String(zeroY));
-    zeroLine.setAttribute('y2', String(zeroY));
-    zeroLine.setAttribute('class', 'pnl-zero-line');
-    svg.appendChild(zeroLine);
+    const baseline = document.createElementNS(SVG_NS, 'line');
+    baseline.setAttribute('x1', String(padX));
+    baseline.setAttribute('x2', String(width - padX));
+    baseline.setAttribute('y1', String(baselineY));
+    baseline.setAttribute('y2', String(baselineY));
+    baseline.setAttribute('class', 'cost-baseline');
+    svg.appendChild(baseline);
 
-    var polyline = document.createElementNS(ns, 'polyline');
-    polyline.setAttribute('points', points.map(function (p) { return p[0] + ',' + p[1]; }).join(' '));
-    polyline.setAttribute('class', 'pnl-line');
-    svg.appendChild(polyline);
+    const line = document.createElementNS(SVG_NS, 'polyline');
+    line.setAttribute('points', points.map(function (point) {
+      return point[0] + ',' + point[1];
+    }).join(' '));
+    line.setAttribute('class', 'cost-line');
+    svg.appendChild(line);
 
-    var last = points[points.length - 1];
-    var dot = document.createElementNS(ns, 'circle');
-    dot.setAttribute('cx', String(last[0]));
-    dot.setAttribute('cy', String(last[1]));
+    const lastPoint = points[points.length - 1];
+    const dot = document.createElementNS(SVG_NS, 'circle');
+    dot.setAttribute('cx', String(lastPoint[0]));
+    dot.setAttribute('cy', String(lastPoint[1]));
     dot.setAttribute('r', '3');
-    dot.setAttribute('class', 'pnl-dot');
+    dot.setAttribute('class', 'cost-dot');
     svg.appendChild(dot);
 
-    var firstV = values[0];
-    var lastV = values[values.length - 1];
-    var delta = lastV - firstV;
-    var direction = delta > 0 ? t('gainWord') : (delta < 0 ? t('lossWord') : t('flatWord'));
-    var currency = (state.lastDashboard && state.lastDashboard.currency) || 'EUR';
-    var firstLabel = fmtBerlin(history[0].t) || String(history[0].t);
-    var lastLabel = fmtBerlin(history[history.length - 1].t) || String(history[history.length - 1].t);
+    const firstValue = values[0];
+    const lastValue = values[values.length - 1];
+    const delta = lastValue - firstValue;
+    const direction = delta > 0 ? t('upWord') : (delta < 0 ? t('downWord') : t('steadyWord'));
+    const currency = (state.lastDashboard && state.lastDashboard.currency) || 'EUR';
+    const firstLabel = fmtBerlin(history[0].timestamp) || String(history[0].timestamp);
+    const lastLabel = fmtBerlin(history[history.length - 1].timestamp) || String(history[history.length - 1].timestamp);
 
-    var summary = t('pnlSummaryTemplate')
+    const summaryText = t('costSummaryTemplate')
       .replace('{count}', String(history.length))
       .replace('{first}', firstLabel)
       .replace('{last}', lastLabel)
       .replace('{direction}', direction)
       .replace('{delta}', fmtCurrency(Math.abs(delta), currency));
-    desc.textContent = summary;
-    summaryEl.textContent = summary;
+    desc.textContent = summaryText;
+    summary.textContent = summaryText;
 
-    var tbody = el('pnl-table-body');
-    clearChildren(tbody);
-    history.forEach(function (p) {
-      var tr = document.createElement('tr');
-      var tdTime = document.createElement('td');
-      tdTime.textContent = fmtBerlin(p.t) || String(p.t);
-      var tdVal = document.createElement('td');
-      tdVal.className = 'num';
-      tdVal.textContent = fmtCurrency(p.v, currency);
-      tr.appendChild(tdTime);
-      tr.appendChild(tdVal);
-      tbody.appendChild(tr);
+    history.forEach(function (point) {
+      const row = document.createElement('tr');
+      const timeCell = document.createElement('td');
+      timeCell.textContent = fmtBerlin(point.timestamp) || String(point.timestamp);
+      const valueCell = document.createElement('td');
+      valueCell.className = 'num';
+      valueCell.textContent = fmtCurrency(point.value, currency);
+      row.appendChild(timeCell);
+      row.appendChild(valueCell);
+      tableBody.appendChild(row);
     });
   }
 
   function renderRisk(risk) {
-    var barsList = el('risk-bars-list');
-    var statsList = el('risk-stats-list');
+    const barsList = el('risk-bars-list');
+    const statsList = el('risk-stats-list');
     clearChildren(barsList);
     clearChildren(statsList);
 
     if (!risk || typeof risk !== 'object') {
-      var li = document.createElement('li');
-      li.className = 'empty-note';
-      li.textContent = t('riskNoData');
-      barsList.appendChild(li);
+      const item = document.createElement('li');
+      item.className = 'empty-note';
+      item.textContent = t('riskNoData');
+      barsList.appendChild(item);
       return;
     }
 
-    var greeks = [
-      { key: 'delta', label: 'Delta' },
-      { key: 'gamma', label: 'Gamma' },
-      { key: 'theta', label: 'Theta' },
-      { key: 'vega', label: 'Vega' },
-      { key: 'rho', label: 'Rho' }
+    const percentageBars = [
+      { key: 'utilization_rate', label: t('riskUtilizationLabel') },
+      { key: 'sla_compliance_rate', label: t('riskSlaLabel') }
     ];
-    var values = greeks.map(function (g) { return Math.abs(safeNumber(risk[g.key]) || 0); });
-    var maxAbs = Math.max.apply(null, values.concat([1e-9]));
 
-    greeks.forEach(function (g) {
-      var n = safeNumber(risk[g.key]);
-      var item = document.createElement('li');
-      var label = document.createElement('span');
-      label.textContent = g.label;
-      var track = document.createElement('span');
+    percentageBars.forEach(function (entry) {
+      const item = document.createElement('li');
+      const label = document.createElement('span');
+      label.textContent = entry.label;
+      const track = document.createElement('span');
       track.className = 'bar-track';
       track.setAttribute('aria-hidden', 'true');
-      var fill = document.createElement('span');
+      const fill = document.createElement('span');
       fill.className = 'bar-fill';
-      var pct = n === null ? 0 : Math.min(100, (Math.abs(n) / maxAbs) * 100);
-      fill.style.width = pct + '%';
+      fill.style.width = percentWidth(risk[entry.key]) + '%';
       track.appendChild(fill);
-      var valueEl = document.createElement('span');
-      valueEl.className = 'risk-value';
-      valueEl.textContent = fmtNumber(n, { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+      const value = document.createElement('span');
+      value.className = 'risk-value';
+      value.textContent = fmtPercent(risk[entry.key]);
       item.appendChild(label);
       item.appendChild(track);
-      item.appendChild(valueEl);
+      item.appendChild(value);
       barsList.appendChild(item);
     });
 
-    var currency = (state.lastDashboard && state.lastDashboard.currency) || 'EUR';
-    var stats = [
-      { label: t('riskVar95Label'), value: fmtCurrency(risk.var_95, currency) },
-      { label: t('riskVar99Label'), value: fmtCurrency(risk.var_99, currency) },
-      { label: t('riskSharpeLabel'), value: fmtNumber(risk.sharpe_ratio, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) },
-      { label: t('riskMaxDrawdownLabel'), value: fmtCurrency(risk.max_drawdown, currency) }
+    const serviceLevel = safeNumber(risk.service_level_ratio);
+    if (serviceLevel !== null) {
+      const item = document.createElement('li');
+      const label = document.createElement('span');
+      label.textContent = t('riskServiceLevelLabel');
+      const track = document.createElement('span');
+      track.className = 'bar-track';
+      track.setAttribute('aria-hidden', 'true');
+      const fill = document.createElement('span');
+      fill.className = 'bar-fill';
+      fill.style.width = Math.min(100, Math.abs(serviceLevel) * 20) + '%';
+      track.appendChild(fill);
+      const value = document.createElement('span');
+      value.className = 'risk-value';
+      value.textContent = fmtNumber(serviceLevel, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      item.appendChild(label);
+      item.appendChild(track);
+      item.appendChild(value);
+      barsList.appendChild(item);
+    }
+
+    const currency = (state.lastDashboard && state.lastDashboard.currency) || 'EUR';
+    const stats = [
+      { label: t('riskBacklog95Label'), value: fmtCurrency(risk.backlog_risk_95, currency) },
+      { label: t('riskBacklog99Label'), value: fmtCurrency(risk.backlog_risk_99, currency) },
+      { label: t('riskLeadTimeLabel'), value: fmtHours(risk.average_lead_time_hours) },
+      { label: t('riskGrossHoursLabel'), value: fmtHours(risk.gross_committed_hours) },
+      { label: t('riskOverrunLabel'), value: fmtNumber(risk.max_backlog_overrun, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) },
+      { label: t('riskComputedAtLabel'), value: fmtBerlin(risk.computed_at) || '—' }
     ];
-    stats.forEach(function (s) {
-      var li2 = document.createElement('li');
-      var lbl = document.createElement('span');
-      lbl.textContent = s.label;
-      var val = document.createElement('span');
-      val.className = 'risk-stat-value';
-      val.textContent = s.value;
-      li2.appendChild(lbl);
-      li2.appendChild(val);
-      statsList.appendChild(li2);
+
+    stats.forEach(function (entry) {
+      const item = document.createElement('li');
+      const label = document.createElement('span');
+      label.textContent = entry.label;
+      const value = document.createElement('span');
+      value.className = 'risk-stat-value';
+      value.textContent = entry.value;
+      item.appendChild(label);
+      item.appendChild(value);
+      statsList.appendChild(item);
     });
   }
 
-  function renderPositions(positions, currency) {
-    var tbody = el('positions-table-body');
-    clearChildren(tbody);
-    if (!Array.isArray(positions) || positions.length === 0) {
-      var tr = document.createElement('tr');
-      var td = document.createElement('td');
-      td.colSpan = 5;
-      td.className = 'empty-note';
-      td.textContent = t('positionsNoData');
-      tr.appendChild(td);
-      tbody.appendChild(tr);
+  function organizationIdForWorkload(workload) {
+    if (workload && workload.organization_id) {
+      return workload.organization_id;
+    }
+    if (state.lastOrganizationSnapshot && state.lastOrganizationSnapshot.organization_id) {
+      return state.lastOrganizationSnapshot.organization_id;
+    }
+    return '—';
+  }
+
+  function workloadCurrency(workload, currency) {
+    if (workload && typeof workload.currency === 'string' && workload.currency.trim()) {
+      return workload.currency.trim().toUpperCase();
+    }
+    return currency || 'EUR';
+  }
+
+  function renderWorkloads(workloads, currency) {
+    const tableBody = el('workloads-table-body');
+    clearChildren(tableBody);
+
+    if (!Array.isArray(workloads) || workloads.length === 0) {
+      const row = document.createElement('tr');
+      const cell = document.createElement('td');
+      cell.colSpan = 8;
+      cell.className = 'empty-note';
+      cell.textContent = t('workloadsNoData');
+      row.appendChild(cell);
+      tableBody.appendChild(row);
       return;
     }
-    positions.forEach(function (p) {
-      var positionCurrency = (
-        typeof p.currency === 'string' && p.currency.trim()
-      ) ? p.currency.trim().toUpperCase() : currency;
-      var row = document.createElement('tr');
-      var symbolTd = document.createElement('td');
-      symbolTd.textContent = p.symbol || '\u2014';
-      var qtyTd = document.createElement('td');
-      qtyTd.className = 'num';
-      qtyTd.textContent = fmtNumber(p.quantity);
-      var avgTd = document.createElement('td');
-      avgTd.className = 'num';
-      avgTd.textContent = fmtCurrency(p.average_entry_price !== undefined ? p.average_entry_price : p.avg_price, positionCurrency);
-      var marketTd = document.createElement('td');
-      marketTd.className = 'num';
-      var marketPrice = p.market_price !== undefined ? p.market_price : (p.mark_price !== undefined ? p.mark_price : p.last_price);
-      marketTd.textContent = fmtCurrency(marketPrice, positionCurrency);
-      var pnlTd = document.createElement('td');
-      pnlTd.className = 'num';
-      var realised = safeNumber(p.realised_pnl !== undefined ? p.realised_pnl : p.realized_pnl) || 0;
-      var unrealised = safeNumber(p.unrealised_pnl !== undefined ? p.unrealised_pnl : p.unrealized_pnl) || 0;
-      var total = p.total_pnl !== undefined ? safeNumber(p.total_pnl) : (realised + unrealised);
-      pnlTd.appendChild(buildSignedValue(total, positionCurrency));
-      row.appendChild(symbolTd);
-      row.appendChild(qtyTd);
-      row.appendChild(avgTd);
-      row.appendChild(marketTd);
-      row.appendChild(pnlTd);
-      tbody.appendChild(row);
+
+    workloads.forEach(function (workload) {
+      const row = document.createElement('tr');
+      const rowCurrency = workloadCurrency(workload, currency);
+      const cells = [
+        { value: workload.asset_id || '—' },
+        { value: organizationIdForWorkload(workload) },
+        { value: fmtHours(workload.net_hours), numeric: true },
+        { value: fmtCurrency(workload.average_service_rate, rowCurrency), numeric: true },
+        { value: fmtCurrency(workload.last_rate, rowCurrency), numeric: true },
+        { value: fmtCurrency(workload.realized_cost, rowCurrency), numeric: true },
+        { value: fmtCurrency(workload.unrealized_cost, rowCurrency), numeric: true },
+        { value: fmtCurrency(workload.total_cost, rowCurrency), numeric: true }
+      ];
+
+      cells.forEach(function (entry) {
+        const cell = document.createElement('td');
+        if (entry.numeric) {
+          cell.className = 'num';
+        }
+        cell.textContent = String(entry.value);
+        row.appendChild(cell);
+      });
+      tableBody.appendChild(row);
     });
   }
 
-  function normalizeOrderBooks(orderBooks) {
-    var map = {};
-    if (!orderBooks) return map;
-    if (Array.isArray(orderBooks)) {
-      orderBooks.forEach(function (entry) {
-        if (entry && entry.symbol) map[entry.symbol] = { bids: entry.bids || [], asks: entry.asks || [] };
-      });
-    } else if (typeof orderBooks === 'object') {
-      Object.keys(orderBooks).forEach(function (symbol) {
-        var book = orderBooks[symbol] || {};
-        map[symbol] = { bids: book.bids || [], asks: book.asks || [] };
-      });
+  function normalizeDispatchQueues(dispatchQueues) {
+    const map = {};
+    if (!dispatchQueues || typeof dispatchQueues !== 'object') {
+      return map;
     }
+    Object.keys(dispatchQueues).forEach(function (assetId) {
+      const queue = dispatchQueues[assetId] || {};
+      map[assetId] = {
+        requests: Array.isArray(queue.requests) ? queue.requests : [],
+        offers: Array.isArray(queue.offers) ? queue.offers : []
+      };
+    });
     return map;
   }
 
-  function renderBookLevels(tbodyId, levels) {
-    var tbody = el(tbodyId);
-    clearChildren(tbody);
+  function renderQueueLevels(tbodyId, levels) {
+    const tableBody = el(tbodyId);
+    clearChildren(tableBody);
+
     if (!Array.isArray(levels) || levels.length === 0) {
-      var tr = document.createElement('tr');
-      var td = document.createElement('td');
-      td.colSpan = 3;
-      td.className = 'empty-note';
-      td.textContent = t('orderbookNoData');
-      tr.appendChild(td);
-      tbody.appendChild(tr);
+      const row = document.createElement('tr');
+      const cell = document.createElement('td');
+      cell.colSpan = 3;
+      cell.className = 'empty-note';
+      cell.textContent = t('queueNoData');
+      row.appendChild(cell);
+      tableBody.appendChild(row);
       return;
     }
+
     levels.forEach(function (level) {
-      var row = document.createElement('tr');
-      var priceTd = document.createElement('td');
-      priceTd.className = 'num';
-      priceTd.textContent = fmtNumber(level.price, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-      var qtyTd = document.createElement('td');
-      qtyTd.className = 'num';
-      qtyTd.textContent = fmtNumber(level.quantity);
-      var ordersTd = document.createElement('td');
-      ordersTd.className = 'num';
-      ordersTd.textContent = level.orders !== undefined && level.orders !== null ? fmtNumber(level.orders) : '\u2014';
-      row.appendChild(priceTd);
-      row.appendChild(qtyTd);
-      row.appendChild(ordersTd);
-      tbody.appendChild(row);
+      const row = document.createElement('tr');
+      const cells = [
+        fmtNumber(level.rate, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+        fmtHours(level.hours),
+        level.work_orders !== undefined && level.work_orders !== null ? fmtNumber(level.work_orders) : '—'
+      ];
+      cells.forEach(function (value) {
+        const cell = document.createElement('td');
+        cell.className = 'num';
+        cell.textContent = String(value);
+        row.appendChild(cell);
+      });
+      tableBody.appendChild(row);
     });
   }
 
-  function renderOrderBook(orderBooks) {
-    var map = normalizeOrderBooks(orderBooks);
-    var symbols = Object.keys(map);
-    var select = el('symbol-select');
-    var emptyNote = el('orderbook-empty-note');
-    var grid = el('orderbook-grid');
+  function renderDispatchQueue(dispatchQueues) {
+    const map = normalizeDispatchQueues(dispatchQueues);
+    const assetIds = Object.keys(map);
+    const select = el('asset-select');
+    const emptyNote = el('queue-empty-note');
+    const grid = el('queue-grid');
 
-    if (symbols.length === 0) {
+    if (assetIds.length === 0) {
       clearChildren(select);
       select.disabled = true;
       emptyNote.hidden = false;
       grid.hidden = true;
-      renderBookLevels('bids-table-body', []);
-      renderBookLevels('asks-table-body', []);
+      renderQueueLevels('requests-table-body', []);
+      renderQueueLevels('offers-table-body', []);
       return;
     }
 
@@ -1245,34 +1481,83 @@
     grid.hidden = false;
     select.disabled = false;
 
-    var currentValues = Array.prototype.map.call(select.options, function (o) { return o.value; });
-    var sameSet = currentValues.length === symbols.length && symbols.every(function (s) { return currentValues.indexOf(s) !== -1; });
+    const currentValues = Array.from(select.options).map(function (option) {
+      return option.value;
+    });
+    const sameSet = currentValues.length === assetIds.length && assetIds.every(function (assetId) {
+      return currentValues.indexOf(assetId) !== -1;
+    });
+
     if (!sameSet) {
       clearChildren(select);
-      symbols.forEach(function (symbol) {
-        var option = document.createElement('option');
-        option.value = symbol;
-        option.textContent = symbol;
+      assetIds.forEach(function (assetId) {
+        const option = document.createElement('option');
+        option.value = assetId;
+        option.textContent = assetId;
         select.appendChild(option);
       });
-      if (!state.selectedSymbol || symbols.indexOf(state.selectedSymbol) === -1) {
-        state.selectedSymbol = symbols[0];
+      if (!state.selectedAssetId || assetIds.indexOf(state.selectedAssetId) === -1) {
+        state.selectedAssetId = assetIds[0];
       }
-      select.value = state.selectedSymbol;
-    } else if (state.selectedSymbol) {
-      select.value = state.selectedSymbol;
+      select.value = state.selectedAssetId;
+    } else if (state.selectedAssetId) {
+      select.value = state.selectedAssetId;
     }
 
-    var book = map[state.selectedSymbol] || { bids: [], asks: [] };
-    renderBookLevels('bids-table-body', book.bids);
-    renderBookLevels('asks-table-body', book.asks);
+    const selectedQueue = map[state.selectedAssetId] || { requests: [], offers: [] };
+    renderQueueLevels('requests-table-body', selectedQueue.requests);
+    renderQueueLevels('offers-table-body', selectedQueue.offers);
   }
 
-  function renderOrders(orders, note) {
-    var table = el('orders-table');
-    var emptyNote = el('orders-empty-note');
-    var tbody = el('orders-table-body');
-    clearChildren(tbody);
+  function normalizeWorkOrders(payload) {
+    if (Array.isArray(payload)) {
+      return payload;
+    }
+    if (payload && Array.isArray(payload.work_orders)) {
+      return payload.work_orders;
+    }
+    return [];
+  }
+
+  function isActiveWorkOrder(workOrder) {
+    const status = workOrder && workOrder.status ? String(workOrder.status).toUpperCase() : '';
+    return Boolean(status) && !TERMINAL_STATUSES[status];
+  }
+
+  function translateSide(side) {
+    const code = typeof side === 'string' ? side.toUpperCase() : '';
+    if (code === 'REQUEST') return t('sideRequest');
+    if (code === 'OFFER') return t('sideOffer');
+    return side || '—';
+  }
+
+  function translateWorkOrderStatus(status) {
+    const code = typeof status === 'string' ? status.toUpperCase() : '';
+    switch (code) {
+      case 'NEW':
+        return t('statusNew');
+      case 'ACCEPTED':
+        return t('statusAccepted');
+      case 'PARTIALLY_ASSIGNED':
+        return t('statusPartiallyAssigned');
+      case 'ASSIGNED':
+        return t('statusAssigned');
+      case 'CANCELLED':
+        return t('statusCancelled');
+      case 'REJECTED':
+        return t('statusRejected');
+      case 'EXPIRED':
+        return t('statusExpired');
+      default:
+        return status || '—';
+    }
+  }
+
+  function renderWorkOrders(workOrders, note) {
+    const table = el('work-orders-table');
+    const emptyNote = el('work-orders-empty-note');
+    const tableBody = el('work-orders-table-body');
+    clearChildren(tableBody);
 
     if (note) {
       table.hidden = true;
@@ -1280,133 +1565,169 @@
       emptyNote.textContent = note;
       return;
     }
-    if (!Array.isArray(orders) || orders.length === 0) {
+
+    if (!Array.isArray(workOrders) || workOrders.length === 0) {
       table.hidden = true;
       emptyNote.hidden = false;
-      emptyNote.textContent = t('ordersNoData');
+      emptyNote.textContent = t('workOrdersNoData');
       return;
     }
+
     emptyNote.hidden = true;
     table.hidden = false;
-    orders.forEach(function (o) {
-      var row = document.createElement('tr');
-      var cells = [
-        o.order_id || o.id || '\u2014',
-        o.symbol || '\u2014',
-        o.side || '\u2014',
-        fmtNumber(o.quantity),
-        fmtNumber(o.price, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-        o.status || '\u2014'
+    workOrders.forEach(function (workOrder) {
+      const currency = (state.lastDashboard && state.lastDashboard.currency) || 'EUR';
+      const row = document.createElement('tr');
+      const cells = [
+        workOrder.work_order_id || '—',
+        workOrder.asset_id || '—',
+        translateSide(workOrder.side),
+        fmtHours(workOrder.requested_hours),
+        fmtCurrency(workOrder.max_hourly_rate, currency),
+        translateWorkOrderStatus(workOrder.status)
       ];
-      cells.forEach(function (val, idx) {
-        var td = document.createElement('td');
-        if (idx === 3 || idx === 4) td.className = 'num';
-        td.textContent = String(val);
-        row.appendChild(td);
+      cells.forEach(function (value, index) {
+        const cell = document.createElement('td');
+        if (index === 3 || index === 4) {
+          cell.className = 'num';
+        }
+        cell.textContent = String(value);
+        row.appendChild(cell);
       });
-      tbody.appendChild(row);
+      tableBody.appendChild(row);
     });
   }
 
   function renderKpis(data) {
-    var kpis = (data && data.kpis) || {};
-    var risk = (data && data.risk) || {};
-    var currency = (data && data.currency) || 'EUR';
+    const kpis = (data && data.kpis) || {};
+    const risk = (data && data.risk) || {};
+    const currency = (data && data.currency) || 'EUR';
 
-    el('kpi-portfolio-value').textContent = fmtCurrency(kpis.portfolio_value, currency);
+    el('kpi-exposure-value').textContent = fmtCurrency(kpis.exposure_value, currency);
 
-    var realised = kpis.realised_pnl !== undefined ? kpis.realised_pnl : kpis.realized_pnl;
-    var unrealised = kpis.unrealised_pnl !== undefined ? kpis.unrealised_pnl : kpis.unrealized_pnl;
-    var realisedEl = el('kpi-realised-pnl');
-    clearChildren(realisedEl);
-    realisedEl.appendChild(buildSignedValue(realised, currency));
-    var unrealisedEl = el('kpi-unrealised-pnl');
-    clearChildren(unrealisedEl);
-    unrealisedEl.appendChild(buildSignedValue(unrealised, currency));
+    const realizedEl = el('kpi-realized-cost');
+    clearChildren(realizedEl);
+    realizedEl.appendChild(buildSignedValue(kpis.realized_cost, currency));
 
-    var varValue = kpis.var_95 !== undefined ? kpis.var_95 : risk.var_95;
-    el('kpi-var-value').textContent = fmtCurrency(varValue, currency);
+    const unrealizedEl = el('kpi-unrealized-cost');
+    clearChildren(unrealizedEl);
+    unrealizedEl.appendChild(buildSignedValue(kpis.unrealized_cost, currency));
 
-    var activeOrders = kpis.active_orders !== undefined && kpis.active_orders !== null
-      ? kpis.active_orders
-      : (Array.isArray(state.lastOrders) ? state.lastOrders.length : null);
-    el('kpi-active-orders').textContent = activeOrders === null ? '\u2014' : fmtNumber(activeOrders);
+    const backlogRisk = kpis.backlog_risk_95 !== undefined ? kpis.backlog_risk_95 : risk.backlog_risk_95;
+    el('kpi-backlog-risk').textContent = fmtCurrency(backlogRisk, currency);
+
+    const fallbackCount = Array.isArray(state.lastWorkOrders)
+      ? state.lastWorkOrders.filter(isActiveWorkOrder).length
+      : null;
+    const activeWorkOrders = kpis.active_work_orders !== undefined && kpis.active_work_orders !== null
+      ? kpis.active_work_orders
+      : fallbackCount;
+    el('kpi-active-work-orders').textContent = activeWorkOrders === null ? '—' : fmtNumber(activeWorkOrders);
   }
 
   function renderDashboard(data) {
-    var currency = (data && data.currency) || 'EUR';
+    const currency = (data && data.currency) || 'EUR';
     renderKpis(data);
-    renderPositions(data && data.positions, currency);
-    buildPnlChart(normalizePnlHistory(data && data.pnl_history));
+    renderWorkloads(data && data.workloads, currency);
+    buildCostChart(normalizeCostHistory(data && data.cost_history));
     renderRisk(data && data.risk);
-    renderOrderBook(data && data.order_books);
+    renderDispatchQueue(data && data.dispatch_queues);
 
-    var asOfNote = el('as-of-note');
+    const asOfNote = el('as-of-note');
     if (data && data.as_of) {
-      var berlin = fmtBerlin(data.as_of);
-      asOfNote.textContent = (state.lang === 'de' ? 'Datenstand: ' : 'Data as of: ') + (berlin || data.as_of) + ' \u2014 ' + t('utcLabel') + ': ' + data.as_of;
+      const berlin = fmtBerlin(data.as_of);
+      asOfNote.textContent = t('asOfPrefix') + (berlin || data.as_of) + ' — ' + t('utcLabel') + ': ' + data.as_of;
       el('last-updated-value').textContent = berlin || data.as_of;
       el('last-updated-value').title = data.as_of;
     }
   }
 
   function isEmptyDashboard(data) {
-    if (!data || typeof data !== 'object') return true;
-    var hasKpis = data.kpis && Object.keys(data.kpis).length > 0;
-    var hasPositions = Array.isArray(data.positions) && data.positions.length > 0;
-    var hasHistory = Array.isArray(data.pnl_history) && data.pnl_history.length > 0;
-    var hasRisk = data.risk && Object.keys(data.risk).length > 0;
-    var hasBooks = data.order_books && Object.keys(data.order_books).length > 0;
-    return !(hasKpis || hasPositions || hasHistory || hasRisk || hasBooks);
+    if (!data || typeof data !== 'object') {
+      return true;
+    }
+    const hasKpis = data.kpis && Object.keys(data.kpis).length > 0;
+    const hasWorkloads = Array.isArray(data.workloads) && data.workloads.length > 0;
+    const hasHistory = Array.isArray(data.cost_history) && data.cost_history.length > 0;
+    const hasRisk = data.risk && Object.keys(data.risk).length > 0;
+    const hasQueues = data.dispatch_queues && Object.keys(data.dispatch_queues).length > 0;
+    return !(hasKpis || hasWorkloads || hasHistory || hasRisk || hasQueues);
   }
 
   function setConnectivity(stateName) {
-    var dot = el('connectivity-dot');
-    var text = el('connectivity-text');
+    const dot = el('connectivity-dot');
+    const text = el('connectivity-text');
     dot.setAttribute('data-state', stateName);
-    var key = stateName === 'online' ? 'statusOnline' : (stateName === 'degraded' ? 'statusDegraded' : (stateName === 'offline' ? 'statusOffline' : 'statusUnknown'));
+    const key = stateName === 'online'
+      ? 'statusOnline'
+      : (stateName === 'degraded' ? 'statusDegraded' : (stateName === 'offline' ? 'statusOffline' : 'statusUnknown'));
     text.setAttribute('data-i18n', key);
     text.textContent = t(key);
   }
 
   function abortInFlight() {
-    Object.keys(state.controllers).forEach(function (k) {
-      if (state.controllers[k]) state.controllers[k].abort();
+    Object.keys(state.controllers).forEach(function (name) {
+      if (state.controllers[name]) {
+        state.controllers[name].abort();
+      }
     });
     state.controllers = {};
   }
 
   function runCycle() {
     abortInFlight();
-    var healthCtrl = new AbortController();
-    var dashCtrl = new AbortController();
-    var ordersCtrl = new AbortController();
-    state.controllers = { health: healthCtrl, dashboard: dashCtrl, orders: ordersCtrl };
+    const healthController = new AbortController();
+    const dashboardController = new AbortController();
+    const workOrdersController = new AbortController();
+    const snapshotController = new AbortController();
+    state.controllers = {
+      health: healthController,
+      dashboard: dashboardController,
+      workOrders: workOrdersController,
+      snapshot: snapshotController
+    };
     state.inFlight = true;
     announce(t('statusRefreshing'));
 
-    var healthPromise = fetchJson('/health', { signal: healthCtrl.signal }).then(
+    const healthPromise = fetchJson(ENDPOINTS.health, { signal: healthController.signal }).then(
       function (data) { return { ok: true, data: data }; },
-      function (err) { return { ok: false, err: err }; }
+      function (error) { return { ok: false, error: error }; }
     );
 
-    var dashboardPromise = fetchJson('/dashboard', { auth: true, signal: dashCtrl.signal }).then(
+    const dashboardPromise = fetchJson(ENDPOINTS.dashboard, {
+      auth: true,
+      signal: dashboardController.signal
+    }).then(
       function (data) { return { ok: true, data: data }; },
-      function (err) { return { ok: false, err: err }; }
+      function (error) { return { ok: false, error: error }; }
     );
 
-    var ordersPromise = state.apiKey
-      ? fetchJson('/orders', { auth: true, signal: ordersCtrl.signal }).then(
+    const workOrdersPromise = state.apiKey
+      ? fetchJson(ENDPOINTS.workOrders, {
+          auth: true,
+          signal: workOrdersController.signal
+        }).then(
           function (data) { return { ok: true, data: data }; },
-          function (err) { return { ok: false, err: err }; }
+          function (error) { return { ok: false, error: error }; }
         )
-      : Promise.resolve({ ok: false, err: { classification: { type: 'missing-key' } } });
+      : Promise.resolve({ ok: false, error: { classification: { type: 'missing-key' } } });
 
-    return Promise.all([healthPromise, dashboardPromise, ordersPromise]).then(function (results) {
+    const snapshotPromise = state.apiKey
+      ? fetchJson(ENDPOINTS.organizationSnapshot, {
+          auth: true,
+          signal: snapshotController.signal
+        }).then(
+          function (data) { return { ok: true, data: data }; },
+          function (error) { return { ok: false, error: error }; }
+        )
+      : Promise.resolve({ ok: false, error: { classification: { type: 'missing-key' } } });
+
+    return Promise.all([healthPromise, dashboardPromise, workOrdersPromise, snapshotPromise]).then(function (results) {
       state.inFlight = false;
       handleHealthResult(results[0]);
       handleDashboardResult(results[1]);
-      handleOrdersResult(results[2]);
+      handleWorkOrdersResult(results[2]);
+      handleSnapshotResult(results[3]);
     });
   }
 
@@ -1415,8 +1736,10 @@
       setConnectivity(result.data && result.data.status === 'healthy' ? 'online' : 'degraded');
       return;
     }
-    var cls = result.err && result.err.classification;
-    if (cls && cls.type === 'aborted') return;
+    const classification = result.error && result.error.classification;
+    if (classification && classification.type === 'aborted') {
+      return;
+    }
     setConnectivity('offline');
   }
 
@@ -1435,37 +1758,55 @@
       announce(t('statusRefreshed'));
       return;
     }
-    var cls = result.err && result.err.classification;
-    if (cls && cls.type === 'aborted') return;
-    var message = messageForClassification(cls);
+    const classification = result.error && result.error.classification;
+    if (classification && classification.type === 'aborted') {
+      return;
+    }
+    const message = messageForClassification(classification);
     showErrorBanner(message);
     announce(message);
   }
 
-  function handleOrdersResult(result) {
+  function handleWorkOrdersResult(result) {
     if (result.ok) {
-      state.lastOrders = Array.isArray(result.data) ? result.data : (result.data && result.data.orders) || [];
-      renderOrders(state.lastOrders, null);
-      if (state.lastDashboard) renderKpis(state.lastDashboard);
+      state.lastWorkOrders = normalizeWorkOrders(result.data);
+      state.workOrdersNoteKey = null;
+      renderWorkOrders(state.lastWorkOrders, null);
+      if (state.lastDashboard) {
+        renderKpis(state.lastDashboard);
+      }
       return;
     }
-    var cls = result.err && result.err.classification;
-    if (cls && cls.type === 'aborted') return;
-    if (cls && cls.type === 'missing-key') {
-      renderOrders(null, t('ordersUnavailable'));
+    const classification = result.error && result.error.classification;
+    if (classification && classification.type === 'aborted') {
       return;
     }
-    renderOrders(null, t('ordersLoadFailed'));
+    if (classification && classification.type === 'missing-key') {
+      state.workOrdersNoteKey = 'workOrdersUnavailable';
+      renderWorkOrders(null, t('workOrdersUnavailable'));
+      return;
+    }
+    state.workOrdersNoteKey = 'workOrdersLoadFailed';
+    renderWorkOrders(null, t('workOrdersLoadFailed'));
   }
 
-  function scheduleAutoRefresh(ms) {
+  function handleSnapshotResult(result) {
+    if (result.ok) {
+      state.lastOrganizationSnapshot = result.data;
+      if (state.lastDashboard) {
+        renderWorkloads(state.lastDashboard.workloads, state.lastDashboard.currency);
+      }
+    }
+  }
+
+  function scheduleAutoRefresh(milliseconds) {
     if (state.timer) {
       window.clearInterval(state.timer);
       state.timer = null;
     }
-    state.autoMs = ms;
-    if (ms > 0 && !document.hidden) {
-      state.timer = window.setInterval(runCycle, ms);
+    state.autoMs = milliseconds;
+    if (milliseconds > 0 && !document.hidden) {
+      state.timer = window.setInterval(runCycle, milliseconds);
     }
   }
 
@@ -1486,24 +1827,32 @@
     Array.prototype.forEach.call(document.querySelectorAll('[data-i18n]'), function (node) {
       node.textContent = t(node.getAttribute('data-i18n'));
     });
-    var langBtn = el('lang-toggle-btn');
+    const languageButton = el('lang-toggle-btn');
     if (state.lang === 'en') {
-      langBtn.textContent = 'Deutsch';
-      langBtn.setAttribute('aria-label', t('langToggleAriaToDe'));
+      languageButton.textContent = 'Deutsch';
+      languageButton.setAttribute('aria-label', t('langToggleAriaToDe'));
     } else {
-      langBtn.textContent = 'English';
-      langBtn.setAttribute('aria-label', t('langToggleAriaToEn'));
+      languageButton.textContent = 'English';
+      languageButton.setAttribute('aria-label', t('langToggleAriaToEn'));
     }
-    var toggleBtn = el('toggle-key-visibility');
-    var input = el('api-key-input');
-    toggleBtn.textContent = input.type === 'password' ? t('showKeyBtn') : t('hideKeyBtn');
-    if (!state.inFlight) setConnectivity(el('connectivity-dot').getAttribute('data-state'));
+    const toggleButton = el('toggle-key-visibility');
+    const input = el('api-key-input');
+    toggleButton.textContent = input.type === 'password' ? t('showKeyBtn') : t('hideKeyBtn');
+    if (!state.inFlight) {
+      setConnectivity(el('connectivity-dot').getAttribute('data-state'));
+    }
   }
 
   function reRenderAfterLanguageChange() {
     applyStaticI18n();
-    if (state.lastDashboard) renderDashboard(state.lastDashboard);
-    if (state.lastOrders !== null) renderOrders(state.lastOrders, null);
+    if (state.lastDashboard) {
+      renderDashboard(state.lastDashboard);
+    }
+    if (state.workOrdersNoteKey) {
+      renderWorkOrders(null, t(state.workOrdersNoteKey));
+    } else if (state.lastWorkOrders !== null) {
+      renderWorkOrders(state.lastWorkOrders, null);
+    }
   }
 
   function wireEvents() {
@@ -1517,9 +1866,9 @@
       runCycle();
     });
 
-    el('auto-refresh-select').addEventListener('change', function (e) {
-      var ms = parseInt(e.target.value, 10) || 0;
-      scheduleAutoRefresh(ms);
+    el('auto-refresh-select').addEventListener('change', function (event) {
+      const milliseconds = parseInt(event.target.value, 10) || 0;
+      scheduleAutoRefresh(milliseconds);
     });
 
     el('error-retry-btn').addEventListener('click', function () {
@@ -1527,23 +1876,23 @@
     });
 
     el('toggle-key-visibility').addEventListener('click', function () {
-      var input = el('api-key-input');
-      var showing = input.type === 'text';
+      const input = el('api-key-input');
+      const showing = input.type === 'text';
       input.type = showing ? 'password' : 'text';
       this.setAttribute('aria-pressed', String(!showing));
       this.textContent = showing ? t('showKeyBtn') : t('hideKeyBtn');
     });
 
     el('save-key-btn').addEventListener('click', function () {
-      var input = el('api-key-input');
-      var value = input.value.trim();
-      var status = el('api-key-status');
+      const input = el('api-key-input');
+      const value = input.value.trim();
+      const status = el('api-key-status');
       if (!value) {
         status.textContent = t('keyStatusEmpty');
         return;
       }
       state.apiKey = value;
-      var persisted = persistApiKey(value);
+      const persisted = persistApiKey(value);
       status.textContent = persisted ? t('keyStatusSaved') : t('keyStatusNoStorage');
       runCycle();
     });
@@ -1553,13 +1902,17 @@
       removeApiKey();
       el('api-key-input').value = '';
       el('api-key-status').textContent = t('keyStatusCleared');
-      state.lastOrders = null;
+      state.lastWorkOrders = null;
+      state.workOrdersNoteKey = 'workOrdersUnavailable';
+      state.lastOrganizationSnapshot = null;
       runCycle();
     });
 
-    el('symbol-select').addEventListener('change', function (e) {
-      state.selectedSymbol = e.target.value;
-      if (state.lastDashboard) renderOrderBook(state.lastDashboard.order_books);
+    el('asset-select').addEventListener('change', function (event) {
+      state.selectedAssetId = event.target.value;
+      if (state.lastDashboard) {
+        renderDispatchQueue(state.lastDashboard.dispatch_queues);
+      }
     });
   }
 
@@ -1570,7 +1923,8 @@
     if (state.apiKey && !state.keyPersisted) {
       el('api-key-status').textContent = t('keyStatusNoStorage');
     }
-    renderOrders(null, t('ordersUnavailable'));
+    state.workOrdersNoteKey = 'workOrdersUnavailable';
+    renderWorkOrders(null, t(state.workOrdersNoteKey));
     wireEvents();
     runCycle();
   }

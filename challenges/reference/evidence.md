@@ -53,10 +53,10 @@ enough for a reviewer.
 
 Worked example:
 
-> I verified that a market buy of 120 now fills at 101.20 for both fills, using
+> I verified that a 12-hour request now uses the accepted 110.00 EUR/h provider rate, using
 > the scenario's acceptance command, and that the regression test fails on the
 > pre-change commit. I assumed the fixture's arrival timestamps reflect real
-> arrival order rather than insertion order. It could still be wrong if two orders
+> arrival order rather than insertion order. It could still be wrong if two offers
 > share a timestamp, which the fixture does not cover.
 
 "I am not sure" on its own is not an answer. "I am not sure **whether**, because

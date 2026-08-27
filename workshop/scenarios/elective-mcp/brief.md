@@ -12,7 +12,7 @@ approved and tested before this block.
 
 | File | Purpose |
 |---|---|
-| `fixtures/tool_inventory.md` | QuantCore's actual server capability and the layer for each control |
+| `fixtures/tool_inventory.md` | MittelWerk's actual server capability and the layer for each control |
 | `fixtures/mcp_config_sample.json` | A current but deliberately broad VS Code local stdio configuration |
 | `fixtures/config_notes.md` | Documented VS Code fields and the sandbox approval trade-off |
 | `fixtures/tool_call_log.md` | Captured positive and negative events |

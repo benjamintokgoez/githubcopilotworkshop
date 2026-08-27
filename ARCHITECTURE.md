@@ -1,295 +1,298 @@
-# QuantCore architecture
+# MittelWerk architecture
 
 ## Purpose
 
-QuantCore (`qxm`) is a deterministic educational trading simulation and the
-technical substrate for a supervised GitHub Copilot workshop. It gives attendees
-a realistic system for incident response, migration, review, least-privilege
-tooling, and handover practice.
+MittelWerk is a deterministic educational simulation of industrial equipment
+service operations for a supervised GitHub Copilot workshop. It gives
+participants a coherent system for incident response, migration, review,
+least-privilege tooling, and operational handover practice.
 
-It is deliberately not a production exchange, broker, risk platform, or market
-data service. Familiar public symbols are reference data; every price, order,
-position, event, and scenario is simulated.
+MittelWerk is fictional. Every organisation, site, asset, provider, work order,
+telemetry reading, and scenario is synthetic. The application is not connected
+to real equipment and is not a maintenance or safety decision system.
 
 ## Runtime view
 
 ```text
-                                  same-origin browser
-                               +-----------------------+
-                               | dashboard/index.html  |
-                               +-----------+-----------+
-                                           |
-                                           | HTTP + X-API-Key
-                                           v
-+----------------+        +---------------------------------------------+
-| REST clients   +------->| FastAPI application (main.py, qxm/api/)     |
-+----------------+        |                                             |
-                          | middleware -> identity/permission -> routes  |
-                          |                    |                        |
-                          |               TradingService                |
-                          +----------+----------+-------------+----------+
-                                     |                        |
-                                     v                        v
-                          +--------------------+    +--------------------+
-                          | MatchingEngine     |    | TimeSeriesStore    |
-                          | OrderBook          |    | SQLite/SQLAlchemy  |
-                          | PositionManager    |    | instruments/trades |
-                          | EventBus/EventLog  |    +--------------------+
-                          +---------+----------+
-                                    ^
-                                    | marks
-                          +---------+----------+
-                          | simulated feed     |
-                          | (aware UTC ticks)  |
-                          +--------------------+
+                               same-origin browser
+                            +------------------------+
+                            | dashboard/index.html   |
+                            +-----------+------------+
+                                        |
+                                        | HTTP + X-API-Key
+                                        v
++---------------+       +-----------------------------------------------+
+| REST clients  +------>| FastAPI application (main.py, mittelwerk/api) |
++---------------+       |                                               |
+                        | middleware -> identity/permission -> routes    |
+                        |                         |                     |
+                        |                    DispatchService             |
+                        +-------------+-----------+-----------+----------+
+                                      |                       |
+                                      v                       v
+                          +----------------------+  +----------------------+
+                          | DispatchEngine       |  | TelemetryStore       |
+                          | DispatchQueue        |  | SQLite / SQLAlchemy  |
+                          | WorkloadManager      |  | readings/assignments |
+                          | EventBus / EventLog  |  | equipment            |
+                          +----------+-----------+  +----------------------+
+                                     ^
+                                     | synthetic readings
+                          +----------+-----------+
+                          | deterministic feed   |
+                          | aware UTC telemetry  |
+                          +----------------------+
 
-+--------------------+       injected isolated engine/instruments
-| MCP v2 client      +----------------------------------------------+
-+---------+----------+                                              |
-          | stdio                                                   v
-          +--------------------------------------------->+----------------------+
-                                                        | MCPServer factory    |
-                                                        | read-only by default |
-                                                        +----------------------+
++----------------+       injected isolated engine/equipment
+| MCP v2 client  +-----------------------------------------------+
++-------+--------+                                               |
+        | stdio                                                  v
+        +-------------------------------------------->+----------------------+
+                                                     | MCPServer factory    |
+                                                     | read-only by default |
+                                                     +----------------------+
 ```
 
-The REST application and the default MCP process create separate in-memory
-matching engines. They do not silently share orders or positions. A caller can
-inject an engine into `create_mcp_server()` when an explicit integration needs
-shared local state.
+The REST application and the default MCP process construct separate in-memory
+dispatch engines. They do not silently share work orders or workloads. An
+explicit local integration can inject an engine into `create_mcp_server()`.
 
-## Core domain (`qxm/core/`)
+## Core domain (`mittelwerk/core/`)
 
 ### Models
 
-`qxm/core/models.py` uses Pydantic v2 and `Decimal` at financial boundaries.
+`mittelwerk/core/models.py` uses Pydantic v2 and `Decimal` at rate, hours, cost,
+and workload boundaries.
 
-- `Instrument`: symbol, instrument type, tick/lot sizes, currency/exchange, and
-  optional option metadata.
-- `Order`: side, type, quantity, prices, time-in-force, lifecycle state, fills,
-  client identity, and aware-UTC timestamps.
-- `Trade`: maker-price execution with buyer/seller order and client IDs.
-- `Position`: signed quantity, average entry price, realized/unrealized P&L, and
-  latest mark.
-- `PortfolioSnapshot` and `RiskMetrics`: typed reporting models.
-- `Tick`: a slot-based immutable-style market observation for low overhead.
+- `Equipment` defines an asset, service interval, standard hourly rate, rate
+  increment, hour lot size, currency, and site.
+- `WorkOrder` represents either an organisation request or a provider capacity
+  offer, with its mode, dispatch window, requested and assigned hours, rate
+  constraints, status, and aware-UTC timestamps.
+- `ServiceAssignment` records the requester, provider, accepted hours, and the
+  authoritative hourly rate.
+- `Workload` tracks signed hours, average service rate, realised cost,
+  unrealised cost, and the latest reference rate.
+- `OrganizationSnapshot`, `OperationalRiskMetrics`, and `TelemetryReading`
+  provide typed reporting and telemetry surfaces.
 
-External timestamps reject naive values and normalize aware offsets to UTC.
-Symbols/currencies are normalized at validation boundaries. JSON-facing Decimal
-values are serialized without conversion through binary float.
+External timestamps reject naive values and normalise aware offsets to UTC.
+Asset and currency identifiers are normalised at validation boundaries.
+JSON-facing decimal values are emitted as strings, without conversion through
+binary float.
 
-### Order book
+### Dispatch queue
 
-`qxm/core/book.py` implements price-time priority:
+`mittelwerk/core/queue.py` implements two-sided rate-time priority:
 
-- bids use negated keys in `SortedDict`, yielding highest price first;
-- asks use natural ascending keys;
-- each price level owns a FIFO `deque`;
-- snapshots aggregate quantity and order count by level;
-- removal/cancellation keeps the price index and order lookup coherent.
+- requests use negated keys in `SortedDict`, yielding the highest acceptable
+  rate first;
+- provider offers use natural ascending keys, yielding the lowest offered rate
+  first;
+- each rate level owns a FIFO `deque`;
+- snapshots aggregate remaining hours and work-order counts;
+- cancellation keeps the rate index and work-order lookup coherent.
 
-### Matching engine
+### Dispatch engine
 
-`MatchingEngine` is constructed with an `EventBus`, instrument map, and optional
-structurally typed `PreTradeRiskCheck`.
+`DispatchEngine` is constructed with an `EventBus`, equipment map, and optional
+structurally typed `PreDispatchCheck`.
 
 ```python
-submission = await engine.submit_order(order)
-cancelled = await engine.cancel_order(order_id, symbol=None)
+submission = await engine.submit_work_order(work_order)
+cancelled = await engine.cancel_work_order(work_order_id, asset_id=None)
 ```
 
-The engine reserves an order ID synchronously before its first `await`, so two
-concurrent submissions cannot both pass the duplicate check. Every attempted ID,
-including a rejected one, remains reserved.
+The engine reserves a work-order ID synchronously before its first `await`, so
+concurrent submissions cannot both pass the duplicate check. Every attempted
+ID, including one later rejected, remains reserved.
 
-The matching rules are:
+The dispatch rules are:
 
-- best price, then FIFO at that price;
-- the resting maker's price is the execution price;
-- LIMIT and MARKET are supported;
-- GTC, IOC, and FOK are supported;
-- an unfilled IOC or MARKET remainder is cancelled;
-- an unfillable FOK is accepted then cancelled without touching liquidity;
-- STOP/STOP_LIMIT and DAY/GTD are rejected because trigger/session subsystems do
-  not exist.
+- best eligible rate, then FIFO at that rate;
+- an assignment uses the resting provider or requester work order's rate;
+- `RATE_CAPPED` and `ANY_RATE` modes are supported;
+- `OPEN`, `IMMEDIATE`, and `COMPLETE` dispatch windows are supported;
+- an unassigned `IMMEDIATE` or `ANY_RATE` remainder stands down;
+- an unfulfillable `COMPLETE` request does not consume capacity;
+- `ESCALATION` modes and `SHIFT`/`SCHEDULED_END` windows are represented but
+  rejected until trigger and scheduling subsystems exist.
 
-Every fill updates both orders, creates one `Trade`, updates both clients'
-positions, and emits lifecycle/trade events. Resting maker state changes are
-published as well as incoming-order changes.
+Every assignment updates both work orders and both organisations' workloads,
+adds one `ServiceAssignment`, and publishes lifecycle and assignment events.
 
 ### Events
 
-`qxm/core/events.py` contains:
+`mittelwerk/core/events.py` contains:
 
-- `DomainEvent`: frozen, aware-UTC event with source, correlation ID, and payload;
+- `DomainEvent`: frozen, aware-UTC event with source, correlation ID, and
+  payload;
 - `EventLog`: bounded append-only sequence with replay filters;
 - `EventBus`: callbacks and async-generator streams, bounded subscriber queues,
   collision-safe subscriber IDs, and explicit async start/stop.
 
-The event log is an in-process educational audit trail, not a durable production
-event store.
+The event log is an in-process educational audit trail, not a durable
+production event store.
 
-## Risk (`qxm/risk/`)
+## Operational analytics (`mittelwerk/analytics/`)
 
-`qxm/risk/var.py` reports VaR and CVaR as **non-negative loss magnitudes**.
-Parametric VaR uses square-root-of-time scaling; historical VaR uses an observed
-order statistic; CVaR averages tail losses. Inputs are finite and bounded, empty
-portfolio facades return zero, short-only books use gross exposure, covariance
-matrices must be positive semidefinite, and stress shocks below -100% are
+`backlog_risk.py` reports parametric, historical, and conditional backlog risk
+as non-negative hour magnitudes. Inputs are finite and bounded, covariance
+matrices must be positive semidefinite, and demand shocks below `-100%` are
 rejected.
 
-`qxm/risk/greeks.py` implements Black-Scholes-Merton call/put prices, delta,
-gamma, theta, vega, rho, and bounded implied-volatility solving. `CachedGreek` is
-a descriptor cache invalidated by the option parameter hash. Workshop conventions
-quote theta per calendar day and vega/rho per one percentage point.
+`capacity.py` estimates completion time, service cost, and sensitivity to crew,
+rate, and backlog changes. `CachedMetric` invalidates descriptor-cached results
+when capacity parameters change.
 
-`qxm/risk/portfolio.py` can read positions from a provider so API analytics follow
-the engine. `+`, `-`, and `*` return new portfolios, preserve value/P&L through
-netting, and never mutate their operands.
+`operations.py` reads workloads through a provider so API analytics follow the
+engine. It computes gross committed hours, utilisation, SLA indicators,
+backlog risk, service-level consistency, and organisation snapshots. Algebraic
+composition returns new analytics objects and does not mutate its operands.
 
-## Market data and persistence (`qxm/data/`)
+Numerical algorithms may use finite floats internally. Exact hours, rates, and
+costs remain `Decimal` at domain and API boundaries.
+
+## Telemetry and persistence (`mittelwerk/telemetry/`)
 
 ### Feed
 
-`GBMSimulator` and `MarketDataFeed` are seedable and offline. The application
-passes the bounded integer seed from `settings.yaml` (default `7`) so local runs
-are reproducible. The FastAPI lifespan starts the feed, consumes each tick,
-publishes its event, and marks open positions at `tick.last`. Unexpected feed
-completion/failure is supervised, logged, and reflected as degraded liveness.
+`ReadingSimulator` and `TelemetryFeed` are seedable and offline. The
+application passes the bounded integer seed from `settings.yaml` so workshop
+runs are reproducible. The FastAPI lifespan starts the feed, consumes each
+reading, publishes its event, and updates workload reference rates. Unexpected
+feed completion or failure is supervised, logged, and reflected as degraded
+liveness.
 
-`WebSocketFeedAdapter` is an optional reconnecting adapter. It validates subscribed
-symbols and aware timestamps and stops without turning a disconnect into a busy
-loop. Live network data is not part of the workshop critical path.
+`WebSocketFeedAdapter` is a reusable reconnecting adapter. It validates
+subscribed assets and aware timestamps and stops without turning a disconnect
+into a busy loop. It is not wired into the workshop's critical path.
 
 ### Transforms
 
-`qxm/data/transform.py` supplies symbol-separated OHLC resampling, VWAP, TWAP,
-returns, volatility, normalization, rolling statistics, and exponential moving
-averages. Empty/invalid windows and non-finite inputs fail explicitly.
+`mittelwerk/telemetry/transform.py` supplies asset-separated interval
+aggregation, sample-weighted and arithmetic averages, reading deltas,
+variability, normalisation, rolling statistics, and exponential moving
+averages. Empty or invalid windows and non-finite inputs fail explicitly.
 
 ### Store
 
-`TimeSeriesStore` uses SQLAlchemy 2 typed mappings and short-lived transactions.
-SQLite is the local default, including a `StaticPool` configuration for
-thread-compatible in-memory tests.
+`TelemetryStore` uses SQLAlchemy 2 typed mappings and short-lived transactions.
+SQLite is the local default, including `StaticPool` for thread-compatible
+in-memory tests.
 
-- `DecimalText` stores exact finite decimal text rather than binary float.
-- `UTCDateTime` rejects naive binds, normalizes to UTC, and restores UTC after a
-  SQLite round trip.
-- Instrument search escapes `LIKE` wildcards and uses bound parameters.
-- Tick, OHLC, trade, and instrument query limits are bounded.
-- Batch trade insertion validates every row before one atomic transaction.
+- `DecimalText` stores exact finite decimal text.
+- `UTCDateTime` rejects naive values, normalises to UTC, and restores UTC after
+  SQLite round trips.
+- Equipment search escapes `LIKE` wildcards and uses bound parameters.
+- Reading, interval, assignment, and equipment queries have hard limits.
+- Batch insertion validates rows before one atomic transaction.
 
-The API persists all trades from an incoming submission after matching. That is a
-documented non-atomic boundary: an engine execution cannot be rolled back if the
-database write fails. The API therefore returns an explicit reconciliation error
-that states the real order/fill state and tells the caller not to resubmit.
-High-frequency generated ticks are intentionally not persisted by the app.
+The API persists assignments after dispatch. This boundary is deliberately
+non-atomic: an in-memory assignment cannot be rolled back if storage fails.
+The API therefore reports a reconciliation error that states the real work
+order and assignment state and tells the caller not to resubmit.
 
-## Strategies (`qxm/strategy/`)
+## Dispatch policies (`mittelwerk/dispatch_policies/`)
 
-`StrategyMeta` registers concrete `BaseStrategy` subclasses automatically. The
-included strategies are momentum breakout, EMA crossover, Bollinger mean
-reversion, and statistical arbitrage. Parameter models reject bool-as-int and
-fractional integer settings. Signals carry aware-UTC timestamps, bounded strength,
-and metadata. Strategy order creation validates the configured symbol and infers
-LIMIT versus MARKET coherently; the engine remains the authority for tick/lot
-rules.
+`DispatchPolicyMeta` registers concrete `BasePolicy` subclasses automatically.
+The included policies cover capacity thresholds, telemetry trends, telemetry
+band deviations, and cross-asset telemetry imbalance. Recommendations use
+bounded confidence, aware-UTC readings, and synthetic metadata.
 
-Strategies generate simulated decisions only. The application does not
-automatically route strategy signals into orders.
+Policies produce recommendations and work-order candidates only. The
+application does not automatically route a recommendation into dispatch.
 
-## Authentication and REST API (`qxm/auth/`, `qxm/api/`, `main.py`)
+## Authentication and REST API
 
-### Authentication
+### Authentication (`mittelwerk/auth/`)
 
-`KeyManager` creates high-entropy raw keys, stores only keyed HMAC-SHA256 digests,
-uses `hmac.compare_digest`, and supports expiry, revocation, rotation, permission
-sets, and safe metadata. Raw keys are returned only at creation/registration and
-must not enter logs or representations.
+`KeyManager` creates high-entropy `mwk_` keys, stores only keyed HMAC-SHA256
+digests, uses `hmac.compare_digest`, and supports expiry, revocation, rotation,
+permissions, and safe metadata. Raw keys are returned only when issued or
+registered and must not enter logs or representations.
 
-The request-signing helper canonicalizes method/path/query/body/timestamp and
-enforces a configurable past/future replay window. REST authentication currently
-uses the `X-API-Key` header; signed-request verification is available for explicit
-integrations but is not an additional hidden API requirement.
+The signing helper canonicalises method, path, query, body, and timestamp and
+enforces a configurable past/future replay window. REST authentication uses
+the `X-API-Key` header; request signing is available for explicit integrations
+but is not an additional hidden API requirement.
 
-### Application factory and lifecycle
+### Application factory (`main.py`, `mittelwerk/api/`)
 
-`main.create_app()` builds isolated services per FastAPI instance:
+`main.create_app()` builds isolated services for each FastAPI instance:
 
-- engine, event bus, trading service, key manager, instruments;
-- optional owned or caller-injected store;
-- optional simulated feed;
-- typed routes and same-origin static dashboard.
+- dispatch engine, event bus, service layer, key manager, and equipment;
+- optional owned or caller-injected telemetry store;
+- optional deterministic feed;
+- typed `/api/v1` routes and a same-origin static dashboard.
 
-No mutable API dependency is stored in a module-level singleton. Lifespan startup
-and teardown track each acquired resource, attempt every cleanup step, and surface
-failures. Injected stores remain caller-owned; stores created by the app are
-disposed by it.
+No mutable API dependency is a module-level singleton. Lifespan startup and
+teardown track acquired resources and surface cleanup failures. Injected stores
+remain caller-owned; stores created by the app are disposed by it.
 
-Protected routes derive client identity and permissions from the validated key.
-Order bodies cannot select a client. CORS is opt-in, wraps authentication errors,
-and never combines wildcard origins with credentials.
+Protected routes derive organisation identity and permissions from the
+validated key. Work-order bodies cannot select an organisation. CORS is
+opt-in, wraps authentication errors, and never combines wildcard origins with
+credentials.
 
-`settings.yaml` has a strict implemented-key allowlist: unknown or malformed
-settings fail before resources open. The development default binds loopback,
-keeps CORS same-origin, labels nominal aggregates in EUR, and seeds the simulator
-with `7`. UTC/Europe-Berlin values are fixed cross-surface contracts rather than
-runtime timezone switches. Secrets and bootstrap credentials are environment
-only; QuantCore never auto-loads `.env`.
+`settings.yaml` has an implemented-key allowlist. Unknown or malformed
+settings fail before resources open. UTC and Europe/Berlin are fixed
+cross-surface contracts. Credentials are environment-only; MittelWerk does not
+load `.env` automatically.
 
-The exact endpoint and error contracts are documented in
+The exact endpoint and error contracts are in
 [`docs/API_REFERENCE.md`](docs/API_REFERENCE.md).
 
-## MCP v2 (`qxm/mcp_server/`)
+## MCP v2 (`mittelwerk/mcp_server/`)
 
-The MCP integration uses the official Python SDK v2 high-level `MCPServer` API.
-`create_mcp_server()` receives an engine and instruments, which keeps tests and
-multiple server instances isolated.
+The MCP integration uses the official Python SDK v2 `MCPServer` API.
+`create_mcp_server()` receives an engine and equipment map, preserving
+application and test isolation.
 
 Default tools are bounded and read-only:
 
-- `list_instruments`
-- `get_order_book`
-- `calculate_risk`
+- `list_equipment`
+- `get_dispatch_queue`
+- `calculate_service_risk`
 
-`submit_order` and `cancel_order` are registered only when the constructing code
-sets `allow_writes=True` and binds a client identity. Identity and credentials are
-never model/tool arguments. Tool annotations communicate read-only,
-destructive, idempotent, and open-world intent, but the registration gate is the
-authorization boundary. Writes are capped at 10,000 units, and submission output
-retains at most 100 trades while reporting total/returned counts and truncation
-without hiding engine execution. Rejections carry the engine's reason, capped at
-256 characters at the MCP boundary.
+`submit_work_order` and `cancel_work_order` are registered only when
+construction sets `allow_writes=True` and binds an organisation identity.
+Identity and credentials are never tool arguments. Tool annotations describe
+read-only, destructive, idempotent, and open-world intent, but registration
+and bound identity are the authorisation boundary.
 
-`run_server()` constructs a fresh read-only local simulation and calls
-`MCPServer.run()` synchronously over stdio. Server code never prints to stdout,
-because stdout is protocol traffic. Tests use both the in-memory SDK
-`Client(server)` transport and a real stdio initialize/list-tools smoke path.
+Write requests are bounded to 10,000 hours. Submission output retains at most
+100 assignments while reporting total and returned counts and whether results
+were truncated. Rejection reasons are capped at 256 characters.
+
+`run_server()` constructs a fresh read-only simulation and runs synchronously
+over stdio. Server code never prints to stdout because stdout carries protocol
+traffic. Tests cover the in-memory `Client(server)` transport and a real stdio
+initialise/list-tools path.
 
 ## Dashboard (`dashboard/index.html`)
 
 The dashboard is a self-contained HTML/CSS/JavaScript application:
 
-- same-origin REST calls; no CDN, analytics, fonts, or external assets;
-- API key kept only in `sessionStorage`;
+- same-origin REST calls with no CDN, analytics, fonts, or external assets;
+- API key held only in `sessionStorage`;
 - German and English copy;
 - `de-DE`/`en-GB` formatting and Europe/Berlin time;
-- instrument currency on each position row, with nominal reporting labels on
-  aggregates because no FX conversion is performed;
+- explicit asset currency and nominal aggregate labels because no FX
+  conversion is performed;
 - semantic structure, keyboard operation, focus visibility, reduced motion,
   retry/error/empty states, and non-colour status cues.
 
-It consumes exactly `as_of`, `currency`, `kpis`, `positions`, `pnl_history`,
-`risk`, and `order_books` from `/api/v1/dashboard`.
+It consumes `as_of`, `currency`, `kpis`, `workloads`, `cost_history`, `risk`,
+and `dispatch_queues` from `/api/v1/dashboard`.
 
 ## Workshop scenario system
 
-The baseline package stays green. `scripts/workshop.py` stages the seven
-deterministic scenario IDs under their own `work/` directories:
+The baseline remains green. `scripts/workshop.py` stages seven deterministic
+scenario IDs under their own `work/` directories:
 
 ```text
-incident-fill-price
+incident-service-rate
 migration-legacy-models
 review-pr
 elective-mcp
@@ -298,77 +301,77 @@ elective-customization
 capstone-transfer
 ```
 
-Scenario manifests declare inert `payloads/*.txt`, artifacts, acceptance checks,
-and captured fallbacks. Runtime state lives under ignored `.workshop-state/`.
-Start is transactional; verify runs bounded declared checks or validates structured
-evidence; reset archives participant work and restores the pre-start bytes/modes
-without broad Git commands.
-
-Captured artifacts keep cloud agents, code review, MCP policy, CLI availability,
-and network quality off the critical path.
+Manifests declare inert `payloads/*.txt`, artifacts, acceptance commands, and
+captured fallbacks. Runtime state lives under ignored `.workshop-state/`.
+Start is transactional; verify runs bounded checks or validates structured
+evidence; reset archives participant work and restores original bytes and
+modes without destructive Git commands.
 
 ## Time, number, and currency boundaries
 
 - Internal and exchanged timestamps: aware UTC.
-- Human presentation: `Europe/Berlin`, 24-hour clock, CET/CEST from timezone data.
+- Human presentation: `Europe/Berlin`, 24-hour clock, CET/CEST from timezone
+  data.
 - Machine numbers: dot decimal separator.
 - German display: decimal comma and dot thousands separator.
-- Calculation/storage: Decimal where value must be exact.
-- Instrument currencies: explicit EUR/USD metadata.
-- FX conversion: not implemented; mixed-currency nominal totals must not be
+- Exact hours, rates, costs, and monetary values: `Decimal`.
+- Asset and reporting currencies: explicit EUR/CHF metadata.
+- FX conversion: not implemented; mixed-currency nominal totals are never
   described as converted economic value.
 
 ## Entrypoints and checks
 
 ```bash
 # REST application
-quantcore
+mittelwerk
 # equivalent during development
 python main.py
 
 # read-only local MCP stdio server
-quantcore-mcp
+mittelwerk-mcp
 # equivalent
-python -m qxm.mcp_server.server
+python -m mittelwerk.mcp_server.server
 
 # workshop scenarios
 python scripts/workshop.py list
 
 # release baseline
-pytest tests/ -q
-ruff check .
-mypy qxm
-python -m compileall -q qxm scripts security_check.py main.py
-bandit -q -r qxm main.py security_check.py
+python -m compileall -q mittelwerk main.py scripts security_check.py tests
+python -m pytest tests/ -v
+python -m ruff check .
+python -m ruff format --check .
+python -m mypy mittelwerk main.py scripts
+python -m pip check
+python -m bandit -r mittelwerk main.py -ll
 python security_check.py
-python scripts/workshop_doctor.py
+python scripts/workshop_doctor.py --strict
 ```
 
-The workshop-supported interpreter is Python 3.12.x; CI pins 3.12.14.
+The supported interpreter is Python 3.12.x; CI pins 3.12.14.
 
 ## Principal dependencies
 
 | Dependency | Purpose |
 |---|---|
-| Pydantic 2.12+ | Domain, API, and MCP validation/serialization |
+| Pydantic 2.12+ | Domain, API, and MCP validation/serialisation |
 | FastAPI / Uvicorn | REST application and ASGI server |
 | SQLAlchemy 2 | Local typed persistence |
-| sortedcontainers | Price-level ordering |
-| NumPy / SciPy | Risk and option mathematics |
-| websockets | Optional streaming adapter |
+| sortedcontainers | Rate-level ordering |
+| NumPy / SciPy | Operational statistics and capacity analytics |
+| websockets | Optional telemetry adapter |
 | MCP Python SDK 2.x | Typed stdio tools and in-memory client tests |
 | PyYAML | Local configuration |
 
 ## Deliberate limitations
 
-- simulated local state, not live trading;
-- in-memory order books, positions, event log, and API-key registry;
+- synthetic local state only;
+- in-memory queues, workloads, event log, and API-key registry;
 - one configured application worker for coherent in-memory state;
-- no stop triggers, exchange session calendar, DAY/GTD scheduler, FX conversion,
-  corporate actions, margin, settlement, or durable event sourcing;
-- simplified educational risk assumptions;
-- local SQLite default and no operational HA/disaster-recovery claims;
-- MCP default process is isolated and read-only.
+- no escalation-trigger subsystem, shift calendar, scheduled-expiry processor,
+  FX conversion, or durable event sourcing;
+- simplified educational telemetry and backlog assumptions;
+- local SQLite default and no high-availability or disaster-recovery claims;
+- an isolated, read-only MCP process by default.
 
-These limitations are explicit teaching boundaries, not features to infer or
-quietly work around.
+These are explicit teaching boundaries, not features to infer or silently work
+around.

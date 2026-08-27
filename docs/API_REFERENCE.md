@@ -1,29 +1,29 @@
-# QuantCore API Reference
+# MittelWerk API reference
 
-QuantCore exposes two local integration surfaces:
+MittelWerk exposes two local integration surfaces:
 
 1. a FastAPI REST API under `/api/v1`;
 2. a Model Context Protocol (MCP) server built with the official Python SDK v2.
 
-Both operate on simulated data. They are workshop interfaces, not production
-trading services.
+Both operate only on synthetic workshop data. They are not connected to real
+equipment, providers, organisations, or site systems.
 
 ## Shared conventions
 
 | Concern | Contract |
 |---|---|
-| Authentication | REST uses `X-API-Key`; MCP binds identity when the server is constructed |
-| Client identity | Derived from trusted server configuration, never from request or tool arguments |
-| Money and quantity | Exact decimal strings in JSON and MCP results |
-| Time | Aware ISO 8601 UTC timestamps, normally ending in `Z` |
-| Order matching | FIFO within each price level; the resting maker price wins |
-| Risk sign | VaR and CVaR are non-negative loss magnitudes |
-| Data | Deterministic or simulated; no live-market claim |
-| Currency | Instrument and reporting labels are explicit; QuantCore performs no FX conversion |
+| Authentication | REST uses `X-API-Key`; MCP binds identity when its server is constructed |
+| Organisation identity | Derived from trusted key or server configuration, never a work-order or tool argument |
+| Hours, rates, and costs | `Decimal` in the domain; exact decimal strings at JSON and MCP boundaries |
+| Time | Aware ISO 8601 UTC timestamps |
+| Dispatch | Rate priority, FIFO at equal rates, and the resting work order's rate |
+| Backlog risk | Non-negative hour magnitudes |
+| Currency | Asset and reporting labels are explicit; no FX conversion is performed |
+| Data | Deterministic or synthetic; no connection to a live site |
 
-The domain uses the American field names `symbol`, `side`, `price`, and
-`quantity` in every locale. The dashboard localizes presentation, not payload
-identifiers.
+Field names such as `asset_id`, `requested_hours`, and `max_hourly_rate` stay
+the same in every locale. The dashboard localises presentation, not machine
+payload identifiers.
 
 ## REST API
 
@@ -33,24 +33,24 @@ The default local base URL is:
 http://127.0.0.1:8443/api/v1
 ```
 
-Start the local server from an installed development checkout with:
+Start the server from an installed development checkout:
 
 ```bash
 python main.py --host 127.0.0.1 --port 8443
 ```
 
-Set `QXM_API_KEY` in the process environment first if you need protected
-routes; otherwise the server deliberately starts with no valid key. QuantCore
-does not auto-load `.env`. The default local server is HTTP even though it uses
-port 8443; the simulator does not configure TLS.
+Set `MITTELWERK_API_KEY` before starting if protected routes are needed. The
+application does not auto-load `.env`; without a bootstrap key it deliberately
+starts with no valid credentials. Port `8443` uses HTTP in this local
+simulation; TLS is not configured.
 
 Interactive schemas are available at `/docs`, `/redoc`, and `/openapi.json`.
 
 ### Runtime configuration
 
-`settings.yaml` is fail-closed: unknown sections/keys, malformed types, an
-unsupported feed mode, non-positive/non-finite intervals, and invalid currency
-codes stop application construction. The supported surface is:
+`settings.yaml` is fail-closed. Unknown sections or keys, malformed types,
+unsupported feed modes, non-positive intervals, and invalid currency codes
+stop application construction.
 
 | Section | Implemented keys |
 |---|---|
@@ -58,40 +58,41 @@ codes stop application construction. The supported surface is:
 | `server` | `host`, `port`, `log_level`, `cors_origins`, `cors_allow_credentials` |
 | `database` | `url`, `echo` |
 | `feed` | `mode`, positive `interval_ms`, bounded integer `seed` |
-| `risk` | Optional positive finite `daily_volatility`; `null` keeps VaR unavailable |
+| `risk` | Optional positive finite `hours_volatility`; `null` keeps parametric backlog risk unavailable |
 | `dashboard` | Three-letter aggregate reporting `currency` |
 | `auth` | Optional positive `key_ttl_seconds` |
 | `logging` | `level`, `format` |
 
-The application supports the deterministic `simulated` feed and explicit
-`disabled`/`off`/`none` modes. `websocket` is deliberately rejected: the
-reconnecting adapter is a reusable library surface, but no live venue is wired
-into this offline workshop app.
+The application supports `simulated` and explicit `disabled`/`off`/`none`
+feed modes. `websocket` is rejected because no site gateway is wired into the
+offline workshop application.
 
 Secrets and bootstrap identity are environment-only:
-`QXM_AUTH_SECRET_KEY`, `QXM_API_KEY`, and `QXM_API_CLIENT_ID`. See
-`.env.example`; QuantCore does not load that file automatically. `X-API-Key` is
-a fixed protocol header, not a configurable setting.
+
+- `MITTELWERK_AUTH_SECRET_KEY`
+- `MITTELWERK_API_KEY`
+- `MITTELWERK_API_ORGANIZATION_ID`
+
+See `.env.example`. `X-API-Key` is a fixed protocol header, not a configurable
+setting.
 
 ### Authentication and permissions
 
-Send the raw bootstrap or managed API key in every protected request:
+Send the raw bootstrap or managed API key with each protected request:
 
 ```http
-X-API-Key: qxm_...
+X-API-Key: mwk_...
 ```
-
-Keys carry one or more permissions:
 
 | Permission | Access |
 |---|---|
-| `read` | Orders, positions, portfolio, instruments, strategies, metrics, dashboard |
-| `trade` | Submit and cancel orders |
-| `admin` | Key-management capability in the auth library; no REST key-management route |
+| `read` | Work orders, workloads, organisation analytics, equipment, policies, metrics, and dashboard |
+| `dispatch` | Submit and cancel work orders |
+| `admin` | Key lifecycle operations in the auth library; no REST administration route |
 
-Missing keys return `401`. Invalid, expired, or revoked keys return `403`.
-Authenticating one client never grants access to another client's orders or
-positions.
+A missing key returns `401`. An invalid, expired, revoked, or
+under-permissioned key returns `403`. One organisation cannot read or cancel
+another organisation's work orders.
 
 Public routes:
 
@@ -107,18 +108,20 @@ All other routes below require `X-API-Key`.
 
 | Method | Path | Permission | Purpose |
 |---|---|---|---|
-| `GET` | `/health` | Public | Liveness and simulation mode |
-| `POST` | `/orders` | `trade` | Submit an order |
-| `GET` | `/orders` | `read` | List the caller's orders |
-| `GET` | `/orders/{order_id}` | `read` | Read one caller-owned order |
-| `DELETE` | `/orders/{order_id}` | `trade` | Cancel a caller-owned resting order |
-| `GET` | `/positions` | `read` | List the caller's positions |
-| `GET` | `/portfolio/snapshot` | `read` | Current portfolio snapshot |
-| `GET` | `/portfolio/risk` | `read` | Current risk analytics |
-| `GET` | `/instruments/search` | `read` | Bounded instrument search |
-| `GET` | `/strategies` | `read` | Registered strategy names |
+| `GET` | `/health` | Public | Liveness, simulation mode, and feed state |
+| `POST` | `/work-orders` | `dispatch` | Submit a request or provider capacity offer |
+| `GET` | `/work-orders` | `read` | List the caller's work orders |
+| `GET` | `/work-orders/{work_order_id}` | `read` | Read one caller-owned work order |
+| `DELETE` | `/work-orders/{work_order_id}` | `dispatch` | Cancel a caller-owned resting work order |
+| `GET` | `/workloads` | `read` | List the caller's signed asset workloads |
+| `GET` | `/organization/snapshot` | `read` | Current organisation snapshot |
+| `GET` | `/organization/risk` | `read` | Current operational analytics |
+| `GET` | `/equipment/search` | `read` | Bounded equipment search |
+| `GET` | `/dispatch-policies` | `read` | Registered policy names |
 | `GET` | `/metrics` | `read` | Process metrics snapshot |
 | `GET` | `/dashboard` | `read` | Aggregate dashboard payload |
+
+Paths in this section are relative to `/api/v1`.
 
 ### Health
 
@@ -129,407 +132,348 @@ GET /api/v1/health
 ```json
 {
   "status": "healthy",
-  "version": "0.5.0",
+  "version": "1.0.0",
   "timestamp": "2026-08-19T08:00:00Z",
   "mode": "simulation",
   "feed": "running"
 }
 ```
 
-The health route is a liveness response, not proof of production readiness,
-external-market connectivity, or persistence durability. `feed` is `running`,
-`off`, or `stopped`; an unexpectedly stopped configured feed changes `status`
-to `degraded` without exposing failure details.
+`feed` is `running`, `off`, or `stopped`. If a configured feed stops
+unexpectedly, `status` becomes `degraded`; failure details remain in server
+logs rather than the public response.
 
-### Submit an order
+### Submit a work order
 
 ```http
-POST /api/v1/orders
+POST /api/v1/work-orders
 Content-Type: application/json
-X-API-Key: qxm_...
+X-API-Key: mwk_...
 ```
+
+Provider capacity offer:
 
 ```json
 {
-  "order_id": "lab1-buy-001",
-  "symbol": "SAP",
-  "side": "BUY",
-  "order_type": "LIMIT",
-  "quantity": "10",
-  "price": "125.40",
-  "time_in_force": "GTC"
+  "work_order_id": "provider-offer-001",
+  "asset_id": "PRESS-04",
+  "side": "OFFER",
+  "mode": "RATE_CAPPED",
+  "requested_hours": "8.0",
+  "max_hourly_rate": "110.00",
+  "dispatch_window": "OPEN"
 }
 ```
 
-Request fields:
+Organisation service request:
+
+```json
+{
+  "work_order_id": "service-request-001",
+  "asset_id": "PRESS-04",
+  "side": "REQUEST",
+  "mode": "RATE_CAPPED",
+  "requested_hours": "4.0",
+  "max_hourly_rate": "118.00",
+  "priority": 2,
+  "dispatch_window": "IMMEDIATE"
+}
+```
 
 | Field | Required | Notes |
 |---|---|---|
-| `order_id` | No | Generated when omitted; otherwise 1-64 URL-safe characters and not `.` or `..` |
-| `symbol` | Yes | Must exist in the configured instrument catalogue |
-| `side` | Yes | `BUY` or `SELL` |
-| `order_type` | No | `LIMIT` by default; also represents `MARKET`, `STOP`, and `STOP_LIMIT` |
-| `quantity` | Yes | Positive decimal and a valid instrument lot multiple |
-| `price` | Conditional | Required for `LIMIT`; must follow tick size |
-| `stop_price` | Conditional | Represented by the model, but stop orders are not implemented |
-| `time_in_force` | No | `GTC` by default; `IOC` and `FOK` are implemented |
-`client_id`, status, fill quantity, timestamps, metadata, and trades are
-server-owned and
-must not appear in the request body.
+| `work_order_id` | No | Generated when omitted; otherwise 1-64 path-safe characters and not `.` or `..` |
+| `asset_id` | Yes | Must exist in `equipment.json` |
+| `side` | Yes | `REQUEST` or `OFFER` |
+| `requested_hours` | Yes | Positive decimal and a valid asset hour-lot multiple |
+| `mode` | No | `RATE_CAPPED` by default; `ANY_RATE` is also implemented |
+| `max_hourly_rate` | Conditional | Required for `RATE_CAPPED`; must follow the asset rate increment |
+| `escalation_rate` | Conditional | Represented by the model; escalation modes are not implemented |
+| `priority` | No | Integer from 1 through 5 |
+| `dispatch_window` | No | `OPEN` by default; `IMMEDIATE` and `COMPLETE` are implemented |
 
-A successful engine submission returns `201`, even when an accepted `IOC` or
-`FOK` ends in `CANCELLED`:
+`organization_id`, status, assigned hours, average service rate, timestamps,
+and assignments are server-owned and must not appear in the request body.
+
+A successful submission returns `201`:
 
 ```json
 {
   "accepted": true,
-  "order_id": "lab1-buy-001",
-  "status": "ACCEPTED",
-  "filled_quantity": "0",
-  "order": {
-    "order_id": "lab1-buy-001",
-    "client_id": "workshop-client",
-    "symbol": "SAP",
-    "side": "BUY",
-    "order_type": "LIMIT",
-    "quantity": "10",
-    "price": "125.40",
-    "status": "ACCEPTED",
-    "filled_quantity": "0"
+  "work_order_id": "service-request-001",
+  "status": "ASSIGNED",
+  "assigned_hours": "4.0",
+  "work_order": {
+    "work_order_id": "service-request-001",
+    "organization_id": "workshop-operations",
+    "asset_id": "PRESS-04",
+    "side": "REQUEST",
+    "mode": "RATE_CAPPED",
+    "requested_hours": "4.0",
+    "max_hourly_rate": "118.00",
+    "status": "ASSIGNED",
+    "assigned_hours": "4.0",
+    "average_service_rate": "110.00"
   },
-  "trades": []
+  "assignments": [
+    {
+      "asset_id": "PRESS-04",
+      "hourly_rate": "110.00",
+      "hours": "4.0"
+    }
+  ]
 }
 ```
 
-The complete `order` and `trade` records include aware UTC timestamps. Use the
-generated OpenAPI schema for their full field list.
+The complete records include aware UTC timestamps and both requester and
+provider identifiers. Use OpenAPI for the full generated schema.
 
 Important lifecycle rules:
 
-- IDs are reserved before asynchronous matching begins and are never reusable,
+- An ID is reserved before asynchronous dispatch and is never reusable,
   including after rejection.
-- Resting liquidity determines the execution price.
-- `MARKET` and `IOC` remainders finish `CANCELLED`.
-- An unfillable `FOK` is accepted and then cancelled without consuming
-  liquidity.
-- `STOP`, `STOP_LIMIT`, `DAY`, and `GTD` are represented for migration
-  exercises but rejected by the matching engine.
-
-Common outcomes:
+- Eligible provider offers are considered from lowest rate to highest, FIFO
+  within one rate.
+- An assignment uses the resting work order's rate, not the incoming request's
+  ceiling.
+- An `ANY_RATE` or `IMMEDIATE` remainder stands down.
+- An unfulfillable `COMPLETE` work order consumes no capacity.
+- `ESCALATION`, `ESCALATION_CAPPED`, `SHIFT`, and `SCHEDULED_END` are
+  represented but rejected because their trigger or scheduling subsystems do
+  not exist.
 
 | Status | Meaning |
 |---|---|
-| `400` | Domain-invalid request or intentional engine rejection |
+| `400` | Domain-invalid request or explicit engine rejection |
 | `401` | Missing API key |
 | `403` | Invalid key or insufficient permission |
-| `409` | Duplicate order ID |
-| `422` | HTTP/schema validation failure |
-| `500` | Execution occurred but resulting trades could not be persisted |
+| `409` | Duplicate work-order ID |
+| `422` | HTTP or schema validation failure |
+| `500` | Dispatch occurred but assignments could not be persisted |
 
 A persistence failure is deliberately truthful:
 
 ```json
 {
   "detail": {
-    "error": "trade_persistence_failed",
-    "order_id": "lab1-buy-001",
-    "status": "FILLED",
-    "filled_quantity": "10",
-    "trade_ids": ["..."],
-    "message": "The order executed and the in-memory engine state is authoritative, but the resulting trades could not be persisted. Reconcile from the engine trade log; do not resubmit this order."
+    "error": "assignment_persistence_failed",
+    "work_order_id": "service-request-001",
+    "status": "ASSIGNED",
+    "assigned_hours": "4.0",
+    "assignment_ids": ["..."],
+    "message": "The work order executed and the in-memory engine state is authoritative, but the resulting assignments could not be persisted. Reconcile from the engine assignment log; do not resubmit this work order."
   }
 }
 ```
 
-Matching and database persistence are not one atomic transaction. Do not
-resubmit after this response.
+Dispatch and storage are not one atomic transaction. Do not resubmit after this
+response.
 
-### List and read orders
-
-```http
-GET /api/v1/orders
-GET /api/v1/orders/lab1-buy-001
-X-API-Key: qxm_...
-```
-
-The list response is:
-
-```json
-{
-  "orders": [],
-  "count": 0
-}
-```
-
-Only orders submitted through the REST service by the authenticated client are
-listed. Another client's order ID is returned as `404`, not disclosed.
-
-### Cancel an order
+### List, read, and cancel work orders
 
 ```http
-DELETE /api/v1/orders/lab1-buy-001
-X-API-Key: qxm_...
+GET /api/v1/work-orders
+GET /api/v1/work-orders/service-request-001
+DELETE /api/v1/work-orders/service-request-001
+X-API-Key: mwk_...
 ```
 
-A resting order returns its updated `CANCELLED` representation. Unknown orders
-return `404`; known orders that are already filled, rejected, or cancelled
-return `409`.
+The list response contains `work_orders` and `count`. Only work orders
+submitted through REST by the authenticated organisation are visible. Another
+organisation's ID returns `404`, not a disclosure. Cancelling a resting work
+order returns its `CANCELLED` representation; a known terminal work order
+returns `409`.
 
-### Positions
+### Workloads
 
 ```http
-GET /api/v1/positions
-X-API-Key: qxm_...
+GET /api/v1/workloads
+X-API-Key: mwk_...
 ```
 
 ```json
 {
-  "client_id": "workshop-client",
-  "positions": [
+  "organization_id": "workshop-operations",
+  "workloads": [
     {
-      "client_id": "workshop-client",
-      "symbol": "SAP",
-      "currency": "EUR",
-      "quantity": "10",
-      "average_entry_price": "125.40",
-      "last_price": "126.00",
-      "realized_pnl": "0",
-      "unrealized_pnl": "6.00",
-      "last_updated": "2026-08-19T08:00:00Z"
+      "asset_id": "PRESS-04",
+      "net_hours": "4.0",
+      "average_service_rate": "110.00",
+      "realized_cost": "0",
+      "unrealized_cost": "0",
+      "currency": "EUR"
     }
   ],
   "count": 1
 }
 ```
 
-Feed ticks mark open positions when the simulated feed is enabled.
+Positive and negative signed hours distinguish requester and provider
+workloads. Costs and reference rates retain exact decimal representation.
 
-### Portfolio snapshot
-
-```http
-GET /api/v1/portfolio/snapshot
-X-API-Key: qxm_...
-```
-
-The snapshot includes the caller's positions, cash balance, market value, total
-value, realized P&L, unrealized P&L, and an aware UTC `timestamp`. Decimal
-values remain strings.
-
-Portfolio arithmetic does not perform currency conversion. Do not interpret a
-raw total across unlike instrument currencies as a converted economic value.
-
-### Portfolio risk
+### Organisation snapshot and risk
 
 ```http
-GET /api/v1/portfolio/risk
-X-API-Key: qxm_...
+GET /api/v1/organization/snapshot
+GET /api/v1/organization/risk
+X-API-Key: mwk_...
 ```
 
-```json
-{
-  "var_95": null,
-  "var_99": null,
-  "gross_exposure": "1254.00",
-  "sharpe_ratio": null,
-  "max_drawdown": null,
-  "greeks": {
-    "delta": "0.0",
-    "gamma": "0.0",
-    "theta": "0.0",
-    "vega": "0.0",
-    "rho": "0.0"
-  }
-}
-```
+The snapshot contains the organisation ID, workloads, budget balance, total
+cost fields, and an aware UTC timestamp.
 
-`var_95` and `var_99` are `null` when no daily-volatility assumption is
-configured. QuantCore does not invent market history or a volatility estimate.
-When present, VaR values are non-negative potential-loss magnitudes.
+The risk response includes:
 
-### Search instruments
+- `backlog_risk_95` and `backlog_risk_99`;
+- `utilization_rate`;
+- `sla_compliance_rate`;
+- `average_lead_time_hours`;
+- `service_level_ratio`;
+- `max_backlog_overrun`;
+- `gross_committed_hours`;
+- `computed_at`.
+
+Parametric backlog-risk fields are `null` when `risk.hours_volatility` is
+unset. MittelWerk does not invent an operational variability assumption.
+
+### Search equipment
 
 ```http
-GET /api/v1/instruments/search?q=SAP&limit=20
-X-API-Key: qxm_...
+GET /api/v1/equipment/search?q=PRESS&limit=20
+X-API-Key: mwk_...
 ```
 
 `q` is trimmed, must contain a non-whitespace character, and is limited to 64
-characters. `limit` is from 1 through 100. The response contains `query`,
-`results`, and `count`; each result includes symbol, name, asset class,
-currency, tick size, lot size, and trading status.
+characters. `limit` is from 1 through 100. Results include asset ID, name,
+equipment type, currency, site, hourly service rate, rate increment, and hour
+lot size.
 
-Database-backed search uses parameterized predicates. SQL wildcard and quote
-characters are data, not executable SQL.
+Database search uses parameterised predicates and treats SQL wildcard
+characters as literal input. The in-memory fallback has the same boundary
+behaviour.
 
-### Strategies
+### Dispatch policies
 
 ```http
-GET /api/v1/strategies
-X-API-Key: qxm_...
+GET /api/v1/dispatch-policies
+X-API-Key: mwk_...
 ```
 
-Returns the names registered by `StrategyMeta`:
-
-```json
-{
-  "strategies": [
-    "BollingerMeanReversion",
-    "EMACrossover",
-    "MomentumBreakout",
-    "StatisticalArbitrage"
-  ]
-}
-```
-
-This route reports registrations; it does not start a strategy.
+Returns names registered by `DispatchPolicyMeta`, including capacity,
+telemetry trend, band-deviation, and cross-asset telemetry policies. Listing a
+policy does not execute it or submit a work order.
 
 ### Metrics
 
 ```http
 GET /api/v1/metrics
-X-API-Key: qxm_...
+X-API-Key: mwk_...
 ```
 
-Returns a point-in-time JSON object with `counters`, `gauges`, and
-`histograms`. It is a process-local teaching surface, not a hosted telemetry
-export. QuantCore sends no workshop telemetry to an external service.
+Returns process-local `counters`, `gauges`, and `histograms`. MittelWerk sends
+no workshop telemetry to an external service.
 
 ### Dashboard data
 
 ```http
 GET /api/v1/dashboard
-X-API-Key: qxm_...
+X-API-Key: mwk_...
 ```
 
-The top-level shape is stable:
+The response always contains:
 
 ```json
 {
   "as_of": "2026-08-19T08:00:00Z",
   "currency": "EUR",
   "kpis": {},
-  "positions": [],
-  "pnl_history": [],
+  "workloads": [],
+  "cost_history": [],
   "risk": {},
-  "order_books": {}
+  "dispatch_queues": {}
 }
 ```
 
-Empty arrays and unavailable risk values are valid states. Top-level `currency`
-labels nominal aggregate totals; mixed-currency values are not converted. Each
-position also carries its instrument currency so row-level prices and P&L are
-not mislabeled.
-
-The static bilingual dashboard shell is served at `/` and `/api/v1/dashboard`
-is its authenticated data source. The API key is kept in memory or
-`sessionStorage` for the current browser tab only.
-
-### Error format
-
-FastAPI validation errors use the standard `detail` array. Domain errors use a
-structured `detail` object:
-
-```json
-{
-  "detail": {
-    "error": "order_rejected",
-    "order_id": "lab1-buy-001",
-    "status": "REJECTED",
-    "reason": "..."
-  }
-}
-```
-
-Do not parse human-readable `reason` or `message` text as a stable machine
-code. Use the `error` field and HTTP status.
-
-### CORS
-
-CORS is disabled unless origins are explicitly configured. Do not use `*` with
-credentials. Middleware ordering ensures configured CORS headers also appear
-on authentication failures.
+Empty collections are a valid initial state. `currency` labels nominal
+aggregate simulator values; no conversion between EUR and CHF occurs.
 
 ## MCP server
 
-QuantCore uses the official stable MCP Python SDK v2:
-
-```text
-mcp>=2,<3
-```
-
-The server entry point is:
-
-```bash
-quantcore-mcp
-```
-
-or:
-
-```bash
-python -m qxm.mcp_server.server
-```
-
-The default transport is stdio. Standard output is reserved for MCP protocol
-traffic; diagnostics belong on standard error.
-
-### MCP security model
-
-The default server is read-only. Write tools exist only when the host creates
-the server with both:
+MittelWerk uses the official Python SDK v2:
 
 ```python
-create_mcp_server(
+from mcp.server import MCPServer
+```
+
+Run the default read-only stdio server:
+
+```bash
+mittelwerk-mcp
+# or
+python -m mittelwerk.mcp_server.server
+```
+
+Do not print application text to stdout from this process; stdout carries MCP
+protocol traffic.
+
+### Construction and authorisation
+
+The default server is read-only:
+
+```python
+server = create_mcp_server(engine, equipment)
+```
+
+Write tools require explicit construction-time opt-in and a bound identity:
+
+```python
+server = create_mcp_server(
+    engine,
+    equipment,
     allow_writes=True,
-    client_id="workshop-client",
+    organization_id="workshop-operations",
 )
 ```
 
-API keys and client IDs are not MCP tool arguments. Tool annotations describe
-intent to compatible clients but are not an authorization boundary.
+Tool annotations are hints for clients and models. They do not grant
+authorisation. Registration plus the bound organisation identity is the
+enforcement boundary. Identity is never accepted as a tool argument.
 
-### Read-only tools
+### Default read-only tools
 
-| Tool | Purpose |
+| Tool | Bounds and result |
 |---|---|
-| `list_instruments` | Return the configured simulated instrument catalogue |
-| `get_order_book` | Return bounded depth for one symbol |
-| `calculate_risk` | Compute bounded educational risk analytics |
+| `list_equipment` | `limit` 1-50, bounded offset; returns deterministic asset order |
+| `get_dispatch_queue` | Known asset, depth 1-20; returns request/offer levels and summary rates |
+| `calculate_service_risk` | Caller-supplied backlog values; at most 256 observations and a 1-365-day horizon |
 
-### Optional write tools
+`calculate_service_risk` requires `hours_volatility`, `backlog_history`, or
+both. It returns non-negative parametric, historical, and conditional
+backlog-risk magnitudes only for the inputs supplied.
 
-| Tool | Purpose |
+### Opt-in write tools
+
+| Tool | Contract |
 |---|---|
-| `submit_order` | Submit a bounded order for the construction-time client |
-| `cancel_order` | Cancel that client's resting order |
+| `submit_work_order` | Submit up to 10,000 hours for the construction-time organisation |
+| `cancel_work_order` | Cancel an open work order created by that same MCP server identity |
 
-Write quantity is capped at 10,000 units. Submission results bound serialized
-trade detail to 100 records and report `trade_count`,
-`returned_trade_count`, and `trades_truncated` without hiding execution. Rejected
-submissions carry the simulation engine's actionable `rejection_reason`, bounded
-to 256 characters at the MCP boundary.
+MCP write mode supports `RATE_CAPPED`/`ANY_RATE` and
+`OPEN`/`IMMEDIATE`/`COMPLETE`. Results retain at most 100 assignments while
+reporting total and returned counts and whether the list was truncated.
+Rejection reasons are bounded to 256 characters.
 
-### MCP host configuration
+The MCP server has no network or real-equipment capability. Confirmation and
+sandbox settings in a client remain separate controls; they do not replace
+server authorisation.
 
-For current VS Code clients, a stdio server entry in `.vscode/mcp.json` uses
-host fields such as `type`, `command`, `args`, `cwd`, `env`, and `envFile`.
-Optional sandbox configuration uses supported filesystem and network policy
-fields. Tool selection and ordinary approval are client controls outside
-`mcp.json`; server tool annotations are metadata. Current VS Code auto-approves
-tool calls for a server with `sandboxEnabled: true`, so the sandbox rules and
-their platform limitations become the approval boundary.
+## Source locations
 
-The deterministic `elective-mcp` scenario contains the workshop's current,
-inert configuration fixture. Do not place a real credential in committed MCP
-configuration.
-
-## Source of truth
-
-- REST schema: `/openapi.json`
-- REST routes: `qxm/api/routes.py`
-- REST request/response models: `qxm/api/schemas.py`
-- MCP registration and bounds: `qxm/mcp_server/server.py`
-- Domain invariants: `qxm/core/models.py` and `qxm/core/engine.py`
-
-When prose and generated OpenAPI details differ, treat the running
-implementation and its tests as the executable contract and correct the
-documentation in the same change.
+- Application factory and configuration: `main.py`
+- REST routes: `mittelwerk/api/routes.py`
+- REST request/response models: `mittelwerk/api/schemas.py`
+- Authentication: `mittelwerk/auth/`
+- MCP registration and bounds: `mittelwerk/mcp_server/server.py`
+- Domain invariants: `mittelwerk/core/models.py` and
+  `mittelwerk/core/engine.py`
+- Persistence: `mittelwerk/telemetry/store.py`

@@ -13,29 +13,29 @@ from pathlib import Path
 import pytest
 from pydantic import BaseModel
 
-from qxm.core import Tick
-from qxm.utils.decorators import RateLimiter, async_retry, retry, timed
-from qxm.utils.metrics import MetricsRegistry
-from qxm.utils.serializer import from_binary, from_json, to_binary, to_json
+from mittelwerk.core import TelemetryReading
+from mittelwerk.utils.decorators import RateLimiter, async_retry, retry, timed
+from mittelwerk.utils.metrics import MetricsRegistry
+from mittelwerk.utils.serializer import from_binary, from_json, to_binary, to_json
 from security_check import scan_file, scan_source
 
 
 def test_top_level_import_is_lightweight_and_coherent() -> None:
-    sys.modules.pop("qxm.api", None)
-    sys.modules.pop("qxm.mcp_server", None)
-    qxm = importlib.import_module("qxm")
+    sys.modules.pop("mittelwerk.api", None)
+    sys.modules.pop("mittelwerk.mcp_server", None)
+    mittelwerk = importlib.import_module("mittelwerk")
 
-    assert qxm.__version__ == "0.5.0"
-    assert qxm.Order is not None
-    assert "MarketDataFeed" in qxm.__all__
-    assert "qxm.api" not in sys.modules
-    assert "qxm.mcp_server" not in sys.modules
+    assert mittelwerk.__version__ == "1.0.0"
+    assert mittelwerk.WorkOrder is not None
+    assert "TelemetryFeed" in mittelwerk.__all__
+    assert "mittelwerk.api" not in sys.modules
+    assert "mittelwerk.mcp_server" not in sys.modules
 
 
 def test_serializes_pydantic_v2_and_slots_deterministically() -> None:
     class Quote(BaseModel):
-        symbol: str
-        price: Decimal
+        asset_id: str
+        rate: Decimal
         timestamp: datetime
 
     @dataclass(slots=True)
@@ -43,17 +43,19 @@ def test_serializes_pydantic_v2_and_slots_deterministically() -> None:
         quote: Quote
 
     timestamp = datetime(2026, 8, 19, 9, 0, tzinfo=UTC)
-    tick = Tick("QXM", Decimal("10.1"), Decimal("10.2"), Decimal("10.15"), 7, timestamp)
+    reading = TelemetryReading(
+        "MWK", Decimal("10.1"), Decimal("10.2"), Decimal("10.15"), 7, timestamp
+    )
     payload = {
-        "tick": tick,
-        "envelope": Envelope(Quote(symbol="QXM", price=Decimal("10.15"), timestamp=timestamp)),
+        "reading": reading,
+        "envelope": Envelope(Quote(asset_id="MWK", rate=Decimal("10.15"), timestamp=timestamp)),
     }
 
     encoded = to_json(payload)
 
     assert encoded == to_json(payload)
-    assert '"price":"10.15"' in encoded
-    assert '"symbol":"QXM"' in encoded
+    assert '"rate":"10.15"' in encoded
+    assert '"asset_id":"MWK"' in encoded
     assert '"timestamp":"2026-08-19T09:00:00Z"' in encoded
 
 
@@ -102,7 +104,7 @@ def test_retry_does_not_sleep_after_final_failure(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     sleeps: list[float] = []
-    monkeypatch.setattr("qxm.utils.decorators.time.sleep", sleeps.append)
+    monkeypatch.setattr("mittelwerk.utils.decorators.time.sleep", sleeps.append)
     attempts = 0
 
     @retry(max_attempts=3, delay=0.25, backoff=2)
@@ -157,7 +159,7 @@ def test_rate_limiter_non_blocking_acquire_validates_tokens() -> None:
 
 def test_metrics_are_thread_safe_and_resettable() -> None:
     registry = MetricsRegistry()
-    counter = registry.counter("orders")
+    counter = registry.counter("work_orders")
     histogram = registry.histogram("latency", buckets=(1.0, 2.0))
 
     threads = [
@@ -172,7 +174,7 @@ def test_metrics_are_thread_safe_and_resettable() -> None:
     histogram.observe(3.0)
 
     snapshot = registry.snapshot()
-    assert snapshot["counters"]["orders"] == 2000
+    assert snapshot["counters"]["work_orders"] == 2000
     assert snapshot["histograms"]["latency"]["buckets"] == {
         "1.0": 1,
         "2.0": 2,
@@ -181,13 +183,13 @@ def test_metrics_are_thread_safe_and_resettable() -> None:
     assert snapshot["histograms"]["latency"]["count"] == 3
 
     registry.reset()
-    assert registry.snapshot()["counters"]["orders"] == 0
+    assert registry.snapshot()["counters"]["work_orders"] == 0
     registry.clear()
     assert registry.snapshot() == {"counters": {}, "gauges": {}, "histograms": {}}
 
 
 def test_security_scanner_distinguishes_simulation_from_key_generation() -> None:
-    feed_path = Path(__file__).parents[1] / "qxm" / "data" / "feed.py"
+    feed_path = Path(__file__).parents[1] / "mittelwerk" / "telemetry" / "feed.py"
     simulation_findings = scan_file(feed_path)
     key_findings = scan_source(
         """

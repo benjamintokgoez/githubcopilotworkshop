@@ -1,0 +1,112 @@
+[
+  {
+    "asset_id": "CNC-01",
+    "name": "CNC Mill Line 1",
+    "equipment_type": "CNC_MACHINE",
+    "service_interval_days": 30,
+    "hourly_service_rate": 85.00,
+    "rate_increment": 0.50,
+    "hour_lot_size": 0.25,
+    "currency": "EUR",
+    "site_code": "MW-STUTTGART"
+  },
+  {
+    "asset_id": "CNC-02",
+    "name": "CNC Mill Line 2",
+    "equipment_type": "CNC_MACHINE",
+    "service_interval_days": 30,
+    "hourly_service_rate": 89.50,
+    "rate_increment": 0.50,
+    "hour_lot_size": 0.25,
+    "currency": "EUR",
+    "site_code": "MW-STUTTGART"
+  },
+  {
+    "asset_id": "PRESS-04",
+    "name": "Hydraulic Press 400t",
+    "equipment_type": "HYDRAULIC_PRESS",
+    "service_interval_days": 45,
+    "hourly_service_rate": 120.00,
+    "rate_increment": 1.00,
+    "hour_lot_size": 0.5,
+    "currency": "EUR",
+    "site_code": "MW-MUNICH"
+  },
+  {
+    "asset_id": "CONV-12",
+    "name": "Conveyor System Bay 12",
+    "equipment_type": "CONVEYOR_SYSTEM",
+    "service_interval_days": 60,
+    "hourly_service_rate": 65.00,
+    "rate_increment": 0.50,
+    "hour_lot_size": 0.25,
+    "currency": "EUR",
+    "site_code": "MW-MUNICH"
+  },
+  {
+    "asset_id": "ROBOT-07",
+    "name": "Robotic Welding Arm 7",
+    "equipment_type": "ROBOTIC_ARM",
+    "service_interval_days": 21,
+    "hourly_service_rate": 110.00,
+    "rate_increment": 1.00,
+    "hour_lot_size": 0.25,
+    "currency": "EUR",
+    "site_code": "MW-STUTTGART"
+  },
+  {
+    "asset_id": "COMP-03",
+    "name": "Industrial Compressor Unit 3",
+    "equipment_type": "COMPRESSOR",
+    "service_interval_days": 90,
+    "hourly_service_rate": 78.00,
+    "rate_increment": 0.50,
+    "hour_lot_size": 0.5,
+    "currency": "CHF",
+    "site_code": "MW-ZURICH"
+  },
+  {
+    "asset_id": "GEN-02",
+    "name": "Backup Generator Unit 2",
+    "equipment_type": "GENERATOR",
+    "service_interval_days": 180,
+    "hourly_service_rate": 95.00,
+    "rate_increment": 1.00,
+    "hour_lot_size": 0.5,
+    "currency": "CHF",
+    "site_code": "MW-ZURICH"
+  },
+  {
+    "asset_id": "HVAC-09",
+    "name": "HVAC Rooftop Unit 9",
+    "equipment_type": "HVAC_UNIT",
+    "service_interval_days": 120,
+    "hourly_service_rate": 70.00,
+    "rate_increment": 0.50,
+    "hour_lot_size": 0.25,
+    "currency": "EUR",
+    "site_code": "MW-MUNICH"
+  },
+  {
+    "asset_id": "FORK-05",
+    "name": "Warehouse Forklift 5",
+    "equipment_type": "FORKLIFT",
+    "service_interval_days": 30,
+    "hourly_service_rate": 55.00,
+    "rate_increment": 0.50,
+    "hour_lot_size": 0.25,
+    "currency": "EUR",
+    "site_code": "MW-STUTTGART"
+  },
+  {
+    "asset_id": "PRESS-01",
+    "name": "Hydraulic Press 150t",
+    "equipment_type": "HYDRAULIC_PRESS",
+    "service_interval_days": 45,
+    "hourly_service_rate": 99.00,
+    "rate_increment": 1.00,
+    "hour_lot_size": 0.5,
+    "currency": "EUR",
+    "site_code": "MW-STUTTGART"
+  }
+]

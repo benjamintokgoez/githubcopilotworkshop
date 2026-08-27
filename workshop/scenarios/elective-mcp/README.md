@@ -27,10 +27,10 @@ separately. Use a live server only if it was approved, connected, and smoke-test
 Lab 5. Do not spend the elective installing or authenticating one.
 
 The tool surface described here is the one this repository ships today: a
-read-only server with `list_instruments`, `get_order_book` and `calculate_risk`,
-plus `submit_order` and `cancel_order` that are only registered when a server is
+read-only server with `list_equipment`, `get_dispatch_queue` and `calculate_service_risk`,
+plus `submit_work_order` and `cancel_work_order` that are only registered when a server is
 deliberately constructed with writes enabled and a bound client identity.
 
-This is the QuantCore training server, not the GitHub MCP Server. Product status,
+This is the MittelWerk training server, not the GitHub MCP Server. Product status,
 GitHub toolsets, registry governance, and VS Code sandbox boundaries are recorded
 in `brief.md` and `fixtures/config_notes.md`.

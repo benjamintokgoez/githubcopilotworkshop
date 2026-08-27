@@ -1,6 +1,6 @@
 # One-day competency map
 
-QuantCore is not a feature tour. It is a sequence of increasingly independent
+MittelWerk is not a feature tour. It is a sequence of increasingly independent
 repetitions of one engineering loop:
 
 ```text

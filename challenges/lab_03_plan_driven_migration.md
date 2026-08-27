@@ -82,7 +82,7 @@ you make; do not guess silently. The hints do not identify it.
 - **INV-TIME-1:** timestamps remain timezone-aware UTC after a round trip.
 - **INV-FMT-1:** machine JSON uses a dot decimal separator. DACH formatting is a
   presentation concern, not a payload concern.
-- **INV-VAR-1** and **INV-GREEK-1** remain true for downstream calculations.
+- **INV-ASSET-1** and **INV-SLA-3** remain true for downstream systems.
 
 See [reference/invariants.md](reference/invariants.md).
 
@@ -126,9 +126,10 @@ Use the public surface in `inventory.md`, not internal model methods. Capture:
 
 1. The initial verifier command, exit status, and observed failing/passing split.
 2. The public imports and call signatures.
-3. One valid instrument and one valid quote through their public parser, payload,
-   and JSON paths. Preserve representations and relevant runtime types.
-4. One invalid instrument and one invalid quote through the public error
+3. One valid equipment reference and one valid service-rate record through their
+   public parser, payload, and JSON paths. Preserve representations and relevant
+   runtime types.
+4. One invalid equipment reference and one invalid service-rate record through the public error
    boundary. Preserve the exception type and whether the message is non-empty.
 
 This matrix covers both model families without multiplying equivalent invalid

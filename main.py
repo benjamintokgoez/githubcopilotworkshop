@@ -1,17 +1,20 @@
-"""QuantCore — application factory and CLI entry point.
+"""MittelWerk — application factory and CLI entry point.
 
-QuantCore is an **educational, simulation-only** trading platform: the matching
-engine, market data, and analytics all run against synthetic data and no order
-ever reaches a real venue.
+MittelWerk is an **educational, simulation-only** field-service operations
+platform: the dispatch engine, telemetry, and analytics all run against
+synthetic data and no work order ever reaches a real crew, site, or piece of
+equipment. MittelWerk is a fictional company; this is not real maintenance,
+safety, or investment guidance.
 
 Everything an application needs is created per instance and stored on
 ``app.state`` — there are no module-level dependency globals, so several
-applications can be built in one process (or one test session) without sharing
-an engine, key manager, or database.  Startup and shutdown run through a
-FastAPI ``lifespan`` context, so the event bus, the optional simulated feed
-task, and storage are stopped deterministically and leave no stray tasks.
+applications can be built in one process (or one test session) without
+sharing an engine, key manager, or database. Startup and shutdown run through
+a FastAPI ``lifespan`` context, so the event bus, the optional simulated
+telemetry feed task, and storage are stopped deterministically and leave no
+stray tasks.
 
-Configuration and instrument files are loaded strictly: a missing or malformed
+Configuration and equipment files are loaded strictly: a missing or malformed
 file raises instead of silently degrading to defaults.
 """
 
@@ -36,42 +39,42 @@ import yaml
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
 
-from qxm import __version__
-from qxm.api.dependencies import AppServices
-from qxm.api.middleware import (
+from mittelwerk import __version__
+from mittelwerk.api.dependencies import AppServices
+from mittelwerk.api.middleware import (
     configure_middleware,
     validate_cors_credentials,
     validate_cors_origins,
 )
-from qxm.api.routes import router
-from qxm.api.service import DEFAULT_DISPLAY_CURRENCY, TradingService
-from qxm.auth.keys import KeyManager
-from qxm.core.engine import MatchingEngine
-from qxm.core.events import EventBus
-from qxm.core.models import Instrument
-from qxm.data.feed import MarketDataFeed
-from qxm.data.store import TimeSeriesStore
-from qxm.utils.serializer import from_json
+from mittelwerk.api.routes import router
+from mittelwerk.api.service import DEFAULT_DISPLAY_CURRENCY, DispatchService
+from mittelwerk.auth.keys import KeyManager
+from mittelwerk.core.engine import DispatchEngine
+from mittelwerk.core.events import EventBus
+from mittelwerk.core.models import Equipment
+from mittelwerk.telemetry.feed import TelemetryFeed
+from mittelwerk.telemetry.store import TelemetryStore
+from mittelwerk.utils.serializer import from_json
 
-logger = logging.getLogger("qxm")
+logger = logging.getLogger("mittelwerk")
 
 BASE_DIR = Path(__file__).resolve().parent
 DEFAULT_CONFIG_PATH = BASE_DIR / "settings.yaml"
-DEFAULT_INSTRUMENTS_PATH = BASE_DIR / "instruments.json"
+DEFAULT_EQUIPMENT_PATH = BASE_DIR / "equipment.json"
 DASHBOARD_INDEX = BASE_DIR / "dashboard" / "index.html"
 
-#: Environment variables used to bootstrap a local API key.  The raw key is
+#: Environment variables used to bootstrap a local API key. The raw key is
 #: never logged and never returned by the API.
-BOOTSTRAP_KEY_ENV = "QXM_API_KEY"
-BOOTSTRAP_CLIENT_ENV = "QXM_API_CLIENT_ID"
-DEFAULT_BOOTSTRAP_CLIENT = "local_operator"
-DEFAULT_BOOTSTRAP_PERMISSIONS = ("read", "trade")
+BOOTSTRAP_KEY_ENV = "MITTELWERK_API_KEY"
+BOOTSTRAP_ORGANIZATION_ENV = "MITTELWERK_API_ORGANIZATION_ID"
+DEFAULT_BOOTSTRAP_ORGANIZATION = "local_dispatcher"
+DEFAULT_BOOTSTRAP_PERMISSIONS = ("read", "dispatch")
 
-#: Name of the background task that drives the simulated market data feed.
-FEED_TASK_NAME = "qxm-market-feed"
+#: Name of the background task that drives the simulated telemetry feed.
+FEED_TASK_NAME = "mittelwerk-telemetry-feed"
 
-#: Supported ``feed.mode`` values.  The application implements the deterministic
-#: simulator only; ``websocket`` is refused explicitly (see
+#: Supported ``feed.mode`` values. The application implements the
+#: deterministic simulator only; ``websocket`` is refused explicitly (see
 #: :func:`resolve_feed_mode`) instead of being downgraded to simulated data.
 FEED_MODE_SIMULATED = "simulated"
 FEED_MODE_WEBSOCKET = "websocket"
@@ -84,7 +87,7 @@ DEFAULT_FEED_SEED = 7
 SUPPORTED_CONFIG_KEYS: dict[str, frozenset[str]] = {
     "timezone": frozenset({"application", "presentation"}),
     "server": frozenset({"host", "port", "log_level", "cors_origins", "cors_allow_credentials"}),
-    "risk": frozenset({"daily_volatility"}),
+    "risk": frozenset({"hours_volatility"}),
     "database": frozenset({"url", "echo"}),
     "feed": frozenset({"mode", "interval_ms", "seed"}),
     "dashboard": frozenset({"currency"}),
@@ -92,10 +95,10 @@ SUPPORTED_CONFIG_KEYS: dict[str, frozenset[str]] = {
     "logging": frozenset({"level", "format"}),
 }
 
-APP_TITLE = "QuantCore Trading Simulator"
+APP_TITLE = "MittelWerk Field-Service Operations Simulator"
 APP_DESCRIPTION = (
-    "Educational, simulation-only order matching and risk analytics. "
-    "All market data is synthetic and no order is routed to a real venue."
+    "Educational, simulation-only work order dispatch and operational analytics. "
+    "All telemetry is synthetic and no work order is routed to a real crew or site."
 )
 
 
@@ -122,27 +125,27 @@ def load_config(path: Path | str | None = None) -> dict[str, Any]:
     return loaded
 
 
-def load_instruments(path: Path | str | None = None) -> dict[str, Instrument]:
-    """Load instrument reference data from JSON, validating every entry."""
-    inst_path = Path(path) if path is not None else DEFAULT_INSTRUMENTS_PATH
-    if not inst_path.is_file():
-        raise FileNotFoundError(f"Instruments file not found: {inst_path}")
-    data = from_json(inst_path.read_text(encoding="utf-8"))
+def load_equipment(path: Path | str | None = None) -> dict[str, Equipment]:
+    """Load equipment reference data from JSON, validating every entry."""
+    equipment_path = Path(path) if path is not None else DEFAULT_EQUIPMENT_PATH
+    if not equipment_path.is_file():
+        raise FileNotFoundError(f"Equipment file not found: {equipment_path}")
+    data = from_json(equipment_path.read_text(encoding="utf-8"))
     if not isinstance(data, list):
-        raise ValueError(f"Instruments file must contain a JSON array, got {type(data).__name__}")
-    instruments: dict[str, Instrument] = {}
+        raise ValueError(f"Equipment file must contain a JSON array, got {type(data).__name__}")
+    equipment: dict[str, Equipment] = {}
     for index, item in enumerate(data):
         if not isinstance(item, dict):
             raise ValueError(
-                f"Instrument entry {index} must be a JSON object, got {type(item).__name__}"
+                f"Equipment entry {index} must be a JSON object, got {type(item).__name__}"
             )
-        instrument = Instrument(**item)
-        if instrument.symbol in instruments:
-            raise ValueError(f"Duplicate instrument symbol: {instrument.symbol}")
-        instruments[instrument.symbol] = instrument
-    if not instruments:
-        raise ValueError(f"Instruments file contains no instruments: {inst_path}")
-    return instruments
+        asset = Equipment(**item)
+        if asset.asset_id in equipment:
+            raise ValueError(f"Duplicate equipment asset_id: {asset.asset_id}")
+        equipment[asset.asset_id] = asset
+    if not equipment:
+        raise ValueError(f"Equipment file contains no equipment: {equipment_path}")
+    return equipment
 
 
 def _section(config: Mapping[str, Any], name: str) -> dict[str, Any]:
@@ -220,7 +223,7 @@ def validate_config_values(config: Mapping[str, Any]) -> None:
     validate_cors_credentials(server_cfg.get("cors_allow_credentials", False))
 
     database_cfg = _section(config, "database")
-    _nonblank_string(database_cfg.get("url", "sqlite:///quantcore.db"), "database.url")
+    _nonblank_string(database_cfg.get("url", "sqlite:///mittelwerk.db"), "database.url")
     _strict_bool(database_cfg.get("echo", False), "database.echo")
 
     feed_cfg = _section(config, "feed")
@@ -234,7 +237,7 @@ def validate_config_values(config: Mapping[str, Any]) -> None:
         raise ValueError("auth.key_ttl_seconds must be a positive integer or null")
 
     risk_cfg = _section(config, "risk")
-    _optional_positive_float(risk_cfg.get("daily_volatility"), "risk.daily_volatility")
+    _optional_positive_float(risk_cfg.get("hours_volatility"), "risk.hours_volatility")
 
     dashboard_cfg = _section(config, "dashboard")
     currency = dashboard_cfg.get("currency", DEFAULT_DISPLAY_CURRENCY)
@@ -297,28 +300,28 @@ def _optional_positive_float(value: Any, name: str) -> float | None:
 def create_app(
     config: Mapping[str, Any] | None = None,
     *,
-    instruments: Mapping[str, Instrument] | None = None,
+    equipment: Mapping[str, Equipment] | None = None,
     key_manager: KeyManager | None = None,
-    store: TimeSeriesStore | None = None,
+    store: TelemetryStore | None = None,
     enable_store: bool = True,
     enable_feed: bool | None = None,
     bootstrap_api_key: str | None = None,
-    bootstrap_client_id: str | None = None,
+    bootstrap_organization_id: str | None = None,
     bootstrap_permissions: Sequence[str] | None = None,
 ) -> FastAPI:
     """Build a fully wired application instance.
 
     Every collaborator can be injected, which keeps tests deterministic:
-    ``enable_feed=False`` and ``enable_store=False`` produce an application with
-    no background task and no database, and ``bootstrap_api_key`` installs a
-    known key so protected endpoints can be exercised.  Without a bootstrap key
-    (argument or ``QXM_API_KEY``) the application starts with no valid keys and
-    protected endpoints are honestly inaccessible.
+    ``enable_feed=False`` and ``enable_store=False`` produce an application
+    with no background task and no database, and ``bootstrap_api_key``
+    installs a known key so protected endpoints can be exercised. Without a
+    bootstrap key (argument or ``MITTELWERK_API_KEY``) the application starts
+    with no valid keys and protected endpoints are honestly inaccessible.
 
     ``enable_feed`` only overrides whether the *simulated* feed runs; the
     configured ``feed.mode`` is validated either way, so an unsupported mode
     (``websocket``) or a typo raises instead of silently changing the data
-    source or disabling market data.
+    source or disabling telemetry.
     """
     cfg: dict[str, Any] = dict(config) if config is not None else load_config()
     validate_config_keys(cfg)
@@ -331,50 +334,52 @@ def create_app(
     server_cfg = _section(cfg, "server")
     dashboard_cfg = _section(cfg, "dashboard")
 
-    resolved_instruments = dict(instruments) if instruments is not None else load_instruments()
-    if not resolved_instruments:
-        raise ValueError("At least one simulated instrument is required")
-    for key, instrument in resolved_instruments.items():
-        if key != instrument.symbol:
+    resolved_equipment = dict(equipment) if equipment is not None else load_equipment()
+    if not resolved_equipment:
+        raise ValueError("At least one simulated equipment asset is required")
+    for key, asset in resolved_equipment.items():
+        if key != asset.asset_id:
             raise ValueError(
-                f"Instrument mapping key {key!r} does not match symbol {instrument.symbol!r}"
+                f"Equipment mapping key {key!r} does not match asset_id {asset.asset_id!r}"
             )
 
     event_bus = EventBus()
-    engine = MatchingEngine(event_bus=event_bus, instruments=resolved_instruments)
+    engine = DispatchEngine(event_bus=event_bus, equipment=resolved_equipment)
 
     manager = key_manager or KeyManager(default_ttl_seconds=auth_cfg.get("key_ttl_seconds"))
     _install_bootstrap_key(
         manager,
         raw_key=bootstrap_api_key,
-        client_id=bootstrap_client_id,
+        organization_id=bootstrap_organization_id,
         permissions=bootstrap_permissions,
     )
 
     owns_store = False
     resolved_store = store
     if resolved_store is None and enable_store:
-        database_url = _nonblank_string(db_cfg.get("url", "sqlite:///quantcore.db"), "database.url")
-        resolved_store = TimeSeriesStore(
+        database_url = _nonblank_string(
+            db_cfg.get("url", "sqlite:///mittelwerk.db"), "database.url"
+        )
+        resolved_store = TelemetryStore(
             database_url,
             echo=_strict_bool(db_cfg.get("echo", False), "database.echo"),
         )
         owns_store = True
     try:
         if resolved_store is not None:
-            resolved_store.seed_instruments(resolved_instruments)
+            resolved_store.upsert_equipments(resolved_equipment)
 
-        trading = TradingService(
+        dispatch = DispatchService(
             engine,
             event_bus,
             display_currency=dashboard_cfg.get("currency", DEFAULT_DISPLAY_CURRENCY),
-            daily_volatility=_optional_positive_float(
-                risk_cfg.get("daily_volatility"), "risk.daily_volatility"
+            hours_volatility=_optional_positive_float(
+                risk_cfg.get("hours_volatility"), "risk.hours_volatility"
             ),
             store=resolved_store,
         )
 
-        feed = _build_feed(feed_cfg, event_bus, resolved_instruments, enable_feed)
+        feed = _build_feed(feed_cfg, event_bus, resolved_equipment, enable_feed)
     except BaseException:
         # Wiring failed after the database engine was opened: dispose it here,
         # because no lifespan will ever run to do it.
@@ -388,13 +393,14 @@ def create_app(
 
         Startup is tracked step by step, so a failure half-way through still
         releases what was already acquired, and every teardown step runs even
-        when an earlier one fails.  Teardown failures are logged and re-raised
-        (never swallowed) unless an error is already propagating, in which case
-        that original error wins and the cleanup failures are logged alongside it.
+        when an earlier one fails. Teardown failures are logged and re-raised
+        (never swallowed) unless an error is already propagating, in which
+        case that original error wins and the cleanup failures are logged
+        alongside it.
 
-        The tracking flags record *intent*, not success: they are set before the
-        matching ``start`` is awaited, because a start that mutates state and
-        then fails still needs its idempotent ``stop``.
+        The tracking flags record *intent*, not success: they are set before
+        the matching ``start`` is awaited, because a start that mutates state
+        and then fails still needs its idempotent ``stop``.
         """
         bus_acquired = False
         feed_acquired = False
@@ -412,9 +418,9 @@ def create_app(
                 feed_task.add_done_callback(_feed_task_supervisor(shutting_down))
                 app.state.feed_task = feed_task
             logger.info(
-                "QuantCore v%s ready (simulation) - %d instruments, feed=%s, store=%s",
+                "MittelWerk v%s ready (simulation) - %d equipment assets, feed=%s, store=%s",
                 __version__,
-                len(resolved_instruments),
+                len(resolved_equipment),
                 "on" if feed is not None else "off",
                 "on" if resolved_store is not None else "off",
             )
@@ -428,7 +434,7 @@ def create_app(
                 store=resolved_store if owns_store else None,
             )
             app.state.feed_task = None
-            logger.info("QuantCore shutdown complete")
+            logger.info("MittelWerk shutdown complete")
             _report_shutdown_failures(outcome, sys.exc_info()[1])
 
     app = FastAPI(
@@ -441,9 +447,9 @@ def create_app(
     app.state.services = AppServices(
         event_bus=event_bus,
         engine=engine,
-        trading=trading,
+        dispatch=dispatch,
         key_manager=manager,
-        instruments=resolved_instruments,
+        equipment=resolved_equipment,
         version=__version__,
         store=resolved_store,
         feed=feed,
@@ -467,7 +473,7 @@ def _install_bootstrap_key(
     manager: KeyManager,
     *,
     raw_key: str | None,
-    client_id: str | None,
+    organization_id: str | None,
     permissions: Sequence[str] | None,
 ) -> None:
     """Register a caller- or environment-supplied raw key, if one exists.
@@ -482,28 +488,34 @@ def _install_bootstrap_key(
             BOOTSTRAP_KEY_ENV,
         )
         return
-    client = client_id or os.environ.get(BOOTSTRAP_CLIENT_ENV) or DEFAULT_BOOTSTRAP_CLIENT
+    organization = (
+        organization_id
+        or os.environ.get(BOOTSTRAP_ORGANIZATION_ENV)
+        or DEFAULT_BOOTSTRAP_ORGANIZATION
+    )
     granted = tuple(permissions) if permissions is not None else DEFAULT_BOOTSTRAP_PERMISSIONS
-    record = manager.register_key(key, client, permissions=granted)
+    record = manager.register_key(key, organization, permissions=granted)
     logger.info(
-        "Bootstrap API key registered as %s for client %s",
+        "Bootstrap API key registered as %s for organization %s",
         record.key_id,
-        record.client_id,
+        record.organization_id,
     )
 
 
 def resolve_feed_mode(mode: object) -> str:
     """Validate ``feed.mode`` and return it normalised.
 
-    The application implements exactly one live data source — the deterministic
-    simulator — plus an explicit off switch.  Anything else fails closed:
+    The application implements exactly one live data source — the
+    deterministic simulator — plus an explicit off switch. Anything else
+    fails closed:
 
-    * ``websocket`` is refused rather than silently downgraded.  The
-      :class:`~qxm.data.feed.WebSocketFeedAdapter` is a reusable library surface,
-      but no venue is wired into the application and a workshop must not depend
-      on a live network.
-    * A typo such as ``simulted`` is refused rather than quietly disabling market
-      data, which used to look like a working configuration with a dead feed.
+    * ``websocket`` is refused rather than silently downgraded. The
+      :class:`~mittelwerk.telemetry.feed.WebSocketFeedAdapter` is a reusable
+      library surface, but no site gateway is wired into the application and
+      a workshop must not depend on a live network.
+    * A typo such as ``simulted`` is refused rather than quietly disabling
+      telemetry, which used to look like a working configuration with a dead
+      feed.
     """
     if not isinstance(mode, str):
         raise ValueError(
@@ -514,9 +526,9 @@ def resolve_feed_mode(mode: object) -> str:
     if normalised == FEED_MODE_WEBSOCKET:
         raise ValueError(
             "feed.mode 'websocket' is not wired into this application: "
-            "qxm.data.feed.WebSocketFeedAdapter is a library surface and no "
-            "venue endpoint is configured. Use feed.mode 'simulated' for the "
-            "deterministic simulator, or 'disabled' to run without market data."
+            "mittelwerk.telemetry.feed.WebSocketFeedAdapter is a library surface and no "
+            "site gateway endpoint is configured. Use feed.mode 'simulated' for the "
+            "deterministic simulator, or 'disabled' to run without telemetry."
         )
     if normalised == FEED_MODE_SIMULATED or normalised in FEED_MODES_DISABLED:
         return normalised
@@ -530,28 +542,29 @@ def _feed_mode_list() -> str:
 def _build_feed(
     feed_cfg: Mapping[str, Any],
     event_bus: EventBus,
-    instruments: Mapping[str, Instrument],
+    equipment: Mapping[str, Equipment],
     enable_feed: bool | None,
-) -> MarketDataFeed | None:
+) -> TelemetryFeed | None:
     """Create the simulated feed when enabled by argument or configuration.
 
-    ``feed.mode`` is always validated, even when ``enable_feed`` overrides it: a
-    malformed or unsupported mode is a configuration error regardless of how this
-    process happens to be started.  ``enable_feed`` then decides only *whether*
-    the supported simulator runs — it never selects a different data source.
+    ``feed.mode`` is always validated, even when ``enable_feed`` overrides it:
+    a malformed or unsupported mode is a configuration error regardless of how
+    this process happens to be started. ``enable_feed`` then decides only
+    *whether* the supported simulator runs — it never selects a different
+    data source.
     """
     mode = resolve_feed_mode(feed_cfg.get("mode", FEED_MODE_SIMULATED))
-    tick_interval = _feed_interval_seconds(feed_cfg)
+    reading_interval = _feed_interval_seconds(feed_cfg)
     seed = _feed_seed(feed_cfg)
     if enable_feed is False:
         return None
     if enable_feed is None and mode in FEED_MODES_DISABLED:
-        logger.info("Market data feed disabled by configuration (feed.mode=%r)", mode)
+        logger.info("Telemetry feed disabled by configuration (feed.mode=%r)", mode)
         return None
-    return MarketDataFeed(
+    return TelemetryFeed(
         event_bus=event_bus,
-        symbols=list(instruments),
-        tick_interval=tick_interval,
+        asset_ids=list(equipment),
+        tick_interval=reading_interval,
         seed=seed,
     )
 
@@ -574,18 +587,18 @@ def _feed_seed(feed_cfg: Mapping[str, Any]) -> int:
     return int(seed)
 
 
-async def _pump_feed(feed: MarketDataFeed, engine: MatchingEngine) -> None:
-    """Drive the simulated tick generator and mark open positions to market.
+async def _pump_feed(feed: TelemetryFeed, engine: DispatchEngine) -> None:
+    """Drive the simulated telemetry reading generator and reprice open workloads.
 
-    Consuming the stream is what publishes ``MARKET_DATA_TICK`` events and keeps
-    ``feed.get_latest_tick`` current.  Each tick's ``last`` price is also applied
-    to the engine's open positions, so the dashboard's unrealised P&L actually
-    follows the simulated feed instead of freezing at the last fill.  Individual
-    ticks are not persisted: they are high-frequency, synthetic, and reproducible
-    from the feed seed.
+    Consuming the stream is what publishes ``TELEMETRY_READING`` events and
+    keeps ``feed.get_latest_reading`` current. Each reading's ``last_reading``
+    value is also applied to the engine's open workloads, so the dashboard's
+    unrealised cost actually follows the simulated feed instead of freezing at
+    the last assignment. Individual readings are not persisted: they are
+    high-frequency, synthetic, and reproducible from the feed seed.
     """
-    async for tick in feed.generate_ticks():
-        engine.position_manager.mark_symbol(tick.symbol, tick.last)
+    async for reading in feed.generate_readings():
+        engine.workload_manager.reprice_asset(reading.asset_id, reading.last_reading)
 
 
 class _ShutdownFlag:
@@ -612,22 +625,21 @@ def _feed_task_supervisor(
         if task.cancelled():
             if not shutting_down:
                 logger.error(
-                    "Market data feed task %s was cancelled while the "
-                    "application was still running",
+                    "Telemetry feed task %s was cancelled while the application was still running",
                     task.get_name(),
                 )
             return
         error = task.exception()
         if error is not None:
             logger.error(
-                "Market data feed task %s failed: %r",
+                "Telemetry feed task %s failed: %r",
                 task.get_name(),
                 error,
                 exc_info=error,
             )
         elif not shutting_down:
             logger.error(
-                "Market data feed task %s finished before shutdown; ticks have "
+                "Telemetry feed task %s finished before shutdown; readings have "
                 "stopped and marks will no longer update",
                 task.get_name(),
             )
@@ -668,16 +680,16 @@ class ShutdownOutcome:
 
 async def _release_resources(
     *,
-    feed: MarketDataFeed | None,
+    feed: TelemetryFeed | None,
     feed_task: asyncio.Task[None] | None,
     event_bus: EventBus | None,
-    store: TimeSeriesStore | None,
+    store: TelemetryStore | None,
 ) -> ShutdownOutcome:
     """Run every teardown step, collecting rather than short-circuiting failures.
 
     Each step is attempted even when an earlier one failed, so one broken
-    resource can never strand another (a feed that refuses to stop must not keep
-    the event bus running or leak the database engine).  That holds for
+    resource can never strand another (a feed that refuses to stop must not
+    keep the event bus running or leak the database engine). That holds for
     ``CancelledError`` and ``KeyboardInterrupt`` too: the remaining steps still
     run, and the caller re-raises the controlling exception afterwards so
     cancellation semantics are preserved rather than downgraded.
@@ -700,23 +712,24 @@ async def _release_resources(
                 outcome.controlling = exc
 
     if feed is not None:
-        await _run("stopping the market data feed", feed.stop)
+        await _run("stopping the telemetry feed", feed.stop)
     if feed_task is not None:
-        await _run("draining the market data feed task", lambda: _stop_task(feed_task))
+        await _run("draining the telemetry feed task", lambda: _stop_task(feed_task))
     if event_bus is not None:
         await _run("stopping the event bus", event_bus.stop)
     if store is not None:
-        await _run("closing the time-series store", store.close)
+        await _run("closing the telemetry store", store.close)
     return outcome
 
 
 def _report_shutdown_failures(outcome: ShutdownOutcome, in_flight: BaseException | None) -> None:
     """Re-raise teardown problems with the right precedence.
 
-    A cancellation or interrupt caught during teardown always wins — swallowing
-    it would break the caller's cancellation contract.  Otherwise ordinary
-    teardown failures are raised, unless a real error is already propagating, in
-    which case that original error wins and the failures are logged.
+    A cancellation or interrupt caught during teardown always wins —
+    swallowing it would break the caller's cancellation contract. Otherwise
+    ordinary teardown failures are raised, unless a real error is already
+    propagating, in which case that original error wins and the failures are
+    logged.
     """
     failures = outcome.failures
     if outcome.controlling is not None:
@@ -739,7 +752,7 @@ def _report_shutdown_failures(outcome: ShutdownOutcome, in_flight: BaseException
         return
     if len(failures) == 1:
         raise failures[0]
-    raise ExceptionGroup("QuantCore shutdown failed", list(failures))
+    raise ExceptionGroup("MittelWerk shutdown failed", list(failures))
 
 
 def _register_dashboard_route(app: FastAPI) -> None:
@@ -762,7 +775,7 @@ def _register_dashboard_route(app: FastAPI) -> None:
 
 
 def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(prog="quantcore", description=APP_DESCRIPTION)
+    parser = argparse.ArgumentParser(prog="mittelwerk", description=APP_DESCRIPTION)
     parser.add_argument("--config", default=None, help="path to settings.yaml")
     parser.add_argument("--host", default=None, help="bind host (overrides config)")
     parser.add_argument("--port", default=None, help="bind port (overrides config)")
@@ -770,7 +783,7 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 
 
 def main(argv: Sequence[str] | None = None) -> None:
-    """Run the QuantCore server."""
+    """Run the MittelWerk server."""
     args = _parse_args(argv)
     config = load_config(args.config)
 
@@ -792,7 +805,7 @@ __all__ = [
     "APP_TITLE",
     "APP_DESCRIPTION",
     "BOOTSTRAP_KEY_ENV",
-    "BOOTSTRAP_CLIENT_ENV",
+    "BOOTSTRAP_ORGANIZATION_ENV",
     "FEED_TASK_NAME",
     "FEED_MODE_SIMULATED",
     "FEED_MODE_WEBSOCKET",
@@ -805,7 +818,7 @@ __all__ = [
     "ShutdownOutcome",
     "create_app",
     "load_config",
-    "load_instruments",
+    "load_equipment",
     "coerce_host",
     "coerce_port",
     "main",

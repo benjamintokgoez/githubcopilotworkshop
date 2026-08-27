@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
   "id": "capstone-transfer",
-  "title": "Capstone - a daily export utility under mild adversity",
+  "title": "Capstone - a daily service export under mild adversity",
   "kind": "code",
   "lab": "Lab 6",
-  "summary": "A domain-light individual task: business-date windows, an ISO filename, and a German-formatted total, with sample input and explicit expected values.",
+  "summary": "An individual service-operations task: business-date windows, an ISO filename, and a German-formatted cost total, with synthetic input and explicit expected values.",
   "fallback": "workshop/fallbacks/capstone-transfer",
   "acceptance_doc": "workshop/scenarios/capstone-transfer/acceptance.md",
   "required_artifacts": [

@@ -1,0 +1,97 @@
+"""Acceptance checks for incident MW-4471.
+
+Run from the repository root:
+
+    python scripts/workshop.py verify incident-service-rate
+"""
+
+import unittest
+from datetime import UTC, datetime
+from decimal import Decimal
+
+from dispatch_engine import (
+    CapacityOffer,
+    CapacityQueue,
+    ServiceRequest,
+    assigned_hours,
+    average_service_rate,
+    dispatch_request,
+)
+
+
+def utc(hour: int, minute: int, second: int) -> datetime:
+    return datetime(2026, 8, 19, hour, minute, second, tzinfo=UTC)
+
+
+def provider_queue() -> CapacityQueue:
+    queue = CapacityQueue()
+    queue.add(CapacityOffer("CAP-3", "MW-SUED", Decimal("112.00"), Decimal("20"), utc(7, 13, 55)))
+    queue.add(CapacityOffer("CAP-1", "MW-NORD", Decimal("110.00"), Decimal("10"), utc(7, 14, 2)))
+    queue.add(CapacityOffer("CAP-2", "MW-WEST", Decimal("110.00"), Decimal("5"), utc(7, 14, 9)))
+    return queue
+
+
+class ProviderRateTest(unittest.TestCase):
+    """INV-DISPATCH-2 - the accepted provider offer controls the rate."""
+
+    def test_request_uses_rates_from_provider_offers(self) -> None:
+        queue = provider_queue()
+        assignments = dispatch_request(
+            queue,
+            ServiceRequest("WO-2026-0819-0442", "ORG-104", Decimal("12"), Decimal("118.00")),
+        )
+        self.assertEqual(
+            [
+                (item.provider_offer_id, item.hourly_rate, item.assigned_hours)
+                for item in assignments
+            ],
+            [
+                ("CAP-1", Decimal("110.00"), Decimal("10")),
+                ("CAP-2", Decimal("110.00"), Decimal("2")),
+            ],
+        )
+        self.assertEqual(average_service_rate(assignments), Decimal("110.00"))
+
+    def test_assignment_rate_is_always_positive_and_from_an_offer(self) -> None:
+        queue = provider_queue()
+        assignments = dispatch_request(
+            queue,
+            ServiceRequest("WO-2026-0819-0517", "ORG-202", Decimal("20"), Decimal("120.00")),
+        )
+        offered_rates = {"CAP-1": Decimal("110.00"), "CAP-2": Decimal("110.00"), "CAP-3": Decimal("112.00")}
+        self.assertTrue(assignments)
+        for assignment in assignments:
+            self.assertGreater(assignment.hourly_rate, Decimal("0"))
+            self.assertEqual(
+                assignment.hourly_rate,
+                offered_rates[assignment.provider_offer_id],
+            )
+
+
+class PriorityAndConservationTest(unittest.TestCase):
+    """INV-DISPATCH-1 and INV-DISPATCH-3."""
+
+    def test_lower_rate_is_used_before_earlier_higher_rate(self) -> None:
+        queue = provider_queue()
+        assignments = dispatch_request(
+            queue,
+            ServiceRequest("WO-2026-0819-0442", "ORG-104", Decimal("12"), Decimal("118.00")),
+        )
+        self.assertNotIn("CAP-3", [item.provider_offer_id for item in assignments])
+        self.assertEqual(queue.remaining("CAP-3"), Decimal("20"))
+
+    def test_hours_are_conserved(self) -> None:
+        queue = provider_queue()
+        before = queue.total_available_hours
+        assignments = dispatch_request(
+            queue,
+            ServiceRequest("WO-2026-0819-0442", "ORG-104", Decimal("12"), Decimal("118.00")),
+        )
+        self.assertEqual(assigned_hours(assignments), Decimal("12"))
+        self.assertEqual(before - queue.total_available_hours, Decimal("12"))
+        self.assertEqual(queue.remaining("CAP-1"), Decimal("0"))
+        self.assertEqual(queue.remaining("CAP-2"), Decimal("3"))
+
+
+if __name__ == "__main__":
+    unittest.main()

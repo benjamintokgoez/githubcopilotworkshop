@@ -2,7 +2,7 @@
 
 Author: <your name or initials>
 Date: <date, Europe/Berlin>
-Server under review: <e.g. quantcore-local>
+Server under review: <e.g. mittelwerk-local>
 
 Replace every `<fill in>`. `verify` checks that each section and field is
 substantive; it does not judge whether your configuration is the right one.
@@ -28,7 +28,7 @@ One sentence per disabled tool: why it is not needed for your task.
 <fill in>
 
 - Where the control lives: <fill in - name the layer for each restriction: mcp.json process configuration, client tool picker and approval settings, or the server's own registration and validation>
-- Approval boundary: <fill in - did the evidence use per-call confirmation, or does your proposed VS Code configuration set sandboxEnabled and trade confirmations for standing rules? Label proposed versus observed>
+- Approval boundary: <fill in - did the evidence use per-call confirmation, or does your proposed VS Code configuration set sandboxEnabled and replace confirmations with standing rules? Label proposed versus observed>
 
 ## 3. Evidence the answer came from the tool
 

@@ -37,14 +37,14 @@ Before opening a change:
 Run the smallest relevant checks, then the repository’s full required checks for release:
 
 ```bash
-python -m compileall -q qxm main.py scripts security_check.py tests
+python -m compileall -q mittelwerk main.py scripts security_check.py tests
 python -m pytest tests/ -v
 python -m ruff check .
 python -m ruff format --check .
-python -m mypy qxm main.py scripts
+python -m mypy mittelwerk main.py scripts
 python -m pip check
 python scripts/workshop_doctor.py --strict
-python -m bandit -r qxm main.py -ll
+python -m bandit -r mittelwerk main.py -ll
 python security_check.py
 ```
 

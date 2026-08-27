@@ -48,7 +48,7 @@ jobs:
       - name: Byte-compile source (syntax check)
         # -x skips any stray/scratch virtualenv or cache directories that
         # concurrent workstreams may leave behind under package folders.
-        run: python -m compileall -q -x '(^|/)[^/]*venv[^/]*(/|$)|(^|/)__pycache__(/|$)' qxm main.py scripts security_check.py tests
+        run: python -m compileall -q -x '(^|/)[^/]*venv[^/]*(/|$)|(^|/)__pycache__(/|$)' mittelwerk main.py scripts security_check.py tests
 
       - name: Run pytest
         run: python -m pytest tests/ -v
@@ -60,7 +60,7 @@ jobs:
         run: python -m ruff format --check .
 
       - name: Run mypy (type check)
-        run: python -m mypy qxm main.py scripts
+        run: python -m mypy mittelwerk main.py scripts
 
       - name: Run workshop doctor (environment preflight)
         run: python scripts/workshop_doctor.py --strict
@@ -81,13 +81,13 @@ jobs:
           )
           if not scripts:
               raise SystemExit("dashboard contains no inline JavaScript")
-          output = Path(os.environ["RUNNER_TEMP"]) / "quantcore-dashboard.js"
+          output = Path(os.environ["RUNNER_TEMP"]) / "mittelwerk-dashboard.js"
           output.write_text("\n".join(scripts), encoding="utf-8")
           PY
-          node --check "$RUNNER_TEMP/quantcore-dashboard.js"
+          node --check "$RUNNER_TEMP/mittelwerk-dashboard.js"
 
       - name: Run bandit (security scan)
-        run: python -m bandit -r qxm main.py -ll
+        run: python -m bandit -r mittelwerk main.py -ll
 
       - name: Run security_check.py (workshop vulnerability scan)
         run: python security_check.py

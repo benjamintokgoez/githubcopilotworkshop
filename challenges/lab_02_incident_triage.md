@@ -1,9 +1,9 @@
-# Lab 2 - Guided incident: a fill that never happened
+# Lab 2 - Guided incident: a service rate nobody offered
 
 **Block:** 10:15-11:20 (65 minutes) - **Mode:** pairs, with solo and
 captured/offline routes
 **Loop stages:** all four - Understand/Plan -> Implement/Test -> Review -> Explain
-**Scenario:** `incident-fill-price`
+**Scenario:** `incident-service-rate`
 
 ---
 
@@ -34,8 +34,8 @@ identifier, log, or private repository content into any product.
 
 ```bash
 python scripts/workshop.py status  # must report no active scenario
-python scripts/workshop.py start incident-fill-price
-python scripts/workshop.py verify incident-fill-price  # expected to fail; capture it
+python scripts/workshop.py start incident-service-rate
+python scripts/workshop.py verify incident-service-rate  # expected to fail; capture it
 ```
 
 This verifier needs Python but no project dependencies. Its non-zero starting
@@ -43,7 +43,7 @@ result is expected **only after** the scenario starts. A red clean baseline is a
 environment problem, not lab material.
 
 If the runner is unavailable, use the complete copy under
-`workshop/fallbacks/incident-fill-price/`. If Python is available, copy the two
+`workshop/fallbacks/incident-service-rate/`. If Python is available, copy the two
 `.txt` staged files to a participant-owned working directory and remove only the
 trailing `.txt`. If execution is unavailable, use the captured failing output,
 inspect the staged copies read-only, and complete the Supported evidence without
@@ -57,7 +57,7 @@ claiming a pass. See
 > [reference/scenario_tooling.md](reference/scenario_tooling.md#the-healthy-baseline-contract).
 
 Make the bounded repair in
-`workshop/scenarios/incident-fill-price/work/`. Create `NOTES.md` in that
+`workshop/scenarios/incident-service-rate/work/`. Create `NOTES.md` in that
 directory for your reproduction, challenge decision, review, and handover; reset
 archives participant-added files along with the staged repair.
 
@@ -68,13 +68,13 @@ check in a separate participant-added file under `work/`.
 
 ## Artifacts you are working from
 
-You should have, under `workshop/scenarios/incident-fill-price/`:
+You should have, under `workshop/scenarios/incident-service-rate/`:
 
 | Artifact | What it is | What it is not |
 |---|---|---|
-| `issue.md` | A ticket raised at **09:47 CEST** by a desk operations colleague, in their words. Includes a client complaint, an order reference, and an opinion about the cause. | An engineering diagnosis. The stated cause may be wrong. |
-| `logs/` | Application log excerpts. Timestamps are stored in UTC and quoted by the desk in local time. | Complete. Some of what you want was never logged. |
-| `invariants.md` | The specific invariants the desk believes were broken. | A list of files to change. |
+| `issue.md` | A ticket raised at **09:47 CEST** by regional service operations. It includes a work-order reference and an opinion about the cause. | An engineering diagnosis. The stated cause may be wrong. |
+| `logs/` | Dispatch log excerpts. Timestamps are stored in UTC and quoted by operations in local time. | Complete. Some useful evidence was never logged. |
+| `invariants.md` | The dispatch invariants operations believes were broken. | A list of files to change. |
 | `acceptance.md` | The check the change must pass. | A test you may edit to make green. |
 
 **No `BUG` map exists in this repository.** Nothing tells you which file, function,
@@ -94,17 +94,16 @@ timed reading.
 
 ## Business invariant at stake
 
-**INV-MATCH-2 - the maker's price wins.** A market order fills at the resting
-order's price. The incoming order never sets the fill price, and a fill price is
-never null.
+**INV-DISPATCH-2 - the provider offer rate is authoritative.** The request's
+maximum hourly rate is an eligibility ceiling; every assignment keeps the rate
+of the provider offer that supplied its capacity.
 
-Supporting invariants you may also need: **INV-MATCH-1** (price-time priority),
-**INV-MATCH-3** (quantity conservation).
+Supporting invariants: **INV-DISPATCH-1** (rate-time priority) and
+**INV-DISPATCH-3** (hours conservation).
 
-The worked numbers - including the `101.455` average fill example - are in
-[reference/invariants.md](reference/invariants.md#1-order-book-and-matching).
-**You are not expected to know how exchanges work.** Everything required is on
-that page.
+The worked 12-hour example is in
+[reference/invariants.md](reference/invariants.md#1-service-dispatch). No field
+service domain knowledge is expected; everything required is written there.
 
 ---
 
@@ -115,7 +114,7 @@ that page.
 | 10:15-10:28 | **Understand/Plan** | Fail-before evidence, observed/concluded/assumed split, invariant, bounded plan |
 | 10:28-10:46 | **Implement/Test** | Focused regression attempt, bounded diff or honest incomplete state, verifier result |
 | 10:46-10:56 | **Review** | Evidence-based finding and scope decision |
-| 10:56-11:06 | **Explain** | Desk handover and uncertainty |
+| 10:56-11:06 | **Explain** | Operations handover and uncertainty |
 | 11:06-11:20 | **Resync** | Verify once, archive/reset, share method |
 
 Setup and reproduction are inside Understand/Plan. The external 11:20-11:45
@@ -131,7 +130,7 @@ Slack A block is protected recovery time, not hidden Core-lab budget.
   words: what the reporter observed, what they concluded, what you are assuming,
   and which statements the supplied evidence supports.
 - Use **Ask**, another read-only Q&A role, or direct code reading to orient: how
-  does an incoming order become a fill in this bounded scenario? This is a map,
+  does an incoming service request become an assignment in this bounded scenario? This is a map,
   not a diagnosis.
 - **Reproduce it.** A failing reproduction that you can run on demand is the
   single most valuable artifact in this lab. Until you have one, you are guessing.
@@ -168,7 +167,7 @@ Supervision is the skill being trained here. Whichever workflow you chose:
 run the verifier once, and use:
 
 ```bash
-python scripts/workshop.py resync incident-fill-price --blocked-at implement-test
+python scripts/workshop.py resync incident-service-rate --blocked-at implement-test
 ```
 
 Continue to Review and Explain with the honest result. An incomplete,
@@ -183,9 +182,10 @@ scope, invariant, tests, contracts, non-functional, explanation.
 Specific things worth checking in this incident:
 
 - Is the invariant restored, or is the symptom suppressed?
-- Does the change alter behaviour for order types the ticket never mentioned?
+- Does the change alter other request priorities or provider eligibility rules?
 - Are timestamps still timezone-aware UTC (INV-TIME-1)?
-- Did anything about quantity accounting change as a side effect (INV-MATCH-3)?
+- Did anything about assigned-hour accounting change as a side effect
+  (INV-DISPATCH-3)?
 - Did missing evidence expose an observability gap? Record it as a bounded
   follow-up rather than widening the incident repair.
 
@@ -196,7 +196,7 @@ there is a completed repair.
 
 ### 4. Explain (10:56-11:06)
 
-Write the handover as if the desk will read it at 08:00 tomorrow:
+Write the handover as if regional service operations will read it at 08:00 tomorrow:
 
 - What the customer experienced, in one sentence, without jargon.
 - Which invariant was violated.
@@ -219,7 +219,7 @@ handover when local time is useful.
   the challenge step, test the ticket's proposed diagnosis or a partner's
   proposal. Copilot access is not required.
 - **Runner blocked, Python available:** follow the copy-and-run route in
-  `workshop/fallbacks/incident-fill-price/README.md`.
+  `workshop/fallbacks/incident-service-rate/README.md`.
 - **Read-only or no Python:** use the captured failure and staged source. Complete
   Supported evidence: observation, invariant, localization, bounded next action,
   review finding, and handover. Label all unrun verification explicitly.
@@ -236,7 +236,7 @@ handover when local time is useful.
 |---|---|
 | **Supported** | Reproduce or use the captured failure, name the invariant, localise the relevant path, review one bounded next action, and write an honest handover. A pair may drive the repair, but a passing verifier is not required for Supported. |
 | **Core** | Full loop: fail-before, separate regression check, bounded repair, pass-after, independent review, one evidence-based challenge decision, and handover. |
-| **Extension** | After the fix passes: add a test for the *adjacent* invariant nobody asked about (price-time priority at equal prices, or quantity conservation). Then answer in writing: what would have caught this in CI before it reached the desk? |
+| **Extension** | After the fix passes: add a test for the *adjacent* invariant nobody asked about (FIFO at equal rates, or assigned-hours conservation). Then answer in writing: what would have caught this in CI before it reached operations? |
 
 ---
 
@@ -255,7 +255,7 @@ handover when local time is useful.
 
 ### Core adds
 
-- [ ] `python scripts/workshop.py verify incident-fill-price` passes, or the
+- [ ] `python scripts/workshop.py verify incident-service-rate` passes, or the
       unchanged offline acceptance command in `acceptance.md` passes
 - [ ] A separate regression check demonstrably fails before and passes after
 - [ ] The diff touches only required files, and every changed file is justified
@@ -271,8 +271,8 @@ At 11:06 everyone stops changing files. If blocked and the scenario is active,
 run the relevant `resync` route first. Then everyone verifies once and resets:
 
 ```bash
-python scripts/workshop.py verify incident-fill-price
-python scripts/workshop.py reset incident-fill-price
+python scripts/workshop.py verify incident-service-rate
+python scripts/workshop.py reset incident-service-rate
 ```
 
 Reset is for everyone, including pairs whose verifier passes. It archives the
@@ -324,7 +324,7 @@ you do not have a repeatable failure.
    opinion?
 2. Which proposal did you challenge, what evidence decided accept, narrow, or
    reject, and would you have checked it at 16:00 on a Friday?
-3. Retrieval: state INV-MATCH-2 from memory, then check it.
+3. Retrieval: state INV-DISPATCH-2 from memory, then check it.
 4. Which part of this incident would have been *slower* without an assistant, and
    which part was *riskier* with one? Both answers exist.
 

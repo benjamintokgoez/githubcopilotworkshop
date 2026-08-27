@@ -1,0 +1,10 @@
+SERVICE ASSIGNMENT CONFIRMATION
+Work order: WO-2026-0819-0442
+Organisation: ORG-104
+Assigned capacity: 12.00 hours
+Average service rate: 118,00 EUR/h
+Created: 19.08.2026 09:16 CEST
+
+Provider offers recorded by operations:
+CAP-1  10.00 hours  110,00 EUR/h
+CAP-2   5.00 hours  110,00 EUR/h

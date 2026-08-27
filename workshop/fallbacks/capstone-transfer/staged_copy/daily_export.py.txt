@@ -1,4 +1,4 @@
-"""Daily export helper for the reconciliation hand-off (OPS-2026-118).
+"""Daily service-cost export helper for regional operations (MW-2026-118).
 
 Four callables, nothing more. The acceptance checks in `test_daily_export.py`
 define exactly what each one has to return; the ticket in `issue.md` explains why
@@ -19,7 +19,7 @@ from decimal import Decimal
 #  We have used that for years and it has been fine."
 BERLIN_UTC_OFFSET_HOURS = 2
 
-EXPORT_PREFIX = "daily_export"
+EXPORT_PREFIX = "service_export"
 
 
 def selection_window(business_date: date) -> tuple[datetime, datetime]:

@@ -75,8 +75,9 @@ No scenario staging or network-only feature is needed for Lab 1.
 
 ## Business invariant at stake
 
-**INV-GREEK-1** (call delta in `[0, 1]`, put delta in `[-1, 0]`) and
-**INV-VAR-1** (VaR and CVaR are non-negative loss magnitudes).
+**INV-SLA-1** (operational magnitudes are non-negative), **INV-SLA-2**
+(overdue hours cannot exceed open hours), and **INV-SLA-4** (utilization is
+bounded).
 
 You are not being asked to fix anything. You are being asked to find out whether
 what you were *told* about the code matches what these invariants require.
@@ -108,7 +109,7 @@ challenger may use the shared note.
 
 ### Understand/Plan - 3 minutes
 
-1. Pick **one** area: the VaR calculations or the option Greeks.
+1. Pick **one** area: overdue-workload calculations or capacity utilization.
 2. Choose the read-only Q&A role - **Ask** in current VS Code/GitHub
    documentation - or your client's equivalent. Record why editing authority is
    unnecessary.
@@ -162,10 +163,10 @@ For each task, decide Ask, Plan, or Agent, and give a one-clause reason. There i
 more than one defensible answer for some of them; the reason is what is being
 assessed.
 
-1. "Why does the order book negate keys on one side?"
+1. "Why is the provider-capacity queue ordered by rate and arrival time?"
 2. "Rename a helper used in four files."
 3. "Move every model in this package to a new validation library."
-4. "A customer says they were filled at a price that was never quoted."
+4. "Operations says an assignment used a service rate no provider offered."
 5. "Add a regression test for the fix we just made."
 
 Decide all five silently in the first minute. The facilitator calls only items

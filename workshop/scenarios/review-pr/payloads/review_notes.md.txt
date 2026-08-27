@@ -1,4 +1,4 @@
-# Review notes - PR #212 "Normalise VaR reporting and tidy up risk helpers"
+# Review notes - PR #212 "Normalise overdue workload reporting"
 
 Reviewer: <your name or initials>
 Reviewed on: <date, Europe/Berlin>

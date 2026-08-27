@@ -41,8 +41,8 @@ up in discussion. It is deliberately short: it covers terms that change what you
 
 | English | Deutsch | Example |
 |---|---|---|
-| Decimal comma | Dezimalkomma | Display: `101,455` |
-| Decimal point | Dezimalpunkt | Code and config: `101.455` |
+| Decimal comma | Dezimalkomma | Display: `110,00 EUR/h` |
+| Decimal point | Dezimalpunkt | Code and config: `110.00` |
 | Thousands separator | Tausendertrennzeichen | Display: `1.234.567,89` |
 | 24-hour time | 24-Stunden-Zeit | `14:30` |
 | Timezone-aware timestamp | Zeitzonenbehaftete Zeitangabe | Stored as UTC, shown as CET/CEST |

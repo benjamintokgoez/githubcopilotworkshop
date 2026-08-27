@@ -1,5 +1,5 @@
-# QuantCore Configuration
-# =======================
+# MittelWerk Configuration
+# ========================
 # Development-safe defaults for the workshop baseline. No secrets belong in
 # this file - see .env.example for the environment variables the app consumes.
 #
@@ -22,13 +22,13 @@ server:
   cors_allow_credentials: false
 
 risk:
-  # Null is honest: the dashboard reports VaR as unavailable unless an
-  # explicit positive daily return volatility is supplied.
-  daily_volatility: null
+  # Null is honest: the dashboard reports backlog-at-risk as unavailable
+  # unless an explicit positive hours-variability assumption is supplied.
+  hours_volatility: null
 
 # Development-safe: local SQLite file, no external database server required.
 database:
-  url: "sqlite:///quantcore.db"
+  url: "sqlite:///mittelwerk.db"
   echo: false
 
 feed:
