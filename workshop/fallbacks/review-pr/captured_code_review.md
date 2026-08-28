@@ -9,20 +9,20 @@ internally consistent with the changed analytics summary.
 ## Finding A
 
 **Blocking:** `report_overdue_hours` and `report_estimated_cost` return negative
-values, contradicting the issue's non-negative magnitude contract. Return
-`abs(value)` and retain the original assertions.
+values, contradicting the issue's non-negative magnitude contract. Restore that
+contract and require assertions that would fail for a negative result.
 
 ## Finding B
 
 **Blocking:** `datetime.now()` creates a naive timestamp in the persistence path,
-and the broad exception handler hides failed writes. Keep aware UTC and surface
-the storage failure through the existing error boundary.
+and the broad exception handler hides failed writes. The persistence boundary
+needs the repository's aware-UTC and explicit-failure contracts.
 
 ## Finding C
 
 **Should-fix:** organisation identifiers are added to an info log although the
-ticket does not require them. Remove the unnecessary identifier and document the
-minimal operational fields that remain.
+ticket does not require them. Limit the operational log to fields justified by
+the incident and the repository's data-minimisation rules.
 
 ## Suggestion not grounded in the repository contract
 

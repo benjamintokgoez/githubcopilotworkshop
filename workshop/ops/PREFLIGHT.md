@@ -56,7 +56,7 @@ Live-elective Green means:
   tested;
 - **5C:** chat surface tested and explicit attachment method understood.
 
-Amber/Red selects captured/local delivery before arrival. Lab 5 never installs,
+Amber/Red selects local or captured/offline delivery before arrival. Lab 5 never installs,
 authenticates, repairs proxy/SSL, requests policy changes, or activates
 scenario-local drafts as real client settings.
 

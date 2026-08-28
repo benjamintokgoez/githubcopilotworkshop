@@ -24,9 +24,10 @@ without it.
 ## Working without the tooling
 
 1. Copy `staged_copy/` into a directory you can edit.
-2. Create `MIGRATION_NOTES.md`. Before touching code, capture one valid instrument
-   and quote through their public parser, payload, and JSON paths, plus one
-   invalid case per model family through the public error boundary.
+2. Create `MIGRATION_NOTES.md`. Before touching code, capture one valid equipment
+   reference and service-rate record through their public parser, payload, and
+   JSON paths, plus one invalid case per model family through the public error
+   boundary.
 3. Run the checks from that directory:
 
    ```bash

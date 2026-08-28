@@ -12,14 +12,43 @@ the same starting state and can return to it.
 | `python scripts/workshop_doctor.py` | Preflight: Python version, dependency imports, repository and config structure, environment hints. It does **not** run tests or check your IDE - pair it with `pytest -q` and a manual Copilot check. |
 | `python scripts/workshop.py list` | List available scenarios and their state |
 | `python scripts/workshop.py start <scenario-id>` | Stage a scenario: artifacts, working tree state, checkpoint |
-| `python scripts/workshop.py status` | Show the active scenario and the last checkpoint |
+| `python scripts/workshop.py status` | Show the active scenario, staged targets, and participant-added work files |
 | `python scripts/workshop.py resync <scenario-id> --blocked-at <phase>` | Print an answer-neutral route around a blocked phase without changing files |
 | `python scripts/workshop.py verify <scenario-id>` | Run the scenario's acceptance checks |
-| `python scripts/workshop.py reset <scenario-id>` | Archive participant additions and restore the exact pre-start files and modes |
+| `python scripts/workshop.py reset <scenario-id>` | Preserve the attempt and restore the exact pre-start scenario work directory |
 | `python scripts/workshop.py fallback <scenario-id>` | Print the path to the captured, non-live artifacts |
 
 `reset` is the safety net that makes the resync checkpoints work. Use it without
 embarrassment: rejoining the room is worth more than salvaging a tangled tree.
+
+## Side effects, concurrency, and preserved work
+
+One checkout is one transactional workshop workspace. Run only one `start`,
+`verify`, or `reset` command at a time. The runner uses an operating-system lock
+at `.workshop-state/lifecycle.lock`; a competing lifecycle command exits with a
+state-conflict message instead of racing. Do not delete the lock file. A stale
+file is harmless because the operating system releases the actual lock when the
+process exits. Pairs should share one driver terminal, and parallel experiments
+should use separate checkouts.
+
+If `workshop/scenarios/<id>/work/` already exists, `start` moves that complete
+directory to `.workshop-state/backups/<id>/pre-start-work/` before staging a
+fresh workspace. `reset` verifies and restores it as a whole, including unrelated
+files, nested directories, symbolic links, and modes. Do not edit the backup by
+hand while a scenario is active.
+
+Normally `reset` copies only participant-changed files into the timestamped
+attempt archive. If a file, file count, or total size exceeds the selective
+archive limits, or the work tree contains an entry that cannot be copied safely,
+the runner moves the complete active `work/` directory into the attempt archive
+and continues restoring the pre-start state. This avoids a large generated file
+blocking the room checkpoint. The archive can then include unchanged staged
+files as well as participant work.
+
+Attempt archives are ignored by Git but persist until removed. They contain
+whatever the participant wrote, so never put secrets or production material in a
+scenario workspace and delete archives according to the workshop data-handling
+policy.
 
 ## Phase recovery without an answer key
 

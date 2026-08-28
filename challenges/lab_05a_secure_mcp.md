@@ -18,11 +18,11 @@ unavailable, use `workshop/fallbacks/elective-mcp/`.
 
 | Delivery mode | Use this material | What it proves |
 |---|---|---|
-| **Captured/local** | Sample `mcp.json`, tool inventory, configuration notes, captured tool log | Engineering and control analysis; no claim that a server was operated |
-| **Live addition** | The same artifacts plus one already-approved, already-running local server | Whether this host/server combination behaved as recorded today |
-| **Follow-up** | GitHub MCP Server or enterprise allowlist proposal | Awareness only; do not install, authenticate, or request registry approval during this block |
+| **Captured/offline** | Sample `mcp.json`, tool inventory, configuration notes, captured tool log | Engineering and control analysis; no claim that a server was operated |
+| **Live** | The same artifacts plus one already-approved, already-running local server | Whether this host/server combination behaved as recorded today |
+| **Follow-up (not a delivery mode)** | GitHub MCP Server or enterprise allowlist proposal | Awareness only; do not install, authenticate, or request registry approval during this block |
 
-If live eligibility was not Green at T-72, use captured/local mode immediately.
+If live eligibility was not Green at T-72, use captured/offline mode immediately.
 If a Green server does not answer by **15:03**, switch to the capture. Do not
 replace evidence work with connection troubleshooting.
 
@@ -85,7 +85,7 @@ Official references:
 
 ## Implement/Test (13 minutes)
 
-### Captured/local mode
+### Captured/offline mode
 
 1. Read `fixtures/tool_inventory.md` and identify the maximum reach of each
    offered tool. Do not confuse intended use with capability.

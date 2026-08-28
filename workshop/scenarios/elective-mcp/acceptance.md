@@ -13,7 +13,7 @@ reads `work/permission_inventory.md` and checks that:
 | A real inventory exists | `- Tools offered:` / `- Tools enabled:` / `- Tools disabled:` |
 | Each restriction is attributed to the layer that enforces it | `- Where the control lives:` |
 | The approval and process-confinement assumptions are stated | `- Approval boundary:` |
-| Tool provenance is evidenced, live or captured | `## 3. Evidence the answer came from the tool` |
+| Tool provenance is evidenced, live or captured/offline | `## 3. Evidence the answer came from the tool` |
 | The negative case is labelled and attributed | `- What I asked for outside the permission:` and `- Observed behaviour:` |
 | The boundary of the control is named | `## 5. What MCP configuration does not protect against` |
 | The governance ask has an owner | `- Approval owner:` |
@@ -28,8 +28,8 @@ Both routes are complete:
 
 - **Live:** identify the host/server, record a fresh call and negative result, and
   label the evidence live.
-- **Captured/local:** edit the reduced configuration, trace events in
-  `fixtures/tool_call_log.md`, and label them captured. Any sandbox result not
+- **Captured/offline:** edit the reduced configuration, trace events in
+  `fixtures/tool_call_log.md`, and label them captured/offline. Any sandbox result not
   present in the capture must be labelled predicted.
 
 The captured route must still name the controlling layer and produce the edited

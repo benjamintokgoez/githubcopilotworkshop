@@ -150,7 +150,7 @@ If you are using the primary live route:
    A role label is a workflow choice, not an authorization boundary.
 
 If sign-in, entitlement, client support, policy, budget, or the network blocks a
-step, record the observed blocker and select the local/captured route. Do not
+step, record the observed blocker and select the local or captured/offline route. Do not
 bypass policy, and do not treat unavailable Copilot access as a failed repository
 baseline.
 
@@ -222,7 +222,7 @@ path that works when the answer is "no".
 - **5C:** the approved chat surface is working; the exercise explicitly attaches
   the scenario-local draft and does not claim automatic activation.
 
-Amber or Red selects captured/local mode before the day. Timed Lab 5 never
+Amber or Red selects local or captured/offline mode before the day. Timed Lab 5 never
 installs, authenticates, repairs a proxy, requests policy changes, or treats a
 scenario draft as active client configuration.
 
@@ -247,7 +247,7 @@ running, stop troubleshooting in the main room. Choose one route:
 1. the organizer's known-good environment, if already approved;
 2. a permitted devcontainer or Codespace;
 3. a partner's verified machine, as driver, navigator, or reviewer;
-4. the local/captured route, using the static repository artifacts.
+4. the local or captured/offline route, using the static repository artifacts.
 
 Helpers may diagnose in parallel, privately, for at most five minutes. Do not
 install packages, repeat sign-in, or change corporate security settings during
@@ -286,7 +286,7 @@ unavailable.
 - [ ] The clean-checkout baseline is recorded as green, failed, or not run - never
       implied
 - [ ] Live chat answered a synthetic-repository question, **or** the blocker and
-      local/captured route are recorded
+      local or captured/offline route are recorded
 - [ ] The client/version and model selector are recorded as observed, including
       `Auto`, explicit models, or `unavailable`
 - [ ] At least one likely policy or authorization blocker has a named decision

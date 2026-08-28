@@ -29,6 +29,9 @@ below.
 - [ ] Confirm AI-credit budgets, rate limits, quotas, runner capacity, and support contacts with the organizer; do not put credentials in the manifest.
 - [ ] Confirm legal/privacy/works-council review owner and the data-handling notice.
 - [ ] Recheck links, commands, Python 3.12, dependencies, fixtures, test commands, and reset scripts.
+- [ ] Exercise scenario lifecycle safety: fresh start/reset, exact restoration of
+      a pre-existing `work/` tree, oversized-attempt fallback, interrupted-state
+      recovery, and lock contention between two terminals.
 - [ ] Confirm attendee and facilitator agendas use the same Lab 0–7 links, Supported/Core/Extension lane names, captured/offline fallback, and exact loop wording: **Understand/Plan -> Implement/Test -> Review -> Explain**.
 - [ ] Confirm the canonical 09:00-17:15 schedule is identical everywhere:
       65/70/45/35/50/25-minute Labs 2-7, protected 15/15/10-minute breaks,
@@ -45,7 +48,8 @@ below.
 - [ ] Run the five-minute preflight smoke test.
 - [ ] Verify facilitator/helper access to Supported/Core/Extension artifacts and captured/offline fallbacks.
 - [ ] Verify the three unrepresented-elective awareness cards against the
-      current captured fixtures; each says `captured` and contains no solution.
+      current captured fixtures; each says `captured/offline` and contains no
+      solution.
 - [ ] Confirm attendee instructions use CET/CEST plus UTC and the correct 24-hour dates.
 - [ ] Confirm breaks, captions, microphones, quiet route, confidential help channel, and late-arrival path.
 

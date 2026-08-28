@@ -4,7 +4,7 @@ You are deciding what an assistant may reach on your behalf. The mechanism is
 MCP; the transferable work is data minimisation, process confinement, tool
 capability, upstream authorization, and evidence.
 
-**Default route:** captured/local. No live server, registry entry, authentication,
+**Default route:** captured/offline. No live server, registry entry, authentication,
 or network access is required. A live call is optional and only for a server
 approved and tested before this block.
 

@@ -21,15 +21,18 @@ green.
 If you cannot decide, choose **5C**. It has no installation prerequisite and its
 scope decisions transfer across Copilot surfaces.
 
-### Pick the route before the timer starts
+### Pick the delivery mode before the timer starts
 
-| Route | Use it only when | Evidence label |
+| Delivery mode | Use it only when | Evidence label |
 |---|---|---|
 | **Live** | The required client is Green in the T-72 capability matrix: installed, authenticated, policy-enabled, and smoke-tested | `live` |
-| **Captured/local** | Any live prerequisite is amber or red, or you prefer a deterministic exercise | `captured` or `local analysis` |
-| **Solo** | You are working alone; use the same artifact and write both the operator and reviewer observations | Add `solo` to the evidence label |
+| **Local** | The elective explicitly defines a personally executed local analysis, such as 5C's mechanical comparison | `local` |
+| **Captured/offline** | Behavioural evidence comes from the shipped transcript, log, or other capture | `captured/offline` |
 
-The captured/local route is not a consolation route. It must still produce an
+Working solo is an arrangement, not a delivery mode. Record it separately and
+write both the operator and reviewer observations.
+
+The local or captured/offline route is not a consolation route. It must still produce an
 edited artifact, an evidence trace, a negative case, and a decision a team could
 review. It must not claim that a configuration ran when it did not.
 
@@ -91,7 +94,7 @@ there. Never cut the negative case or explanation to preserve setup work.
   event, and one control decision. The full scenario verifier may remain red if
   Core-only fields are incomplete.
 - **Core:** complete the shared and branch-specific evidence contract and the
-  structural verifier. Either live or captured/local mode can demonstrate Core
+  structural verifier. Live, local, or captured/offline mode can demonstrate Core
   engineering judgement.
 - **Extension:** only after Core. During this block, record one follow-up
   question; do not add a second mechanism.
@@ -102,7 +105,7 @@ there. Never cut the negative case or explanation to preserve setup work.
 
 | Evidence | Supported | Core |
 |---|:---:|:---:|
-| Elective, lane, delivery mode, and live surface operated (`none` if captured/local) | Required | Required |
+| Elective, lane, delivery mode, and live surface operated (`none` unless live) | Required | Required |
 | One bounded configuration, policy, or instruction artifact | Required | Required |
 | Positive event or comparison attributed to a control | 1 | Complete branch trace |
 | Negative event or comparison attributed to a control | 1 | Complete branch trace |

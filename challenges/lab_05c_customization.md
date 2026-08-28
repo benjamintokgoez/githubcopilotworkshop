@@ -25,9 +25,9 @@ the content of the rules, not automatic discovery or path matching.
 
 | Delivery mode | Method | Honest claim |
 |---|---|---|
-| **Local analysis** | Rewrite the draft and score the before/after rules and one candidate output with the mechanical rubric | The proposed rules became more scoped and checkable |
-| **Live addition** | Run the same task in two fresh sessions; explicitly attach only the rewritten draft in the second | The rule content influenced this model run |
-| **Follow-up** | Test a real repository/path instruction, skill, prompt file, custom agent, or hook in an isolated repository | Discovery and cross-surface behavior require separate evidence |
+| **Local** | Rewrite the draft and score the before/after rules and one candidate output with the mechanical rubric | The proposed rules became more scoped and checkable |
+| **Live** | Run the same task in two fresh sessions; explicitly attach only the rewritten draft in the second | The rule content influenced this model run |
+| **Follow-up (not a delivery mode)** | Test a real repository/path instruction, skill, prompt file, custom agent, or hook in an isolated repository | Discovery and cross-surface behavior require separate evidence |
 
 Do not edit `.github/copilot-instructions.md` during the workshop.
 
@@ -95,7 +95,7 @@ Official references:
 Use the stable review input in the scenario `brief.md`. Keep the input identical
 before, after, and during the deletion test.
 
-### Local-analysis mode
+### Local mode
 
 1. Without reading the draft, write a short candidate response for the stable
    review input, or exchange one with a partner. Keep it to ten lines.
@@ -126,7 +126,7 @@ not a prompt file plus agent plus skill.
 
 Create a request that conflicts with one retained rule while keeping the task
 safe. For the live route, run it with the same explicit context and record the
-result. For local analysis, ask a partner to apply the request, or write the two
+result. For local mode, ask a partner to apply the request, or write the two
 plausible outcomes and use the rule's reviewer check to decide which passes.
 Label the route.
 

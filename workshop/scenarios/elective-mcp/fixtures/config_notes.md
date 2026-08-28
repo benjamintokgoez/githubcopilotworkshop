@@ -50,7 +50,7 @@ The current VS Code reference states:
 So enabling `sandboxEnabled` does not preserve per-call prompts and add
 confinement. It trades those confirmations for standing filesystem and network
 rules. Every allowed path and domain must therefore be reviewed as a persistent
-grant. In captured/local mode, an edited sandbox policy is a **proposal**; no
+grant. In captured/offline mode, an edited sandbox policy is a **proposal**; no
 sandbox denial is observed unless the capture or a preflight-approved live run
 records one.
 

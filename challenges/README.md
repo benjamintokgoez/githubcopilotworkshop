@@ -1,8 +1,9 @@
 # Labs - supervised agentic engineering (one day)
 
 This directory holds the attendee-facing labs for the MittelWerk workshop. It is a
-one-day, hands-on curriculum for professional engineers who already write and
-review production code. It is not a feature tour of GitHub Copilot.
+one-day, hands-on curriculum for junior through senior professional engineers,
+tech leads, and architects who already write and review production code. It is
+not a feature tour of GitHub Copilot or an introduction to programming.
 
 All times are in 24-hour format and refer to local workshop time (Europe/Berlin,
 CET in winter and CEST in summer). The workshop language is English, written
@@ -73,6 +74,11 @@ mid-lab is normal and carries no penalty.
 | **Supported** | The same competency on a narrower artifact, with evidence from every loop stage | Fewer lane-specific acceptance items; the full Core verifier may legitimately remain red |
 | **Core** | The complete scenario and evidence contract | Full task, full evidence note, and the stated Core verifier |
 | **Extension** | Additional depth after Core evidence exists | One harder constraint or transfer question |
+
+The lanes are not seniority labels. Supported reduces breadth without removing
+the engineering loop, Core is the prepared default, and Extension protects the
+timebox when experienced participants finish early. Architects do not receive a
+prose-only route: they still change or test a concrete artifact.
 
 Separately record the delivery mode as `live`, `local`, or `captured/offline`,
 and whether a live product surface was operated. Captured work can demonstrate

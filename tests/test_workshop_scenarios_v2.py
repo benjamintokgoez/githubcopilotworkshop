@@ -851,17 +851,22 @@ class TestPathValidation:
                 tmp_path, cli.check_relpath("link/file.txt", what="t"), what="target"
             )
 
-    def test_symlinked_target_is_refused_by_start(self, sandbox: Path) -> None:
+    def test_symlinked_target_is_preserved_without_being_followed(self, sandbox: Path) -> None:
         work = sandbox / "workshop" / "scenarios" / "review-pr" / "work"
         work.mkdir(parents=True)
         outside = sandbox.parent / "outside.md"
         outside.write_text("do not touch\n", encoding="utf-8")
-        (work / "review_notes.md").symlink_to(outside)
+        target = work / "review_notes.md"
+        target.symlink_to(outside)
         result = run(sandbox, "start", "review-pr")
-        assert result.returncode == EXIT_INVALID_ARTIFACT
-        assert "symlink" in result.stderr
+        assert result.returncode == EXIT_OK
+        assert target.is_file()
+        assert not target.is_symlink()
         assert outside.read_text(encoding="utf-8") == "do not touch\n"
-        assert not (sandbox / ".workshop-state" / "state.json").exists()
+        assert run(sandbox, "reset", "review-pr").returncode == EXIT_OK
+        assert target.is_symlink()
+        assert target.resolve() == outside.resolve()
+        assert outside.read_text(encoding="utf-8") == "do not touch\n"
 
 
 class TestManifestValidation:
@@ -1326,6 +1331,19 @@ class TestStateConflicts:
         path.write_text(json.dumps(data), encoding="utf-8")
         assert run(sandbox, "status").returncode == EXIT_INVALID_ARTIFACT
 
+    def test_schema_v1_state_remains_resettable(self, sandbox: Path) -> None:
+        run(sandbox, "start", "review-pr")
+        state = state_json(sandbox)
+        state["schema_version"] = 1
+        state.pop("work_dir_existed_before")
+        state.pop("work_dir_moved")
+        state.pop("pre_start_work_sha256")
+        write_state(sandbox, state)
+        result = run(sandbox, "reset", "review-pr")
+        assert result.returncode == EXIT_OK, result.stderr
+        assert not (sandbox / "workshop/scenarios/review-pr/work").exists()
+        assert not (sandbox / ".workshop-state" / "state.json").exists()
+
     def test_interrupted_staging_is_recoverable(self, sandbox: Path) -> None:
         before = tree_state(sandbox)
         run(sandbox, "start", "review-pr")
@@ -1363,6 +1381,48 @@ class TestStateConflicts:
 
 
 # ---------------------------------------------------------------------------
+# Cross-process lifecycle locking
+# ---------------------------------------------------------------------------
+
+
+class TestLifecycleLock:
+    def test_a_concurrent_start_is_refused_without_staging(
+        self, cli: types.ModuleType, sandbox: Path
+    ) -> None:
+        with cli.lifecycle_lock(sandbox, "test-holder"):
+            result = run(sandbox, "start", "review-pr")
+        assert result.returncode == EXIT_STATE_CONFLICT
+        assert "lifecycle command is already running" in result.stderr
+        assert not (sandbox / "workshop/scenarios/review-pr/work").exists()
+        assert not (sandbox / ".workshop-state" / "state.json").exists()
+        assert run(sandbox, "start", "review-pr").returncode == EXIT_OK
+
+    @pytest.mark.parametrize("command", [("verify", "review-pr"), ("reset", "review-pr")])
+    def test_active_lifecycle_commands_do_not_race(
+        self,
+        cli: types.ModuleType,
+        sandbox: Path,
+        command: tuple[str, str],
+    ) -> None:
+        run(sandbox, "start", "review-pr")
+        with cli.lifecycle_lock(sandbox, "test-holder"):
+            result = run(sandbox, *command)
+        assert result.returncode == EXIT_STATE_CONFLICT
+        assert "lifecycle command is already running" in result.stderr
+        assert (sandbox / ".workshop-state" / "state.json").is_file()
+        assert run(sandbox, "reset", "review-pr").returncode == EXIT_OK
+
+    def test_stale_lock_file_content_does_not_block_recovery(self, sandbox: Path) -> None:
+        lock = sandbox / ".workshop-state" / "lifecycle.lock"
+        lock.parent.mkdir()
+        lock.write_text('{"pid": 999999, "command": "start"}', encoding="utf-8")
+        result = run(sandbox, "start", "review-pr")
+        assert result.returncode == EXIT_OK, result.stderr
+        assert stat.S_IMODE(lock.stat().st_mode) == 0o600
+        assert run(sandbox, "reset", "review-pr").returncode == EXIT_OK
+
+
+# ---------------------------------------------------------------------------
 # Pre-existing targets, backups, and transactional staging
 # ---------------------------------------------------------------------------
 
@@ -1381,34 +1441,39 @@ class TestTransactionalStaging:
         assert run(sandbox, "start", "review-pr").returncode == EXIT_OK
         assert target.read_text(encoding="utf-8") != original
         record = first_target_record(sandbox)
-        assert record["existed_before"] is True
-        assert record["pre_mode"] == f"{original_mode:04o}"
-        backup = sandbox / str(record["backup"])
+        assert record["existed_before"] is False
+        assert record["backup"] is None
+        state = state_json(sandbox)
+        assert state["work_dir_existed_before"] is True
+        assert state["work_dir_moved"] is True
+        assert isinstance(state["pre_start_work_sha256"], str)
+        backup = sandbox / ".workshop-state/backups/review-pr/pre-start-work/review_notes.md"
         assert backup.read_text(encoding="utf-8") == original
 
         assert run(sandbox, "reset", "review-pr").returncode == EXIT_OK
         assert target.read_text(encoding="utf-8") == original
         assert stat.S_IMODE(target.stat().st_mode) == original_mode
 
-    def test_staging_failure_rolls_back_completely(self, sandbox: Path) -> None:
+    def test_non_directory_work_path_is_refused_before_mutation(self, sandbox: Path) -> None:
         blocker = sandbox / "workshop/scenarios/incident-service-rate/work"
         blocker.write_text("not a directory\n", encoding="utf-8")
         before = tree_state(sandbox)
         result = run(sandbox, "start", "incident-service-rate")
         assert result.returncode == EXIT_ERROR
-        assert "rolled back" in result.stderr
+        assert "not a directory" in result.stderr
         assert tree_state(sandbox) == before
         assert not (sandbox / ".workshop-state" / "state.json").exists()
 
-    def test_a_directory_where_a_target_belongs_is_refused_before_mutation(
+    def test_a_directory_where_a_target_belongs_is_preserved_and_restored(
         self, sandbox: Path
     ) -> None:
         target = sandbox / "workshop/scenarios/review-pr/work/review_notes.md"
         target.mkdir(parents=True)
         result = run(sandbox, "start", "review-pr")
-        assert result.returncode == EXIT_ERROR
-        assert "directory" in result.stderr
-        assert not (sandbox / ".workshop-state" / "state.json").exists()
+        assert result.returncode == EXIT_OK
+        assert target.is_file()
+        assert run(sandbox, "reset", "review-pr").returncode == EXIT_OK
+        assert target.is_dir()
 
     def test_backups_are_removed_after_a_successful_reset(self, sandbox: Path) -> None:
         run(sandbox, "start", "elective-mcp")
@@ -1420,11 +1485,12 @@ class TestTransactionalStaging:
         target.parent.mkdir(parents=True)
         target.write_text("original\n", encoding="utf-8")
         run(sandbox, "start", "review-pr")
-        backup = sandbox / str(first_target_record(sandbox)["backup"])
+        backup = sandbox / ".workshop-state/backups/review-pr/pre-start-work/review_notes.md"
         backup.write_text("tampered\n", encoding="utf-8")
         result = run(sandbox, "reset", "review-pr")
         assert result.returncode == EXIT_ERROR
-        assert "does not match its recorded hash" in result.stderr
+        assert "changed after staging" in result.stderr
+        assert (sandbox / ".workshop-state" / "state.json").is_file()
 
     def test_reset_archives_extra_files_and_restores_the_tree_exactly(self, sandbox: Path) -> None:
         before = tree_state(sandbox)
@@ -1443,6 +1509,35 @@ class TestTransactionalStaging:
         assert archived["workshop/scenarios/review-pr/work/scratch_notes.md"] == (
             "thinking out loud\n"
         )
+
+    def test_reset_restores_a_pre_existing_work_tree_exactly(self, sandbox: Path) -> None:
+        work = sandbox / "workshop/scenarios/review-pr/work"
+        work.mkdir(parents=True)
+        target = work / "review_notes.md"
+        prior_notes = work / "prior_notes.md"
+        target.write_text("original target\n", encoding="utf-8")
+        prior_notes.write_text("keep this unrelated file\n", encoding="utf-8")
+        prior_notes.chmod(0o640)
+        before = tree_state(sandbox)
+
+        assert run(sandbox, "start", "review-pr").returncode == EXIT_OK
+        target.write_text("new attempt\n", encoding="utf-8")
+        prior_notes.write_text("same name, active attempt\n", encoding="utf-8")
+        (work / "scratch.md").write_text("new scratch\n", encoding="utf-8")
+        status = run(sandbox, "status")
+        assert "[participant-added]" in status.stdout
+        assert "prior_notes.md" in status.stdout
+        assert "scratch.md" in status.stdout
+
+        result = run(sandbox, "reset", "review-pr")
+        assert result.returncode == EXIT_OK, result.stderr
+        assert tree_state(sandbox) == before
+        assert target.read_text(encoding="utf-8") == "original target\n"
+        assert prior_notes.read_text(encoding="utf-8") == "keep this unrelated file\n"
+        assert stat.S_IMODE(prior_notes.stat().st_mode) == 0o640
+        archived = archived_files(sandbox, "review-pr")
+        assert "same name, active attempt\n" in archived.values()
+        assert "new scratch\n" in archived.values()
 
     def test_reset_archives_a_mode_only_change(self, sandbox: Path) -> None:
         run(sandbox, "start", "review-pr")
@@ -1465,18 +1560,20 @@ class TestTransactionalStaging:
         assert len(archives) == 2
         assert len(set(archives)) == 2
 
-    def test_an_oversized_attempt_file_is_refused_with_state_intact(self, sandbox: Path) -> None:
+    def test_an_oversized_attempt_is_preserved_without_blocking_reset(self, sandbox: Path) -> None:
         run(sandbox, "start", "review-pr")
         big = sandbox / "workshop/scenarios/review-pr/work/huge.bin"
         big.write_bytes(b"x" * (3 * 1024 * 1024))
         result = run(sandbox, "reset", "review-pr")
-        assert result.returncode == EXIT_ERROR
-        assert "refusing to archive" in result.stderr
-        assert big.is_file()
-        assert (sandbox / ".workshop-state" / "state.json").is_file()
-        assert "Active scenario: review-pr" in run(sandbox, "status").stdout
+        assert result.returncode == EXIT_OK, result.stderr
+        assert "complete active work directory was moved" in result.stdout
+        assert not big.exists()
+        archived = list((sandbox / ".workshop-state" / "attempts" / "review-pr").rglob("huge.bin"))
+        assert len(archived) == 1
+        assert archived[0].stat().st_size == 3 * 1024 * 1024
+        assert not (sandbox / ".workshop-state" / "state.json").exists()
 
-    def test_a_target_replaced_by_a_directory_is_reported_not_crashed(self, sandbox: Path) -> None:
+    def test_a_target_replaced_by_a_directory_is_reported_and_reset(self, sandbox: Path) -> None:
         run(sandbox, "start", "review-pr")
         target = sandbox / "workshop/scenarios/review-pr/work/review_notes.md"
         target.unlink()
@@ -1485,10 +1582,18 @@ class TestTransactionalStaging:
         assert status.returncode == EXIT_OK
         assert "[replaced-by-directory]" in status.stdout
         result = run(sandbox, "reset", "review-pr")
-        assert result.returncode == EXIT_ERROR
-        assert "directory" in result.stderr
-        assert "Traceback" not in result.stderr
-        assert (sandbox / ".workshop-state" / "state.json").is_file()
+        assert result.returncode == EXIT_OK, result.stderr
+        assert "complete active work directory was moved" in result.stdout
+        archived_directories = [
+            path
+            for path in (sandbox / ".workshop-state" / "attempts" / "review-pr").rglob(
+                "review_notes.md"
+            )
+            if path.is_dir()
+        ]
+        assert len(archived_directories) == 1
+        assert not (sandbox / "workshop/scenarios/review-pr/work").exists()
+        assert not (sandbox / ".workshop-state" / "state.json").exists()
 
     def test_an_unwritable_state_directory_fails_actionably(self, sandbox: Path) -> None:
         state_dir = sandbox / ".workshop-state"
@@ -1768,8 +1873,8 @@ class TestUntrustedState:
         target.parent.mkdir(parents=True)
         target.write_text("mine\n", encoding="utf-8")
         run(sandbox, "start", "review-pr")
-        backup = sandbox / str(first_target_record(sandbox)["backup"])
-        backup.unlink()
+        backup = sandbox / ".workshop-state/backups/review-pr/pre-start-work"
+        shutil.rmtree(backup)
         backup.symlink_to(secret)
         result = run(sandbox, "reset", "review-pr")
         assert result.returncode == EXIT_INVALID_ARTIFACT
@@ -1789,11 +1894,19 @@ class TestUntrustedState:
         assert "[replaced-by-symlink]" in status.stdout
         assert "not yours to read" not in status.stdout
         result = run(sandbox, "reset", "review-pr")
-        assert result.returncode == EXIT_INVALID_ARTIFACT
-        assert "symlink" in result.stderr
+        assert result.returncode == EXIT_OK, result.stderr
         assert secret.is_file()
         assert secret.read_text(encoding="utf-8") == "not yours to read\n"
-        assert not archived_files(sandbox, "review-pr")
+        links = [
+            path
+            for path in (sandbox / ".workshop-state" / "attempts" / "review-pr").rglob(
+                "review_notes.md"
+            )
+            if path.is_symlink()
+        ]
+        assert len(links) == 1
+        assert links[0].resolve() == secret.resolve()
+        assert not (sandbox / ".workshop-state" / "state.json").exists()
 
 
 # ---------------------------------------------------------------------------
@@ -1831,25 +1944,23 @@ class TestMultiTargetStaging:
         self, sandbox: Path
     ) -> None:
         self._two_target_scenario(sandbox)
+        manifest_path = sandbox / "workshop/scenarios/sandbox-pair/manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["stage"][1]["target"] = "workshop/scenarios/sandbox-pair/work/first.py/second.py"
+        manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
         work = sandbox / "workshop/scenarios/sandbox-pair/work"
-        nested = work / "nested"
-        nested.mkdir(parents=True)
+        work.mkdir(parents=True)
         first = work / "first.py"
         original = "# my earlier draft\n"
         first.write_text(original, encoding="utf-8")
         first.chmod(0o640)
         before = tree_state(sandbox)
-        nested.chmod(0o500)
-        try:
-            result = run(sandbox, "start", "sandbox-pair")
-        finally:
-            nested.chmod(0o700)
+        result = run(sandbox, "start", "sandbox-pair")
         assert result.returncode == EXIT_ERROR
         assert "rolled back" in result.stderr
         assert "Traceback" not in result.stderr
         assert first.read_text(encoding="utf-8") == original
         assert stat.S_IMODE(first.stat().st_mode) == 0o640
-        assert not (nested / "second.py").exists()
         assert not (sandbox / ".workshop-state" / "state.json").exists()
         assert tree_state(sandbox) == before
 
@@ -1869,7 +1980,7 @@ class TestMultiTargetStaging:
         assert not (sandbox / "workshop/scenarios/elective-customization/work").exists()
         assert not (sandbox / ".workshop-state" / "state.json").exists()
 
-    def test_backups_for_every_target_exist_before_any_payload_is_written(
+    def test_the_whole_pre_start_work_tree_is_preserved_before_payloads(
         self, sandbox: Path
     ) -> None:
         work = sandbox / "workshop/scenarios/capstone-transfer/work"
@@ -1882,7 +1993,7 @@ class TestMultiTargetStaging:
         for name, body in contents.items():
             (work / name).write_text(body, encoding="utf-8")
         assert run(sandbox, "start", "capstone-transfer").returncode == EXIT_OK
-        backups = sandbox / ".workshop-state" / "backups" / "capstone-transfer"
+        backups = sandbox / ".workshop-state" / "backups" / "capstone-transfer" / "pre-start-work"
         archived = sorted(path.read_text(encoding="utf-8") for path in backups.iterdir())
         assert archived == sorted(contents.values())
         assert run(sandbox, "reset", "capstone-transfer").returncode == EXIT_OK
@@ -1912,11 +2023,14 @@ class TestMultiTargetStaging:
         original = "# pre-existing policy\n"
         target.write_text(original, encoding="utf-8")
         run(sandbox, "start", "elective-cli")
-        backup = sandbox / str(first_target_record(sandbox)["backup"])
-        backup.unlink()
-        target.write_text(original, encoding="utf-8")
+        work = target.parent
+        backup = sandbox / ".workshop-state/backups/elective-cli/pre-start-work"
+        shutil.rmtree(work)
+        backup.rename(work)
         state = state_json(sandbox)
         state["phase"] = "staging"
+        state["work_dir_moved"] = False
+        state["pre_start_work_sha256"] = None
         write_state(sandbox, state)
         result = run(sandbox, "reset", "elective-cli")
         assert result.returncode == EXIT_OK, result.stderr
@@ -1927,11 +2041,11 @@ class TestMultiTargetStaging:
         target.parent.mkdir(parents=True)
         target.write_text("# pre-existing policy\n", encoding="utf-8")
         run(sandbox, "start", "elective-cli")
-        backup = sandbox / str(first_target_record(sandbox)["backup"])
-        backup.unlink()
+        backup = sandbox / ".workshop-state/backups/elective-cli/pre-start-work"
+        shutil.rmtree(backup)
         result = run(sandbox, "reset", "elective-cli")
         assert result.returncode == EXIT_ERROR
-        assert "backup for" in result.stderr
+        assert "pre-start work backup is missing" in result.stderr
         assert (sandbox / ".workshop-state" / "state.json").is_file()
 
 
@@ -2072,6 +2186,36 @@ class TestFallbacks:
             encoding="utf-8"
         )
         assert "float" in captured
+
+    def test_captured_review_is_diagnostic_without_an_exact_repair(self) -> None:
+        captured = (FALLBACK_ROOT / "review-pr" / "captured_code_review.md").read_text(
+            encoding="utf-8"
+        )
+        for spoiler in ("abs(value)", "Remove the unnecessary identifier"):
+            assert spoiler not in captured
+
+    def test_cli_capture_leaves_the_permission_inference_to_the_participant(self) -> None:
+        scenario = (
+            SCENARIO_ROOT / "elective-cli" / "fixtures" / "cli_session_transcript.md"
+        ).read_text(encoding="utf-8")
+        fallback = (
+            FALLBACK_ROOT / "elective-cli" / "fixtures" / "cli_session_transcript.md"
+        ).read_text(encoding="utf-8")
+        assert scenario == fallback
+        assert "## Questions for the policy review" in scenario
+        for spoiler in (
+            "most valuable finding",
+            "wildcard grants arguments",
+            "with any arguments",
+        ):
+            assert spoiler not in scenario
+
+    def test_migration_fallback_uses_the_current_domain_terms(self) -> None:
+        fallback = (FALLBACK_ROOT / "migration-legacy-models" / "README.md").read_text(
+            encoding="utf-8"
+        )
+        assert "equipment reference and service-rate record" in " ".join(fallback.split())
+        assert "instrument and quote" not in fallback
 
     def test_captured_acceptance_output_ships_for_every_scenario(self) -> None:
         for scenario_id in ALL_SCENARIOS:

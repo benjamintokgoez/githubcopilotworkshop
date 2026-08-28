@@ -14,7 +14,7 @@ python scripts/workshop.py reset elective-cli
 | `acceptance.md` | What `verify` checks |
 | `work/permission_policy.md` | Created by `start`: your allow / ask / deny policy |
 
-The **captured delivery mode** requires no installation. Predict
+The **captured/offline delivery mode** requires no installation. Predict
 verdicts before opening the transcript, map each event to current Copilot CLI
 controls, and trace one negative case through your written policy.
 
@@ -26,4 +26,4 @@ preview sandbox setup do not fit this block.
 The transcript is a synthetic risk case, not a copyable current configuration.
 Its broad wildcard notation illustrates argument scope. Use the current
 `Kind(argument)` permission vocabulary from `brief.md` for your policy and label
-the transcript evidence captured.
+the transcript evidence captured/offline.

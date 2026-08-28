@@ -45,7 +45,7 @@ Use the same input for every comparison:
 
 Do not edit application code.
 
-## Local-analysis mode
+## Local delivery
 
 1. Score the starting draft using `fixtures/review_criteria.md`.
 2. Rewrite it with three to five observable rules. Include scope, required

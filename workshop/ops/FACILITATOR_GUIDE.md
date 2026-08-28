@@ -19,6 +19,12 @@ Use this exact wording on the facilitator screen, attendee agenda, lab briefings
   technical producer. Move to 1:8-10 only after queue thresholds are met.
 - Keep one visible timer and one visible “now / next / cut” board.
 - Every lab uses the curriculum’s **Supported**, **Core**, and **Extension** lanes. A **captured/offline fallback** preserves the objective when a product, policy, network, or entitlement path is unavailable.
+- Treat one checkout as one transactional workspace. Pairs use one driver
+  terminal for scenario lifecycle commands; simultaneous work uses separate
+  checkouts, not competing `start`, `verify`, or `reset` commands.
+- Reinforce “map, verify, stop”: repository-aware assistance narrows an
+  unfamiliar codebase to an evidence chain; it does not make reading the whole
+  repository a prerequisite.
 - Do not ask for passwords, tokens, production code, customer data, or screenshots containing secrets.
 - Participants work in isolated training repositories and disposable branches.
 - Say: **“You can pass; the goal is transfer, not tool completion.”** / **„Sie können jederzeit passen; es geht um Transfer, nicht um Tool-Vollständigkeit.“**
@@ -132,7 +138,7 @@ Cut in this order when behind; never cut protected breaks, lunch, accessibility 
 3. Lab 2 or Lab 3 Extension work; keep Supported/Core evidence.
 4. Lab 4 optional live/cloud observation and secondary transcript/thread
    reading; retain human review **and** the captured automated comparison.
-5. Lab 5 live addition and Extension detail; retain the captured/local control
+5. Lab 5 live addition and Extension detail; retain the local or captured/offline control
    loop and awareness report.
 6. Non-essential Q&A; move it to the approved follow-up channel.
 
@@ -142,7 +148,7 @@ Never cut Slack A/B/C as if it were disposable: use slack to absorb the delay, r
 
 | Lab | Trigger | Mandatory action |
 |---|---|---|
-| 0 | T+12 and not green | Assign pair/captured mode; stop environment repair |
+| 0 | T+12 and not green | Assign paired work or captured/offline delivery; stop environment repair |
 | 1 | First live response exceeds 90 seconds | Use the captured explanation |
 | 2 | T+8 without repeatable failure | Show L1; use shipped acceptance failure |
 | 2 | T+35 without bounded change | Freeze code; continue Review and Explain |

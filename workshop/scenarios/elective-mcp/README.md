@@ -16,7 +16,7 @@ python scripts/workshop.py reset elective-mcp
 | `acceptance.md` | What `verify` checks |
 | `work/` | Created by `start`: your narrowed configuration and your inventory |
 
-The **captured/local delivery mode** requires no live server, registry entry,
+The **captured/offline delivery mode** requires no live server, registry entry,
 authentication, or network access. You still edit the reduced
 configuration, trace positive and negative events to their controlling layers,
 and write the platform decision. Label sandbox outcomes you did not run as

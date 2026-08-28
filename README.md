@@ -29,16 +29,20 @@ running it without being prompted, and be able to teach it to a colleague.
 
 ## Audience
 
-**Who this is for:** practising software engineers, tech leads, and architects who
-already write and review production code, primarily in Europe and specifically in
-the DACH region. Comfort with Python helps, but the labs are about engineering
-judgement, not Python trivia.
+**Who this is for:** junior through senior practising software engineers, tech
+leads, and architects who already write and review production code, primarily in
+Europe and specifically in the DACH region. Comfort with Python helps, but the
+labs are about engineering judgement, not Python trivia.
 
 **Who this is not for:** people new to programming, people looking for an
 introduction to what an AI assistant is, or teams wanting a procurement demo.
 
 **Assumed experience:** you have debugged something in an unfamiliar codebase, you
 have reviewed someone else's pull request, and you have opinions about tests.
+Early-career participants are welcome when they meet that baseline. Supported,
+Core, and Extension adjust breadth and independence, not professional rank;
+senior participants and architects still implement, test, and review concrete
+artifacts.
 
 **Language:** English throughout, written plainly for a mixed-proficiency
 international audience. Questions in German are welcome; answers come in English
@@ -150,7 +154,8 @@ and policy, and both change over time - the current picture is in the
 [feature availability matrix](https://docs.github.com/en/copilot/reference/copilot-feature-matrix)
 and
 [billing and pricing](https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing),
-not in this README. If access is absent or blocked, use the local/captured lane;
+not in this README. If access is absent or blocked, use the local or
+captured/offline delivery mode;
 do not bypass policy or spend the lab troubleshooting sign-in in public.
 
 **Helpful but not required:**
@@ -224,8 +229,8 @@ you when it has changed your working tree.
 If you plan to use the live route, check Copilot **by hand, in your IDE** - no
 script can do this for you. Confirm whether Copilot Chat answers a question about
 this repository and record which models and workflows (Ask, Plan, Agent) are
-actually available. An unavailable or policy-blocked result selects the
-local/captured lane; it does not fail the repository preflight.
+actually available. An unavailable or policy-blocked result selects the local or
+captured/offline delivery mode; it does not fail the repository preflight.
 
 ---
 

@@ -41,6 +41,28 @@ architects usually emphasise contracts, authority, reversibility, and review
 load. Neither role has a prose-only exemption: both perform an Implement/Test
 action, review concrete evidence, and explain uncertainty.
 
+## The large-codebase rule: map, verify, stop
+
+This repository is intentionally larger than anyone should read during a timed
+lab. The skill is not remembering the whole system. It is using GitHub Copilot or
+another repository-aware workflow to build the **smallest evidence map** that
+supports the next decision:
+
+1. Ask for named files, symbols, contracts, tests, and consumers relevant to one
+   question; require references and unknowns.
+2. Verify the important links in code or with a focused command. A repository map
+   is a hypothesis until you check it.
+3. Stop expanding the map when it supports the next reversible action. Record
+   adjacent risk as uncertainty instead of reading the repository without a
+   bound.
+
+The scenario `work/` directories isolate attendee edits so reset stays safe; they
+do not turn the exercises into toy problems. The diagnosis and review evidence
+still crosses tickets, invariants, implementation, tests, serialised contracts,
+and downstream consumers. This is the practical advantage of Copilot in a large
+codebase: no participant, including an architect, needs a complete mental model
+before making one well-evidenced decision.
+
 ## The run card for every timed lab
 
 1. **Outcome:** say what capability this lab adds.

@@ -8,7 +8,7 @@ This repository is a trustworthy training substrate for an advanced GitHub Copil
 - Use synthetic, non-sensitive data only. Never add production/customer code, credentials, tokens, personal data, or private URLs.
 - Isolate scenarios with disposable branches, fixtures, and repositories. A participant must be able to reset without affecting another scenario.
 - Prefer deterministic local tests and pre-created artifacts. Cloud services, model availability, network access, MCP, Actions, and organization policy must never be the only route to the learning objective.
-- Label optional live paths and keep local/captured alternatives current.
+- Label optional live paths and keep local or captured/offline alternatives current.
 - Preserve the learning loop: diagnose, identify an invariant, retrieve context, plan, generate, critically review, verify, and explain uncertainty.
 
 ## Content quality

@@ -35,6 +35,10 @@ privacy/works-council review.
 - [ ] Use purpose limitation: collect only what supports delivery, support, or explicitly approved learning evaluation.
 - [ ] Minimise fields; prefer aggregate counts and short structured notes over free text.
 - [ ] Use synthetic data and disposable repositories; stop and delete if sensitive content is pasted.
+- [ ] Treat `.workshop-state/attempts/` as participant-owned temporary data. It
+      may contain a complete scenario work directory after a size or file-type
+      fallback; inspect only with consent and delete it after the approved
+      retention window.
 - [ ] Restrict access to the organizer’s named roles; do not share raw feedback with employers or vendors outside the approved process.
 - [ ] Keep a retention date for each approved dataset; delete captures, branches,
       and incident notes when no longer needed.

@@ -1,6 +1,6 @@
 # Offline fallback - elective-cli (Lab 5B)
 
-This is the captured mode for Copilot CLI permission analysis. It requires no
+This is the captured/offline mode for Copilot CLI permission analysis. It requires no
 installation, authentication, or network access and still produces a policy,
 positive event trace, and negative-case evaluation.
 
@@ -28,8 +28,8 @@ positive event trace, and negative-case evaluation.
    permission, path/URL gate, human approval, or sandbox.
 4. Translate the transcript's abstract wildcard risk into the current
    `Kind(argument)` model. Do not copy the transcript notation as configuration.
-5. Trace one out-of-policy event through your rules and label it captured and
-   `policy-traced`.
+5. Trace one out-of-policy event through your rules, label the delivery mode
+   `captured/offline`, and label the result `policy-traced`.
 6. Complete the shared/CI posture, residual risk, and audit evidence.
 
 Merely reading the capture is not the fallback outcome.

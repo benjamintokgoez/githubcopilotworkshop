@@ -17,15 +17,15 @@ reads `work/customization_notes.md` and checks that:
 | The limits of durable context are named | `## 7. What durable context cannot enforce` |
 
 The field label `Observed behaviour` is fixed by the staged template. For the
-local-analysis mode, begin its value with `Local expected:` or `Local policy
+local mode, begin its value with `Local expected:` or `Local policy
 trace:`. Use `Observed live:` only when a compatible Copilot surface actually
 ran.
 
 ## Evidence routes
 
-- **Local analysis:** baseline score, edited draft, labelled local candidate
+- **Local:** baseline score, edited draft, labelled local candidate
   before/after, deletion-case difference, and expected contradiction result.
-- **Preflight-green live:** same prompt, model, surface, and repository state
+- **Live:** on a preflight-Green surface, use the same prompt, model, surface, and repository state
   without and with the scenario draft explicitly attached, followed by one
   attached deletion run.
 

@@ -14,10 +14,14 @@ Run a pilot before publishing the workshop as ready. The pilot must test learnin
       lunch, and all 60 minutes of slack.
 - [ ] Start with one helper per six participants or a floating technical
       producer; record privacy-safe queue counts and wait distributions.
-- [ ] Execute Supported/Core/Extension evidence and live/captured delivery as
-      separate dimensions for every lab.
+- [ ] Execute Supported/Core/Extension evidence and `live`, `local`, and
+      `captured/offline` delivery as separate dimensions for every lab.
 - [ ] Trigger each recovery scenario in `RECOVERY_PLAYBOOK.md` at least once across pilots.
 - [ ] Test clean-room checkpoint validation: fresh clone, known fixture, focused test, bounded patch, diff review, reset.
+- [ ] Test scenario reset from a fresh work directory, a pre-existing work
+      directory with unrelated files, an oversized attempt, and a competing
+      lifecycle command. Confirm exact restoration, a usable archive path, and
+      no next-lab block.
 - [ ] Test keyboard-only, captions, zoom, quiet/solo route, and readable documents with representative users.
 - [ ] Check German keyboard, decimal, date, and time examples in the actual room.
 - [ ] Collect only the minimum approved feedback; no full prompt capture or surveillance.
@@ -45,7 +49,7 @@ performance telemetry.
 | Tool latency | p90 assistant turn <90 sec; captured switch within 2 min | >10% wait through a second slow retry |
 | Schedule | breaks within 2 min, lunch within 5, capstone within 5, finish 17:15; >=10 min Slack C remains in 80% of pilots | Any break cut, capstone >10 min late, routine late finish |
 | Slack | median lab consumes <=5 min adjacent slack; debt <=5 min at lunch/capstone | median consumes >10 min cumulative |
-| Captured mode | >=80% meet engineering evidence and label it captured | live-operation claims or >15-point mode gap |
+| Captured/offline mode | >=80% meet engineering evidence and label it captured/offline | live-operation claims or >15-point mode gap |
 | Elective awareness | >=80% name one control and limitation from an unchosen elective | <70%; do not call reports coverage |
 | Immediate retrieval | >=75% answer 4/5 | <65% |
 | One-week retrieval | voluntary repeat retains >=60% | no feasible delayed route |

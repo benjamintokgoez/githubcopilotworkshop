@@ -1,6 +1,6 @@
 # Offline fallback - elective-customization (Lab 5C)
 
-This is the local-analysis mode when scenario tooling or a live model is
+This is the local mode when scenario tooling or a live model is
 unavailable. It still produces an edited artifact, comparison, ablation, and
 contradiction trace.
 

@@ -10,7 +10,7 @@ Recovery is part of the design, not a failure of the participant. Name the issue
 4. Log only aggregate issue type, status, lane, and time.
 
 The facilitator guide's quantitative cut triggers take precedence over repeated
-retries. In particular, Lab 5 switches to captured mode at T+3 unless live
+retries. In particular, Lab 5 switches to captured/offline delivery at T+3 unless live
 eligibility was Green at T-72, and acceptance commands stop after 90 seconds.
 
 For an active scenario, use the runner to print the matching participant route:
@@ -21,6 +21,12 @@ python scripts/workshop.py resync <scenario-id> --blocked-at <phase>
 
 The command is non-mutating and answer-neutral. It helps the participant practise
 the remaining phases on incomplete work; it does not complete the repair.
+
+If the runner says another lifecycle command is active, stop the second command
+and wait for the first `start`, `verify`, or `reset` to finish. Do not delete
+`.workshop-state/lifecycle.lock`; its file may remain, but the operating-system
+lock is released automatically when the owning process exits. Use a separate
+checkout for genuinely parallel work.
 
 ## Incident matrix
 
@@ -33,6 +39,8 @@ the remaining phases on incomplete work; it does not complete the repair.
 | Actions unavailable or runner queue stuck | Save workflow text and status; do not wait beyond the timebox | Run equivalent local command and inspect captured run/artifacts; explain runner-specific differences |
 | Dependency install failure | Record exact package/error and avoid changing global machine state | Use prebuilt environment/devcontainer, vendored fixture, or captured test result; do not weaken SSL or pin ad hoc |
 | Repository damage or accidental broad edit | Stop editing; preserve evidence; tell the participant it is recoverable | Reset to clean checkpoint or disposable branch; reapply only the bounded change; helper owns reset commands |
+| Oversized or unusual file under scenario `work/` | Stop generating more output and run the normal scenario reset | The runner preserves the complete active work directory in the attempt archive, then restores the pre-start directory |
+| Competing scenario command in another terminal | Stop the second command; identify the pair's driver terminal | Wait for the active lifecycle command or use another checkout; never remove the lock file to force progress |
 | Weak network / proxy / SSL | Move immediately to the captured/offline fallback; do not disable certificate checks | Offline artifacts and tests; organizer handles network ticket after the session |
 | Late arrival | Welcome privately and provide the one-page checkpoint | Join at the next dignified resync; skip live demo; pair with helper or use solo catch-up; no public apology required |
 | Participant behind | Normalize different pace; remove extension task and offer a five-minute reset | Work from invariant and smallest test; helper gives one hint, then capture progress |

@@ -18,9 +18,9 @@ The staged draft is a practice file. It is not at a recognised Copilot discovery
 path, and this scenario never touches `.github/copilot-instructions.md` or
 `.github/instructions/`.
 
-- **Local-analysis mode:** edit and score the draft, then produce a labelled local
+- **Local mode:** edit and score the draft, then produce a labelled local
   before/after and deletion-case comparison.
-- **Optional live addition:** only with a preflight-Green Copilot surface, explicitly attach
+- **Live mode:** only with a preflight-Green Copilot surface, explicitly attach
   the draft to one stable review prompt and compare it with an unattached
   baseline. This tests the content, not repository discovery or `applyTo`
   matching.

@@ -37,6 +37,7 @@ participant-authored Python with the participant's own privileges.
 from __future__ import annotations
 
 import argparse
+import errno
 import hashlib
 import importlib.util
 import json
@@ -49,6 +50,7 @@ import subprocess  # noqa: S404 - only fixed argv lists from validated manifests
 import sys
 import tempfile
 from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
@@ -56,12 +58,14 @@ from typing import Any, Final
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 TOOL_NAME: Final = "workshop.py"
-TOOL_VERSION: Final = "1.1.0"
-STATE_SCHEMA_VERSION: Final = 1
+TOOL_VERSION: Final = "1.2.0"
+STATE_SCHEMA_VERSION: Final = 2
+MIN_STATE_SCHEMA_VERSION: Final = 1
 MANIFEST_SCHEMA_VERSION: Final = 1
 
 STATE_DIR_NAME: Final = ".workshop-state"
 STATE_FILE_NAME: Final = "state.json"
+LIFECYCLE_LOCK_FILE_NAME: Final = "lifecycle.lock"
 BACKUP_DIR_NAME: Final = "backups"
 ATTEMPT_DIR_NAME: Final = "attempts"
 
@@ -154,6 +158,7 @@ RESYNC_PHASES: Final = (
     BLOCKED_REVIEW,
     BLOCKED_EXPLAIN,
 )
+LOCKED_COMMANDS: Final = frozenset(("start", "verify", "reset"))
 
 
 # ---------------------------------------------------------------------------
@@ -237,6 +242,68 @@ def sha256_file(path: Path) -> str:
 
 def sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+def work_tree_sha256(directory: Path) -> str:
+    """Hash a bounded directory tree without following symbolic links."""
+    if _is_symlink(directory) or not directory.is_dir():
+        raise WorkshopError(f"{directory.name} is not a regular directory")
+    digest = hashlib.sha256()
+    entries = [directory]
+    try:
+        entries.extend(sorted(directory.rglob("*"), key=lambda path: path.as_posix()))
+    except OSError as exc:
+        raise WorkshopError(f"cannot scan {directory.name}: {exc.strerror or exc}") from exc
+    if len(entries) - 1 > MAX_ARCHIVE_FILES:
+        raise WorkshopError(
+            f"pre-existing work directory has more than {MAX_ARCHIVE_FILES} entries",
+            hint="Move it outside the scenario directory before starting the lab.",
+        )
+    total = 0
+    for path in entries:
+        try:
+            mode = path.lstat().st_mode
+        except OSError as exc:
+            raise WorkshopError(f"cannot inspect {path.name}: {exc.strerror or exc}") from exc
+        relative = "." if path == directory else path.relative_to(directory).as_posix()
+        record: dict[str, Any] = {
+            "mode": f"{stat.S_IMODE(mode):04o}",
+            "path": relative,
+        }
+        if stat.S_ISLNK(mode):
+            try:
+                record["kind"] = "symlink"
+                record["target"] = os.readlink(path)
+            except OSError as exc:
+                raise WorkshopError(
+                    f"cannot inspect symlink {relative}: {exc.strerror or exc}"
+                ) from exc
+        elif stat.S_ISDIR(mode):
+            record["kind"] = "directory"
+        elif stat.S_ISREG(mode):
+            size = path.stat().st_size
+            if size > MAX_ARCHIVE_FILE_BYTES:
+                raise WorkshopError(
+                    f"pre-existing work file {relative} exceeds {MAX_ARCHIVE_FILE_BYTES} bytes",
+                    hint="Move the work directory outside the scenario before starting.",
+                )
+            total += size
+            if total > MAX_ARCHIVE_TOTAL_BYTES:
+                raise WorkshopError(
+                    f"pre-existing work directory exceeds {MAX_ARCHIVE_TOTAL_BYTES} bytes",
+                    hint="Move it outside the scenario directory before starting.",
+                )
+            record["kind"] = "file"
+            record["sha256"] = sha256_file(path)
+            record["size"] = size
+        else:
+            raise WorkshopError(
+                f"pre-existing work entry {relative} is not a file, directory, or symlink",
+                hint="Move the work directory outside the scenario before starting.",
+            )
+        digest.update(json.dumps(record, sort_keys=True, ensure_ascii=True).encode("utf-8"))
+        digest.update(b"\n")
+    return digest.hexdigest()
 
 
 def file_mode(path: Path) -> int:
@@ -468,6 +535,10 @@ def backup_dir_rel(scenario_id: str) -> PurePosixPath:
 
 def attempt_dir_rel(scenario_id: str) -> PurePosixPath:
     return PurePosixPath(STATE_DIR_NAME) / ATTEMPT_DIR_NAME / scenario_id
+
+
+def pre_start_work_dir_rel(scenario_id: str) -> PurePosixPath:
+    return backup_dir_rel(scenario_id) / "pre-start-work"
 
 
 def check_confined(
@@ -1031,8 +1102,14 @@ class ScenarioState:
     manifest_sha256: str
     targets: list[TargetRecord] = field(default_factory=list)
     created_dirs: list[str] = field(default_factory=list)
+    work_dir_existed_before: bool | None = None
+    work_dir_moved: bool | None = None
+    pre_start_work_sha256: str | None = None
+    loaded_schema_version: int = field(default=STATE_SCHEMA_VERSION, repr=False)
 
     def to_json(self) -> dict[str, Any]:
+        if self.work_dir_existed_before is None or self.work_dir_moved is None:
+            raise ArtifactError("current scenario state is missing its work-directory fields")
         return {
             "schema_version": STATE_SCHEMA_VERSION,
             "tool_version": TOOL_VERSION,
@@ -1045,38 +1122,49 @@ class ScenarioState:
             "manifest_sha256": self.manifest_sha256,
             "targets": [target.to_json() for target in self.targets],
             "created_dirs": list(self.created_dirs),
+            "work_dir_existed_before": self.work_dir_existed_before,
+            "work_dir_moved": self.work_dir_moved,
+            "pre_start_work_sha256": self.pre_start_work_sha256,
         }
 
     @staticmethod
     def from_json(raw: dict[str, Any], where: str) -> ScenarioState:
-        _check_keys(
-            raw,
-            required=(
-                "schema_version",
-                "tool_version",
-                "scenario_id",
-                "phase",
-                "started_at",
-                "repo_root",
-                "git",
-                "catalogue_sha256",
-                "manifest_sha256",
-                "targets",
-                "created_dirs",
-            ),
-            optional=(),
-            where=where,
-        )
+        if not isinstance(raw, dict):
+            raise ArtifactError(f"{where}: expected an object")
         version = _as_int(
             raw,
             "schema_version",
             where,
             default=0,
-            low=STATE_SCHEMA_VERSION,
+            low=MIN_STATE_SCHEMA_VERSION,
             high=STATE_SCHEMA_VERSION,
         )
-        if version != STATE_SCHEMA_VERSION:
-            raise ArtifactError(f"{where}: unsupported state schema_version {version}")
+        common_required = (
+            "schema_version",
+            "tool_version",
+            "scenario_id",
+            "phase",
+            "started_at",
+            "repo_root",
+            "git",
+            "catalogue_sha256",
+            "manifest_sha256",
+            "targets",
+            "created_dirs",
+        )
+        version_required: tuple[str, ...] = ()
+        if version == STATE_SCHEMA_VERSION:
+            version_required = (
+                "work_dir_existed_before",
+                "work_dir_moved",
+                "pre_start_work_sha256",
+            )
+        _check_keys(
+            raw,
+            required=common_required + version_required,
+            optional=(),
+            where=where,
+        )
         _as_str(raw, "tool_version", where)
         scenario_id = check_scenario_id(
             _as_str(raw, "scenario_id", where), what=f"{where}.scenario_id"
@@ -1128,6 +1216,36 @@ class ScenarioState:
                 if record.backup in seen_backups:
                     raise ArtifactError(f"{where}: duplicate backup path {record.backup}")
                 seen_backups.add(record.backup)
+        work_dir_existed_before: bool | None = None
+        work_dir_moved: bool | None = None
+        pre_start_work_sha256: str | None = None
+        if version == STATE_SCHEMA_VERSION:
+            work_dir_existed_before = raw["work_dir_existed_before"]
+            work_dir_moved = raw["work_dir_moved"]
+            if not isinstance(work_dir_existed_before, bool):
+                raise ArtifactError(f"{where}: work_dir_existed_before must be a boolean")
+            if not isinstance(work_dir_moved, bool):
+                raise ArtifactError(f"{where}: work_dir_moved must be a boolean")
+            if work_dir_moved and not work_dir_existed_before:
+                raise ArtifactError(f"{where}: work_dir_moved requires work_dir_existed_before")
+            pre_start_work_sha256 = _opt_str(raw, "pre_start_work_sha256", where)
+            if pre_start_work_sha256 is not None:
+                check_sha256(
+                    pre_start_work_sha256,
+                    what=f"{where}.pre_start_work_sha256",
+                )
+            if not work_dir_existed_before and pre_start_work_sha256 is not None:
+                raise ArtifactError(
+                    f"{where}: pre_start_work_sha256 requires work_dir_existed_before"
+                )
+            if (
+                phase == PHASE_ACTIVE
+                and work_dir_existed_before
+                and (not work_dir_moved or pre_start_work_sha256 is None)
+            ):
+                raise ArtifactError(
+                    f"{where}: active state must record and hash the preserved work directory"
+                )
         return ScenarioState(
             scenario_id=scenario_id,
             phase=phase,
@@ -1144,6 +1262,10 @@ class ScenarioState:
             ),
             targets=targets,
             created_dirs=created_dirs,
+            work_dir_existed_before=work_dir_existed_before,
+            work_dir_moved=work_dir_moved,
+            pre_start_work_sha256=pre_start_work_sha256,
+            loaded_schema_version=version,
         )
 
 
@@ -1220,6 +1342,126 @@ def clear_state(root: Path) -> None:
         _fsync_dir(path.parent)
 
 
+def lifecycle_lock_file(root: Path) -> Path:
+    return resolve_under_root(
+        root,
+        PurePosixPath(STATE_DIR_NAME) / LIFECYCLE_LOCK_FILE_NAME,
+        what="lifecycle lock",
+    )
+
+
+def _lock_contention(exc: OSError) -> bool:
+    return exc.errno in (errno.EACCES, errno.EAGAIN, errno.EDEADLK)
+
+
+def _acquire_os_lock(handle: Any) -> None:
+    if os.name == "nt":
+        msvcrt = importlib.import_module("msvcrt")
+        handle.seek(0, os.SEEK_END)
+        if handle.tell() == 0:
+            handle.write(b"\0")
+            handle.flush()
+        handle.seek(0)
+        msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+        return
+    fcntl = importlib.import_module("fcntl")
+    fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+
+def _release_os_lock(handle: Any) -> None:
+    if os.name == "nt":
+        msvcrt = importlib.import_module("msvcrt")
+        handle.seek(0)
+        msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+        return
+    fcntl = importlib.import_module("fcntl")
+    fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+
+
+def _lock_owner(handle: Any) -> str | None:
+    try:
+        handle.seek(0)
+        raw = handle.read(512).decode("utf-8", errors="replace").strip("\0\r\n ")
+    except OSError:
+        return None
+    return raw or None
+
+
+@contextmanager
+def lifecycle_lock(root: Path, command: str) -> Iterator[None]:
+    """Serialize commands that execute or mutate one checkout's active scenario."""
+    directory = state_dir(root)
+    try:
+        directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+    except OSError as exc:
+        raise WorkshopError(
+            f"cannot create the lifecycle lock directory: {exc.strerror or exc}",
+            hint=f"Check write permissions on {STATE_DIR_NAME}/.",
+        ) from exc
+    if _is_symlink(directory) or not directory.is_dir():
+        raise ArtifactError(
+            f"{STATE_DIR_NAME} is not a safe directory",
+            hint="Remove the replacement path after checking it, then try again.",
+        )
+    path = lifecycle_lock_file(root)
+    flags = os.O_RDWR | os.O_CREAT
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    try:
+        descriptor = os.open(path, flags, 0o600)
+    except OSError as exc:
+        raise WorkshopError(
+            f"cannot write the lifecycle lock: {exc.strerror or exc}",
+            hint=f"Check permissions on {STATE_DIR_NAME}/ and try again.",
+        ) from exc
+    handle = os.fdopen(descriptor, "r+b", closefd=True)
+    locked = False
+    try:
+        mode = os.fstat(handle.fileno()).st_mode
+        if not stat.S_ISREG(mode):
+            raise ArtifactError(
+                f"{STATE_DIR_NAME}/{LIFECYCLE_LOCK_FILE_NAME} is not a regular file"
+            )
+        try:
+            os.fchmod(handle.fileno(), 0o600)
+        except AttributeError:  # pragma: no cover - Windows
+            pass
+        try:
+            _acquire_os_lock(handle)
+        except OSError as exc:
+            if not _lock_contention(exc):
+                raise WorkshopError(
+                    f"cannot acquire the lifecycle lock: {exc.strerror or exc}"
+                ) from exc
+            owner = _lock_owner(handle)
+            detail = f" ({owner})" if owner else ""
+            raise StateConflictError(
+                f"another workshop lifecycle command is already running{detail}",
+                hint=(
+                    "Wait for that start, verify, or reset command to finish. "
+                    "The operating system releases this lock automatically if a process exits."
+                ),
+            ) from exc
+        locked = True
+        payload = json.dumps(
+            {"pid": os.getpid(), "command": command, "started_at": utc_now_iso()},
+            sort_keys=True,
+        ).encode("utf-8")
+        handle.seek(0)
+        handle.truncate()
+        handle.write(payload)
+        handle.flush()
+        os.fsync(handle.fileno())
+        yield
+    finally:
+        if locked:
+            try:
+                _release_os_lock(handle)
+            except OSError:
+                pass
+        handle.close()
+
+
 def git_identity(root: Path) -> dict[str, str] | None:
     """Best-effort repository identity; absent git is not an error."""
     git_exe = shutil.which("git")
@@ -1251,11 +1493,6 @@ def git_identity(root: Path) -> dict[str, str] | None:
 # ---------------------------------------------------------------------------
 
 
-def _backup_rel(scenario_id: str, index: int, target: PurePosixPath) -> str:
-    flat = target.name
-    return f"{backup_dir_rel(scenario_id).as_posix()}/{index:02d}__{flat}"
-
-
 def target_path_of(root: Path, record: TargetRecord, scenario_id: str) -> Path:
     """Resolve a recorded target, re-validating its confinement every time."""
     rel = check_confined(
@@ -1283,74 +1520,80 @@ def created_dir_path_of(root: Path, rel: str, scenario_id: str) -> Path:
     return resolve_under_root(root, parsed, what=f"state created_dir {rel}")
 
 
-def _require_regular_file(path: Path, rel: str) -> None:
-    """Refuse to treat a symlink or directory as a staged file."""
-    if _is_symlink(path):
-        raise WorkshopError(
-            f"{rel} is a symlink; refusing to read, copy, or remove it",
-            hint="Remove or replace it by hand after checking where it points.",
-        )
-    if path.is_dir():
-        raise WorkshopError(
-            f"{rel} is a directory where a file is expected",
-            hint="Move it aside by hand, then run the command again.",
-        )
+def work_dir_path_of(root: Path, scenario_id: str) -> Path:
+    rel = work_dir_rel(scenario_id)
+    parent = resolve_under_root(root, rel.parent, what=f"work directory for {scenario_id}")
+    return parent / rel.name
 
 
-def plan_targets(root: Path, manifest: Manifest) -> tuple[list[TargetRecord], list[str]]:
-    records: list[TargetRecord] = []
-    created_dirs: list[str] = []
+def pre_start_work_path_of(root: Path, scenario_id: str) -> Path:
+    return resolve_under_root(
+        root,
+        pre_start_work_dir_rel(scenario_id),
+        what=f"pre-start work backup for {scenario_id}",
+    )
+
+
+def inspect_work_directory_for_start(root: Path, scenario_id: str) -> bool:
+    work = work_dir_path_of(root, scenario_id)
+    if _is_symlink(work):
+        raise WorkshopError(
+            f"{work_dir_rel(scenario_id)} is a symlink; refusing to replace it",
+            hint="Move the symlink aside after checking where it points, then start again.",
+        )
+    if work.exists() and not work.is_dir():
+        raise WorkshopError(
+            f"{work_dir_rel(scenario_id)} exists but is not a directory",
+            hint="Move that path aside, then start again.",
+        )
+    backup = pre_start_work_path_of(root, scenario_id)
+    if backup.exists() or _is_symlink(backup):
+        raise WorkshopError(
+            f"pre-start work backup already exists: {pre_start_work_dir_rel(scenario_id)}",
+            hint=(
+                "Do not delete it until you have checked whether it contains earlier work. "
+                "Restore or move it aside, then start again."
+            ),
+        )
+    return work.is_dir()
+
+
+def plan_targets(manifest: Manifest) -> tuple[list[TargetRecord], list[str]]:
+    """Record targets staged into the fresh work directory used by schema v2."""
     work_dir = work_dir_rel(manifest.scenario_id)
-    for index, item in enumerate(manifest.stage):
-        target_path = resolve_under_root(root, item.target, what=f"target {item.target}")
-        _require_regular_file(target_path, item.target.as_posix())
-        existed = target_path.is_file()
-        record = TargetRecord(
+    records = [
+        TargetRecord(
             path=item.target.as_posix(),
-            existed_before=existed,
-            pre_sha256=sha256_file(target_path) if existed else None,
-            pre_mode=f"{file_mode(target_path):04o}" if existed else None,
-            backup=_backup_rel(manifest.scenario_id, index, item.target) if existed else None,
+            existed_before=False,
+            pre_sha256=None,
+            pre_mode=None,
+            backup=None,
         )
-        records.append(record)
-        for parent in _missing_parents(root, item.target, work_dir):
-            if parent not in created_dirs:
-                created_dirs.append(parent)
-    return records, created_dirs
+        for item in manifest.stage
+    ]
+    return records, [work_dir.as_posix()]
 
 
-def _missing_parents(root: Path, target: PurePosixPath, work_dir: PurePosixPath) -> list[str]:
-    """Directories start would have to create, confined to the scenario work dir."""
-    missing: list[str] = []
-    current = PurePosixPath(target.parent)
-    while current == work_dir or work_dir in current.parents:
-        if not (root / current).exists():
-            missing.append(current.as_posix())
-        current = current.parent
-    return list(reversed(missing))
-
-
-def prepare_backups(root: Path, state: ScenarioState) -> None:
-    """Back up and verify every pre-existing target before anything is mutated."""
-    for record in state.targets:
-        if not record.existed_before or record.pre_sha256 is None:
-            continue
-        target_path = target_path_of(root, record, state.scenario_id)
-        _require_regular_file(target_path, record.path)
-        backup_path = backup_path_of(root, record, state.scenario_id)
-        data = read_bytes_checked(target_path, what=record.path)
-        if sha256_bytes(data) != record.pre_sha256:
-            raise WorkshopError(
-                f"{record.path} changed while start was preparing; nothing was staged",
-                hint="Re-run start once the file is stable.",
-            )
-        atomic_write_bytes(backup_path, data, 0o600)
-        if sha256_file(backup_path) != record.pre_sha256:
-            raise WorkshopError(f"backup verification failed for {record.path}")
+def preserve_pre_start_work_directory(root: Path, state: ScenarioState) -> None:
+    if not state.work_dir_existed_before:
+        return
+    work = work_dir_path_of(root, state.scenario_id)
+    backup = pre_start_work_path_of(root, state.scenario_id)
+    try:
+        backup.parent.mkdir(parents=True, exist_ok=True)
+        work.rename(backup)
+    except OSError as exc:
+        raise WorkshopError(
+            f"cannot preserve the pre-start work directory: {exc.strerror or exc}",
+            hint="Nothing was staged. Check permissions and free space, then start again.",
+        ) from exc
+    state.pre_start_work_sha256 = work_tree_sha256(backup)
+    state.work_dir_moved = True
+    save_state(root, state)
 
 
 def apply_payloads(root: Path, manifest: Manifest, state: ScenarioState) -> None:
-    """Write the staged payloads.  Backups must already exist and be verified."""
+    """Write the staged payloads after preserving any pre-existing work tree."""
     for item, record in zip(manifest.stage, state.targets, strict=True):
         target_path = target_path_of(root, record, state.scenario_id)
         payload_path = resolve_under_root(root, item.payload, what=f"payload {item.payload}")
@@ -1384,6 +1627,92 @@ def restore_targets(root: Path, state: ScenarioState) -> list[str]:
     notes.extend(_remove_created_dirs(root, state))
     _discard_backups(root, state)
     return notes
+
+
+def restore_scenario(root: Path, state: ScenarioState) -> list[str]:
+    if state.loaded_schema_version < STATE_SCHEMA_VERSION:
+        return restore_targets(root, state)
+    return restore_work_directory(root, state)
+
+
+def restore_work_directory(root: Path, state: ScenarioState) -> list[str]:
+    """Restore the whole pre-start work directory recorded by state schema v2."""
+    work = work_dir_path_of(root, state.scenario_id)
+    backup = pre_start_work_path_of(root, state.scenario_id)
+    notes: list[str] = []
+
+    if state.work_dir_existed_before:
+        backup_exists = backup.is_dir() and not _is_symlink(backup)
+        if backup_exists:
+            if (
+                state.pre_start_work_sha256 is not None
+                and work_tree_sha256(backup) != state.pre_start_work_sha256
+            ):
+                raise WorkshopError(
+                    "the preserved pre-start work directory changed after staging",
+                    hint=(
+                        f"Refusing to restore modified backup "
+                        f"{pre_start_work_dir_rel(state.scenario_id)}. Inspect it manually."
+                    ),
+                )
+            _remove_work_entry(work, work_dir_rel(state.scenario_id).as_posix())
+            try:
+                backup.rename(work)
+            except OSError as exc:
+                raise WorkshopError(
+                    f"cannot restore the pre-start work directory: {exc.strerror or exc}",
+                    hint=(
+                        "The active work directory was removed, but your original remains at "
+                        f"{pre_start_work_dir_rel(state.scenario_id)}. Fix the path or "
+                        "permission problem, then run reset again to restore it."
+                    ),
+                ) from exc
+            notes.append(f"restored  {work_dir_rel(state.scenario_id)}/")
+        elif state.phase == PHASE_STAGING and not state.work_dir_moved:
+            if _is_symlink(work) or not work.is_dir():
+                raise WorkshopError(
+                    "the pre-start work directory is no longer where staging left it",
+                    hint="Inspect the work and backup paths before retrying reset.",
+                )
+            notes.append(f"kept      {work_dir_rel(state.scenario_id)}/")
+        else:
+            raise WorkshopError(
+                f"pre-start work backup is missing: {pre_start_work_dir_rel(state.scenario_id)}",
+                hint=(
+                    "Do not clear scenario state. Restore the directory from your own backup "
+                    "or version control, then retry reset."
+                ),
+            )
+    else:
+        removed = _remove_work_entry(work, work_dir_rel(state.scenario_id).as_posix())
+        if removed:
+            notes.append(f"removed   {work_dir_rel(state.scenario_id)}/")
+
+    _discard_backups(root, state)
+    return notes
+
+
+def _remove_work_entry(path: Path, rel: str) -> bool:
+    try:
+        mode = path.lstat().st_mode
+    except FileNotFoundError:
+        return False
+    except OSError as exc:
+        raise WorkshopError(
+            f"cannot inspect {rel}: {exc.strerror or exc}",
+            hint="Inspect the path manually, then retry reset.",
+        ) from exc
+    try:
+        if stat.S_ISDIR(mode) and not stat.S_ISLNK(mode):
+            shutil.rmtree(path)
+        else:
+            path.unlink()
+    except OSError as exc:
+        raise WorkshopError(
+            f"cannot remove staged {rel}: {exc.strerror or exc}",
+            hint="Move it aside by hand, then retry reset. Scenario state was retained.",
+        ) from exc
+    return True
 
 
 def _restore_existing(
@@ -1461,7 +1790,7 @@ def _discard_backups(root: Path, state: ScenarioState) -> None:
 
 
 def collect_attempt_files(root: Path, state: ScenarioState) -> list[PurePosixPath]:
-    """Everything under the scenario's created directories plus changed targets.
+    """Participant-created files and changed targets in the active work directory.
 
     Files that are still byte-identical to what ``start`` staged are skipped:
     the pristine payload is already in the repository.
@@ -1470,11 +1799,13 @@ def collect_attempt_files(root: Path, state: ScenarioState) -> list[PurePosixPat
         record.path: target_status(root, record, state.scenario_id) for record in state.targets
     }
     selected: list[PurePosixPath] = []
-    for rel in state.created_dirs:
-        directory = created_dir_path_of(root, rel, state.scenario_id)
-        if not directory.is_dir() or _is_symlink(directory):
-            continue
-        for path in sorted(directory.rglob("*")):
+    directory = work_dir_path_of(root, state.scenario_id)
+    if directory.is_dir() and not _is_symlink(directory):
+        try:
+            candidates = sorted(directory.rglob("*"))
+        except OSError:
+            candidates = []
+        for path in candidates:
             if _is_symlink(path) or not path.is_file():
                 continue
             relative = PurePosixPath(path.relative_to(root).as_posix())
@@ -1493,34 +1824,57 @@ def collect_attempt_files(root: Path, state: ScenarioState) -> list[PurePosixPat
     return sorted(selected, key=lambda item: item.as_posix())
 
 
-def archive_attempt(root: Path, state: ScenarioState) -> str | None:
+@dataclass(frozen=True)
+class ArchiveResult:
+    path: str
+    whole_work_tree: bool
+    reason: str | None = None
+
+
+def archive_attempt(root: Path, state: ScenarioState) -> ArchiveResult | None:
     """Copy participant work into an ignored, timestamped archive."""
+    if (
+        state.loaded_schema_version >= STATE_SCHEMA_VERSION
+        and state.phase == PHASE_STAGING
+        and state.work_dir_existed_before
+        and not state.work_dir_moved
+        and not pre_start_work_path_of(root, state.scenario_id).exists()
+    ):
+        return None
+    whole_tree_reason = _whole_tree_archive_reason(root, state)
+    if whole_tree_reason is not None:
+        return _relocate_work_tree(root, state, whole_tree_reason)
     files = collect_attempt_files(root, state)
     if not files:
         return None
     if len(files) > MAX_ARCHIVE_FILES:
-        raise WorkshopError(
-            f"refusing to archive {len(files)} files (limit {MAX_ARCHIVE_FILES})",
-            hint=(
-                "Move what you want to keep out of the scenario work directory, delete the "
-                "rest, then reset again. Nothing has been changed."
-            ),
+        return _relocate_work_tree(
+            root,
+            state,
+            f"{len(files)} changed files exceed the selective archive limit of {MAX_ARCHIVE_FILES}",
         )
     total = 0
     for rel in files:
         path = resolve_under_root(root, rel, what=f"attempt file {rel}")
-        size = path.stat().st_size
+        try:
+            size = path.stat().st_size
+        except OSError:
+            return _relocate_work_tree(
+                root, state, f"{rel} could not be inspected for selective archiving"
+            )
         if size > MAX_ARCHIVE_FILE_BYTES:
-            raise WorkshopError(
-                f"refusing to archive {rel}: {size} bytes exceeds the "
-                f"{MAX_ARCHIVE_FILE_BYTES} byte per-file limit",
-                hint="Move that file out of the work directory, then reset again.",
+            return _relocate_work_tree(
+                root,
+                state,
+                f"{rel} exceeds the {MAX_ARCHIVE_FILE_BYTES} byte selective archive limit",
             )
         total += size
     if total > MAX_ARCHIVE_TOTAL_BYTES:
-        raise WorkshopError(
-            f"refusing to archive {total} bytes (limit {MAX_ARCHIVE_TOTAL_BYTES})",
-            hint="Move the large files out of the work directory, then reset again.",
+        return _relocate_work_tree(
+            root,
+            state,
+            f"{total} changed bytes exceed the {MAX_ARCHIVE_TOTAL_BYTES} byte "
+            "selective archive limit",
         )
     archive_dir, archive_rel = _new_archive_dir(root, state.scenario_id)
     for rel in files:
@@ -1534,7 +1888,68 @@ def archive_attempt(root: Path, state: ScenarioState) -> str | None:
                 f"cannot archive {rel}: {exc.strerror or exc}",
                 hint="Nothing was restored; fix the cause and reset again.",
             ) from exc
-    return archive_rel
+    return ArchiveResult(path=archive_rel, whole_work_tree=False)
+
+
+def _whole_tree_archive_reason(root: Path, state: ScenarioState) -> str | None:
+    work = work_dir_path_of(root, state.scenario_id)
+    try:
+        mode = work.lstat().st_mode
+    except FileNotFoundError:
+        return None
+    except OSError:
+        return "the work path could not be inspected safely"
+    if stat.S_ISLNK(mode) or not stat.S_ISDIR(mode):
+        return "the work directory was replaced by a non-directory entry"
+    work_rel = work_dir_rel(state.scenario_id)
+    expected_directories = {work_rel.as_posix()}
+    for record in state.targets:
+        current = PurePosixPath(record.path).parent
+        while current == work_rel or work_rel in current.parents:
+            expected_directories.add(current.as_posix())
+            if current == work_rel:
+                break
+            current = current.parent
+    try:
+        for path in work.rglob("*"):
+            entry_mode = path.lstat().st_mode
+            if stat.S_ISLNK(entry_mode):
+                return "the work directory contains a symlink"
+            if stat.S_ISDIR(entry_mode):
+                relative = path.relative_to(root).as_posix()
+                if relative not in expected_directories:
+                    return f"participant-created directory {relative} requires a complete archive"
+            elif not stat.S_ISREG(entry_mode):
+                return "the work directory contains a non-regular entry"
+    except OSError:
+        return "the work directory could not be scanned for selective archiving"
+    return None
+
+
+def _relocate_work_tree(root: Path, state: ScenarioState, reason: str) -> ArchiveResult | None:
+    work = work_dir_path_of(root, state.scenario_id)
+    try:
+        work.lstat()
+    except FileNotFoundError:
+        return None
+    except OSError as exc:
+        raise WorkshopError(
+            f"cannot inspect the work directory before preserving it: {exc.strerror or exc}"
+        ) from exc
+    archive_dir, archive_rel = _new_archive_dir(root, state.scenario_id)
+    destination = archive_dir / Path(*work_dir_rel(state.scenario_id).parts)
+    try:
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        work.rename(destination)
+    except OSError as exc:
+        raise WorkshopError(
+            f"cannot preserve the complete work directory: {exc.strerror or exc}",
+            hint=(
+                "The active work directory and scenario state were left in place. "
+                "Move large files out of work/ or fix the path permissions, then reset again."
+            ),
+        ) from exc
+    return ArchiveResult(path=archive_rel, whole_work_tree=True, reason=reason)
 
 
 def _new_archive_dir(root: Path, scenario_id: str) -> tuple[Path, str]:
@@ -1978,7 +2393,8 @@ def cmd_start(root: Path, args: argparse.Namespace) -> int:
     validate_scenario_artifacts(root, manifest)
     _check_required_imports(manifest)
 
-    records, created_dirs = plan_targets(root, manifest)
+    work_dir_existed_before = inspect_work_directory_for_start(root, manifest.scenario_id)
+    records, created_dirs = plan_targets(manifest)
     catalogue_hash, manifest_hash = definition_hashes(root, manifest.scenario_id)
     state = ScenarioState(
         scenario_id=manifest.scenario_id,
@@ -1990,11 +2406,14 @@ def cmd_start(root: Path, args: argparse.Namespace) -> int:
         manifest_sha256=manifest_hash,
         targets=records,
         created_dirs=created_dirs,
+        work_dir_existed_before=work_dir_existed_before,
+        work_dir_moved=False,
+        pre_start_work_sha256=None,
     )
     # Recovery state is durable before the first byte is written or copied.
     save_state(root, state)
     try:
-        prepare_backups(root, state)
+        preserve_pre_start_work_directory(root, state)
         apply_payloads(root, manifest, state)
     except BaseException as exc:
         try:
@@ -2026,6 +2445,10 @@ def cmd_start(root: Path, args: argparse.Namespace) -> int:
         marker = "modified" if record.existed_before else "created "
         out(f"  {marker}  {record.path}")
         out(f"            {item.description}")
+    if state.work_dir_existed_before:
+        out("")
+        out("A pre-existing scenario work directory was preserved outside the active")
+        out("workspace. Reset restores it exactly; do not edit the backup by hand.")
     out("")
     out("Read first:")
     out(f"  {manifest.acceptance_doc}")
@@ -2093,7 +2516,7 @@ def _check_definition_unchanged(root: Path, state: ScenarioState) -> None:
 
 def _rollback(root: Path, state: ScenarioState) -> None:
     """Undo a partially staged scenario.  Leaves state in place if it fails."""
-    restore_targets(root, state)
+    restore_scenario(root, state)
     clear_state(root)
 
 
@@ -2144,6 +2567,24 @@ def cmd_status(root: Path, _args: argparse.Namespace) -> int:
         f"Summary:         {len(state.targets)} staged, "
         f"{modified} modified by you, {missing} missing or replaced"
     )
+    if state.loaded_schema_version >= STATE_SCHEMA_VERSION:
+        if state.work_dir_existed_before:
+            out("Pre-start work:  preserved for exact restoration")
+        try:
+            target_paths = {record.path for record in state.targets}
+            additions = [
+                path
+                for path in collect_attempt_files(root, state)
+                if path.as_posix() not in target_paths
+            ]
+        except WorkshopError:
+            additions = []
+        if additions:
+            out("Other work files:")
+            for path in additions[:10]:
+                out(f"  [participant-added] {path}")
+            if len(additions) > 10:
+                out(f"  ... and {len(additions) - 10} more")
     out(f"Next: {command_hint('verify', state.scenario_id)}")
     out(f"Reset: {command_hint('reset', state.scenario_id)}")
     return EXIT_OK
@@ -2300,12 +2741,28 @@ def cmd_reset(root: Path, args: argparse.Namespace) -> int:
             hint=f"Reset the active one: {command_hint('reset', state.scenario_id)}",
         )
     archive = archive_attempt(root, state)
-    notes = restore_targets(root, state)
+    try:
+        notes = restore_scenario(root, state)
+    except WorkshopError as exc:
+        if archive is None:
+            raise
+        raise WorkshopError(
+            exc.message,
+            hint=(
+                f"Your attempt is preserved at {archive.path}. "
+                f"{exc.hint or 'Fix the restore problem, then run reset again.'}"
+            ),
+        ) from exc
     clear_state(root)
     out(f"Reset scenario: {scenario_id}")
     if archive is not None:
-        out(f"Archived your work: {archive}")
-        out("Nothing you wrote was deleted; it was copied there before restoring.")
+        out(f"Archived your work: {archive.path}")
+        if archive.whole_work_tree:
+            out("The complete active work directory was moved there so reset could")
+            out(f"continue safely ({archive.reason}).")
+        else:
+            out("Nothing you wrote was deleted; changed files were copied there before")
+            out("restoring.")
         out("Treat that archive the way you treat your own notes: it holds whatever you")
         out("wrote, so delete it under the workshop's data-handling rules when you are done.")
     for note in notes:
@@ -2441,7 +2898,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         root = resolve_root(args.repo_root)
         handler = HANDLERS[str(args.command)]
-        result = handler(root, args)
+        command = str(args.command)
+        if command in LOCKED_COMMANDS:
+            with lifecycle_lock(root, command):
+                result = handler(root, args)
+        else:
+            result = handler(root, args)
     except WorkshopError as exc:
         print(f"error: {exc.message}", file=sys.stderr)
         if exc.hint:

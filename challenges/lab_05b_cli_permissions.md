@@ -19,14 +19,15 @@ Work in `workshop/scenarios/elective-cli/work/`. The no-live route is in
 
 | Delivery mode | Prerequisite | Evidence |
 |---|---|---|
-| **Captured** | None | Predicted verdicts, a trace through the supplied session, and a current policy mapping |
-| **Live addition** | Copilot CLI already installed, authenticated, policy-enabled, and smoke-tested by T-72 | Baseline prompts plus one explicit allow/deny change and one negative request |
-| **Follow-up** | Approved preview use | Evaluate local or cloud sandbox policy after the course |
+| **Captured/offline** | None | Predicted verdicts, a trace through the supplied session, and a current policy mapping |
+| **Live** | Copilot CLI already installed, authenticated, policy-enabled, and smoke-tested by T-72 | Baseline prompts plus one explicit allow/deny change and one negative request |
+| **Follow-up (not a delivery mode)** | Approved preview use | Evaluate local or cloud sandbox policy after the course |
 
 The captured transcript is a synthetic risk case, not executable CLI
-configuration. Its `python -m pytest *` notation illustrates an argument scope
-that became too broad. Translate the case into the current documented
-`Kind(argument)` permission model; do not copy that line into settings.
+configuration. Its `python -m pytest *` notation is historical shorthand, not a
+current permission rule. Translate each event into the documented
+`Kind(argument)` model and decide whether the granted scope matched the task; do
+not copy the line into settings.
 
 ---
 
@@ -90,7 +91,7 @@ Official references:
 
 ## Implement/Test (13 minutes)
 
-### Captured mode
+### Captured/offline mode
 
 1. In `fixtures/repo_safe_task.md`, record your verdicts **before** reading the
    transcript.
@@ -101,7 +102,7 @@ Official references:
    - which current control could express that decision,
    - what remains outside that control.
 3. In `work/permission_policy.md`, write at least three rules. Use current
-   permission pattern terminology and label the evidence `captured`.
+   permission pattern terminology and label the evidence `captured/offline`.
 4. Identify the transcript event that exceeded its intended scope and rewrite the
    policy decision without claiming you executed it.
 

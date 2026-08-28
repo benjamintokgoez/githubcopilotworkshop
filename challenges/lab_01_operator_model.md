@@ -11,8 +11,8 @@ For the participant task, the bounded implementation decision is deliberately
 ## Outcome
 
 You can choose between an **Ask**, **Plan**, and **Agent** workflow for a concrete
-task and defend the choice, and you can turn a generated explanation into
-something you have personally verified.
+task and defend the choice, build a bounded map of an unfamiliar code path, and
+turn a generated explanation into something you have personally verified.
 
 This is the lab that sets the standard for the whole day: **you are the operator**.
 The tool proposes; you decide, verify, and remain accountable.
@@ -113,8 +113,10 @@ challenger may use the shared note.
 2. Choose the read-only Q&A role - **Ask** in current VS Code/GitHub
    documentation - or your client's equivalent. Record why editing authority is
    unnecessary.
-3. Ask how the selected area computes its result and what sign, unit, scaling,
-   and boundary conventions it uses. Do not ask for a change.
+3. Ask for the shortest repository map from the public result to the calculation
+   and one relevant test or consumer. Require named files or symbols, sign, unit,
+   scaling and boundary conventions, plus unknowns. Do not ask for every related
+   file or for a change.
 
 ### Implement/Test - 8 minutes
 

@@ -4,7 +4,7 @@ A terminal agent can read files, run commands, and change state. The useful
 question is which action is visible, auto-approved, denied, path/URL-gated, or
 confined - and what remains reachable through the user account.
 
-**Default route:** captured. No CLI installation or authentication is required.
+**Default route:** captured/offline. No CLI installation or authentication is required.
 Use live evidence only when Copilot CLI was ready before Lab 5.
 
 ## Material
@@ -57,7 +57,7 @@ At minute 18, stop refining rules.
 4. Identify the transcript event that exceeded intended scope. Rewrite the policy
    decision using current terminology without claiming it ran.
 5. Trace one file-write, invalid-domain network request, or remote-write request
-   through the policy. Label a captured evaluation `policy-traced`, not live.
+   through the policy. Label a captured/offline evaluation `policy-traced`, not live.
 6. State what permissions do not confine: permitted shell effects, heuristic
    path/URL detection, available credentials, hostile input, and audit retention
    are separate questions.

@@ -1,6 +1,6 @@
 # Offline fallback - elective-mcp (Lab 5A)
 
-This is the captured/local mode for secure MCP analysis. It needs no connected
+This is the captured/offline mode for secure MCP analysis. It needs no connected
 server, registry entry, authentication, or network access. You still produce a
 reduced configuration, a positive and negative event trace, and a governance
 decision.

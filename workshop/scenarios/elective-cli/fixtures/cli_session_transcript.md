@@ -40,8 +40,8 @@ hosts, and no real repository other than this one appear in it.
 2026-08-19T13:27:03Z  request         run: python -m pytest tests/ -q -p no:cacheprovider
                                       --rootdir=/ --co -q
 2026-08-19T13:27:03Z  approval        auto (matched allowlist entry "python -m pytest *")
-2026-08-19T13:27:04Z  note            the entry matched a command that reaches outside the working
-                                      directory; the wildcard grants arguments, not just the command
+2026-08-19T13:27:04Z  note            no new approval was requested although the invocation and
+                                      collection root differed from the earlier test run
 
 2026-08-19T13:28:40Z  request         run: curl -s https://example.invalid/health
                                       reason "check whether the service is reachable"
@@ -53,15 +53,12 @@ hosts, and no real repository other than this one appear in it.
 
 ---
 
-## What to notice
+## Questions for the policy review
 
-- The denial at `13:22:44` cost nothing. The agent continued without the thing it
-  asked for, which is the normal case and the reason denying is cheap.
-- The allowlist entry added at `13:24:02` looked narrow and was not. It granted a
-  command **with any arguments**, and at `13:27:03` those arguments reached
-  outside the working directory. This is the most valuable finding in the
-  transcript.
-- Two commands were auto-approved. Nobody read them. That is what "convenience"
-  costs, and it is a decision, not a default of nature.
+- Which denied requests still allowed the task to continue?
+- Compare the two automatically approved test invocations. Which parts stayed
+  constant, which parts widened, and which current control should evaluate them?
+- What evidence would justify an automatic approval on a developer laptop, and
+  what would change on a shared or CI machine?
 
 *Synthetic capture, written for the workshop.*
