@@ -18,9 +18,9 @@ the baseline tests.
   and event models plus the asynchronous service-dispatch engine.
 - `mittelwerk/analytics/`: non-negative SLA, backlog, cost, and utilization
   metrics.
-- `mittelwerk/data/`: deterministic telemetry, SQLAlchemy 2 storage, and
+- `mittelwerk/telemetry/`: deterministic telemetry, SQLAlchemy 2 storage, and
   operational transforms.
-- `mittelwerk/dispatch/`: metaclass-registered dispatch policies.
+- `mittelwerk/dispatch_policies/`: metaclass-registered dispatch policies.
 - `mittelwerk/auth/`: HMAC-SHA256 signing and in-memory API-key lifecycle.
 - `mittelwerk/api/`: per-application FastAPI services and `/api/v1` routes.
 - `mittelwerk/mcp_server/`: official MCP Python SDK v2 server, read-only by

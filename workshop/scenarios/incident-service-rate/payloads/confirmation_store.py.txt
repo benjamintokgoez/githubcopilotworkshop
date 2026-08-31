@@ -1,0 +1,27 @@
+"""In-memory operations read model for assignment confirmations."""
+
+from __future__ import annotations
+
+from dispatch_models import AssignmentConfirmation, DispatchError
+
+
+class ConfirmationStore:
+    def __init__(self) -> None:
+        self._confirmations: dict[str, AssignmentConfirmation] = {}
+
+    def add(self, confirmation: AssignmentConfirmation) -> None:
+        if confirmation.confirmation_id in self._confirmations:
+            raise DispatchError(
+                f"confirmation already exists: {confirmation.confirmation_id}"
+            )
+        self._confirmations[confirmation.confirmation_id] = confirmation
+
+    def for_work_order(self, work_order_id: str) -> list[AssignmentConfirmation]:
+        return [
+            confirmation
+            for confirmation in self._confirmations.values()
+            if confirmation.work_order_id == work_order_id
+        ]
+
+    def all(self) -> list[AssignmentConfirmation]:
+        return list(self._confirmations.values())

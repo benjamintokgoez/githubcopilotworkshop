@@ -1,0 +1,59 @@
+"""REST-document adapters built on the published model boundary."""
+
+from __future__ import annotations
+
+import json
+from datetime import UTC, datetime
+from typing import Any, Dict
+
+from legacy_service import equipment_payload, service_rate_payload
+
+
+def _generated_at(value: datetime) -> str:
+    if value.tzinfo is None:
+        raise ValueError("generated_at must be timezone-aware")
+    return value.astimezone(UTC).isoformat()
+
+
+def equipment_document(
+    raw: Dict[str, Any],
+    *,
+    request_id: str,
+    generated_at: datetime,
+) -> Dict[str, Any]:
+    return {
+        "request_id": request_id,
+        "generated_at": _generated_at(generated_at),
+        "equipment": equipment_payload(raw),
+    }
+
+
+def service_rate_document(
+    raw: Dict[str, Any],
+    *,
+    request_id: str,
+    generated_at: datetime,
+) -> Dict[str, Any]:
+    return {
+        "request_id": request_id,
+        "generated_at": _generated_at(generated_at),
+        "service_rate": service_rate_payload(raw),
+    }
+
+
+def service_rate_http_json(
+    raw: Dict[str, Any],
+    *,
+    request_id: str,
+    generated_at: datetime,
+) -> str:
+    document = service_rate_document(
+        raw,
+        request_id=request_id,
+        generated_at=generated_at,
+    )
+    return json.dumps(
+        document,
+        separators=(",", ":"),
+        default=lambda value: str(value),
+    )

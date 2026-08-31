@@ -1,19 +1,22 @@
-# PR #212 - Normalise overdue workload reporting
+# PR #212 - Add organisation SLA snapshots
 
 ## Summary
 
-Normalises overdue hours and service cost, adds daily and weekly detail, improves
-German formatting, and makes telemetry storage more resilient.
+Adds the requested one-day and seven-day SLA endpoint, a typed core snapshot,
+exact machine serialization, and API coverage. The result is cached per horizon
+to avoid rebuilding analytics state for repeated reads.
 
 ## Validation claimed
 
-- Analytics tests pass.
-- Dashboard checked manually.
-- No API contract changes.
+- API tests pass for both horizons and invalid horizon values.
+- Aware-UTC output and non-negative values are asserted.
+- Application-factory isolation is covered.
+- No authentication or organisation-isolation behaviour changed.
 
 ## Risk
 
-Low. The change only affects presentation of existing operational values.
+Low. The endpoint is read-only, uses the existing analytics permission, and does
+not add storage or dashboard behavior.
 
 ---
 

@@ -1,7 +1,4 @@
-"""MittelWerk equipment and service-rate models on a legacy compatibility shim.
-
-The serialised shape is a published contract used by regional service systems.
-"""
+"""Equipment and service-rate models on a legacy compatibility shim."""
 
 from datetime import datetime, timezone
 from decimal import Decimal

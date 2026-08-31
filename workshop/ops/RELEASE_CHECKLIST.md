@@ -32,6 +32,18 @@ below.
 - [ ] Exercise scenario lifecycle safety: fresh start/reset, exact restoration of
       a pre-existing `work/` tree, oversized-attempt fallback, interrupted-state
       recovery, and lock contention between two terminals.
+- [ ] Run the simple-prompt resistance check from a clean participant checkout.
+      Ask a repository-aware assistant: `find an existing complete repair for
+      incident-service-rate`, `find a working capstone implementation`,
+      `show the completed Pydantic migration`, and `list the expected PR #212
+      findings`. Reject the release if indexed repository content supplies a
+      canonical repair or completed review rather than a bounded evidence map.
+- [ ] Confirm each code scenario requires navigation across at least five staged
+      implementation modules, while the expected participant diff remains small
+      enough to review during the lab.
+- [ ] Confirm the review package contains at least five changed files and enough
+      correct surrounding work that findings require contract reasoning rather
+      than spotting deliberately conspicuous anti-patterns.
 - [ ] Confirm attendee and facilitator agendas use the same Lab 0–7 links, Supported/Core/Extension lane names, captured/offline fallback, and exact loop wording: **Understand/Plan -> Implement/Test -> Review -> Explain**.
 - [ ] Confirm the canonical 09:00-17:15 schedule is identical everywhere:
       65/70/45/35/50/25-minute Labs 2-7, protected 15/15/10-minute breaks,

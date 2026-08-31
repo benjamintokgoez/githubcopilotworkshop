@@ -4,13 +4,17 @@ Command: python scripts/workshop.py verify incident-service-rate
 Result: exit 3 (acceptance not met)
 Summary: 0/1 acceptance checks passed
 
-ProviderRateTest.test_request_uses_rates_from_provider_offers
-  expected hourly rate Decimal('110.00')
-  observed hourly rate Decimal('118.00')
+EngineBoundaryTest.test_engine_uses_rates_from_provider_offers passes:
+  CAP-1 and CAP-2 are matched at Decimal('110.00')
 
-ProviderRateTest.test_assignment_rate_is_always_positive_and_from_an_offer
-  expected accepted CAP-1 rate Decimal('110.00')
-  observed Decimal('120.00')
+ConfirmationBoundaryTest.test_operations_confirmation_uses_the_accepted_offer_rate
+  expected projected confirmation rate Decimal('110.00')
+  observed projected confirmation rate Decimal('118.00')
 
-The priority and hours-conservation checks passed. This captured output is
-synthetic fail-before evidence for the offline route.
+ConfirmationBoundaryTest.test_confirmation_rate_matches_its_assignment_not_the_request_ceiling
+  expected confirmation rate to match the engine assignment
+  observed confirmation rate matching the request ceiling instead
+
+Event pricing fields, rate-time priority, FIFO order, and hours conservation
+pass. This captured output is synthetic fail-before evidence for the offline
+route.

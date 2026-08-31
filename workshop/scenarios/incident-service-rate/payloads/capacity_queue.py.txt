@@ -1,0 +1,54 @@
+"""Rate-time priority queue for provider capacity."""
+
+from __future__ import annotations
+
+from decimal import Decimal
+
+from dispatch_models import CapacityOffer, DispatchError, ZERO
+
+
+class CapacityQueue:
+    """Available service capacity ordered by rate and arrival time."""
+
+    def __init__(self) -> None:
+        self._offers: dict[str, CapacityOffer] = {}
+        self._remaining: dict[str, Decimal] = {}
+
+    def add(self, offer: CapacityOffer) -> None:
+        if offer.offer_id in self._offers:
+            raise DispatchError(f"{offer.offer_id}: offer already exists")
+        self._offers[offer.offer_id] = offer
+        self._remaining[offer.offer_id] = offer.available_hours
+
+    def remaining(self, offer_id: str) -> Decimal:
+        if offer_id not in self._remaining:
+            raise DispatchError(f"{offer_id}: offer is not in the queue")
+        return self._remaining[offer_id]
+
+    @property
+    def total_available_hours(self) -> Decimal:
+        return sum(self._remaining.values(), ZERO)
+
+    def eligible(self, maximum_hourly_rate: Decimal) -> list[CapacityOffer]:
+        live = [
+            offer
+            for offer in self._offers.values()
+            if self._remaining[offer.offer_id] > ZERO
+            and offer.hourly_rate <= maximum_hourly_rate
+        ]
+        return sorted(
+            live,
+            key=lambda offer: (
+                offer.hourly_rate,
+                offer.offered_at,
+                offer.offer_id,
+            ),
+        )
+
+    def reduce(self, offer_id: str, hours: Decimal) -> None:
+        available = self.remaining(offer_id)
+        if hours <= ZERO:
+            raise DispatchError(f"{offer_id}: cannot assign {hours} hours")
+        if hours > available:
+            raise DispatchError(f"{offer_id}: cannot assign {hours} from {available}")
+        self._remaining[offer_id] = available - hours

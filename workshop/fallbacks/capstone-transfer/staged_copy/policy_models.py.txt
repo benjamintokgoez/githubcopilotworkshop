@@ -1,0 +1,47 @@
+"""Typed telemetry and recommendation records for the capstone."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from decimal import Decimal
+
+
+class PolicyError(ValueError):
+    """Raised when policy input cannot be evaluated safely."""
+
+
+def aware_utc(value: datetime, field_name: str) -> datetime:
+    if value.tzinfo is None:
+        raise PolicyError(f"{field_name} must be timezone-aware")
+    return value.astimezone(UTC)
+
+
+@dataclass(frozen=True)
+class TelemetryReading:
+    asset_id: str
+    recorded_at: datetime
+    value: Decimal
+
+    def __post_init__(self) -> None:
+        if not self.asset_id:
+            raise PolicyError("asset_id must not be empty")
+        if not self.value.is_finite():
+            raise PolicyError("telemetry value must be finite")
+        object.__setattr__(
+            self,
+            "recorded_at",
+            aware_utc(self.recorded_at, "recorded_at"),
+        )
+
+
+@dataclass(frozen=True)
+class PolicyRecommendation:
+    policy_name: str
+    asset_id: str
+    as_of: datetime
+    sample_count: int
+    average_value: Decimal
+    target_value: Decimal
+    deviation: Decimal
+    confidence: Decimal

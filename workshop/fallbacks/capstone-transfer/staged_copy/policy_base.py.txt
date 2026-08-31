@@ -1,0 +1,49 @@
+"""Metaclass-registered dispatch-policy boundary."""
+
+from __future__ import annotations
+
+import abc
+from collections.abc import Sequence
+from datetime import datetime
+from typing import ClassVar
+
+from policy_models import PolicyRecommendation, TelemetryReading
+
+
+class PolicyMeta(abc.ABCMeta):
+    registry: dict[str, type["BasePolicy"]] = {}
+
+    def __new__(
+        mcls,
+        name: str,
+        bases: tuple[type, ...],
+        namespace: dict[str, object],
+        **kwargs: object,
+    ) -> type:
+        cls = super().__new__(mcls, name, bases, namespace, **kwargs)
+        policy_name = namespace.get("policy_name")
+        if policy_name:
+            if not isinstance(policy_name, str):
+                raise TypeError("policy_name must be a string")
+            if policy_name in mcls.registry:
+                raise TypeError(f"duplicate policy name: {policy_name}")
+            mcls.registry[policy_name] = cls
+        return cls
+
+
+class BasePolicy(metaclass=PolicyMeta):
+    policy_name: ClassVar[str]
+
+    @abc.abstractmethod
+    def evaluate(
+        self,
+        asset_id: str,
+        readings: Sequence[TelemetryReading],
+        *,
+        as_of: datetime,
+    ) -> PolicyRecommendation | None:
+        raise NotImplementedError
+
+    @classmethod
+    def registered(cls) -> dict[str, type["BasePolicy"]]:
+        return dict(PolicyMeta.registry)

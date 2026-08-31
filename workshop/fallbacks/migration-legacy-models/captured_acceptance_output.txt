@@ -4,12 +4,17 @@ Command: python scripts/workshop.py verify migration-legacy-models
 Result: exit 3 (acceptance not met)
 Summary: 0/1 acceptance checks passed
 
-The equipment and service-rate contract checks pass:
-- published aliases and key order
-- dot-decimal rates
-- timezone-aware UTC normalisation
-- accepted and rejected input boundaries
+Twenty-one model and adapter checks run. The published model, REST, MCP, and
+batch contracts pass in the starting state:
 
-MigrationCompletedTest fails because `legacy_models.py` still imports
-`pydantic.v1`, and EquipmentRef and ServiceRatePayload are still built by the
-compatibility layer. This is synthetic fail-before evidence.
+- aliases, key order, defaults, and runtime types
+- dot-decimal machine values
+- aware-UTC normalization and published timestamp text
+- accepted and rejected input boundaries
+- REST envelope and nested shape
+- MCP text/structured equivalence
+- deterministic batch publication
+
+MigrationCompletedTest fails because the models still import `pydantic.v1` and
+runtime model classes still come from the compatibility layer. This is synthetic
+fail-before evidence.

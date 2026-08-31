@@ -13,7 +13,10 @@ without it.
 | `inventory.md` | The authoritative scope and the public surface consumers depend on |
 | `acceptance.md` | The contract checks and what they mean |
 | `staged_copy/legacy_models.py.txt` | Byte-identical copy of the staged models |
-| `staged_copy/legacy_service.py.txt` | Byte-identical copy of the staged consumer |
+| `staged_copy/legacy_service.py.txt` | Byte-identical copy of the shared boundary |
+| `staged_copy/legacy_api.py.txt` | Byte-identical copy of the REST adapter |
+| `staged_copy/legacy_mcp.py.txt` | Byte-identical copy of the MCP adapter |
+| `staged_copy/legacy_batch.py.txt` | Byte-identical copy of the batch adapter |
 | `staged_copy/test_contract.py.txt` | Byte-identical copy of the staged contract checks |
 | `captured_acceptance_output.txt` | A captured run of the contract checks in the starting state |
 
@@ -26,8 +29,8 @@ without it.
 1. Copy `staged_copy/` into a directory you can edit.
 2. Create `MIGRATION_NOTES.md`. Before touching code, capture one valid equipment
    reference and service-rate record through their public parser, payload, and
-   JSON paths, plus one invalid case per model family through the public error
-   boundary.
+   JSON paths, one REST/MCP/batch representation, plus one invalid case per
+   model family through the public error boundary.
 3. Run the checks from that directory:
 
    ```bash

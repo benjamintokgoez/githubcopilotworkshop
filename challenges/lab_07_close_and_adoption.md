@@ -45,8 +45,8 @@ Answer from memory, then check the linked references.
 2. Before a multi-file contract migration, what must the reviewed plan contain?
 3. What two observations make a test credible evidence rather than a green
    decoration?
-4. Why is a Berlin business date not always 24 hours, and which representation
-   keeps money exact?
+4. What makes a telemetry reading fresh at the exact lower boundary, and which
+   representation keeps exact operational values?
 5. When a live feature is unavailable, what delivery mode and evidence labels
    keep the engineering claim honest?
 
@@ -153,7 +153,8 @@ work today:
 6. Distinguish a verifier result from evidence of supervision.
 7. Distinguish achievement lane from delivery mode.
 8. Name one control and limitation from an unchosen elective.
-9. State why Berlin business dates can be 23 or 25 hours.
+9. State the inclusive freshness interval and the minimum sample rule from the
+   capstone.
 10. State the stop rule and owner for your bounded adoption experiment.
 
 ---

@@ -1,9 +1,9 @@
 # Scenario: capstone-transfer (Lab 6)
 
-An individual, domain-light task about business dates, UTC windows, exact
-amounts, and display formatting. The supplied skeleton and acceptance suite make
-the complete Core implementation feasible inside the lab; the assessment is the
-participant's plan, evidence, self-review, and handover.
+An individual cross-module task over a metaclass-registered telemetry policy.
+The participant must map and repair freshness selection, threshold semantics,
+service construction, and machine serialization without changing unrelated
+boundaries.
 
 ```bash
 python scripts/workshop.py start capstone-transfer
@@ -15,26 +15,24 @@ python scripts/workshop.py reset capstone-transfer
 
 | Path | What it is |
 |---|---|
-| `issue.md` | The synthetic operations request and its supplied claims |
-| `data/records_2026-08-19.json` | Synthetic records with UTC timestamps and dot-decimal amount strings |
-| `acceptance.md` | Full-Core expected values, focused Supported evidence, and check commands |
-| `work/daily_export.py` | Created by `start`: four missing operations and one supplied Decimal helper |
-| `work/test_daily_export.py` | Created by `start`: the complete standard-library acceptance suite |
-| `work/NOTES.md` | Created by `start`: the participant's handover |
+| `issue.md` | Synthetic operations request and behavioural constraints |
+| `acceptance.md` | Observable registry, freshness, policy, and payload contract |
+| `work/policy_models.py` | Typed telemetry and recommendation records |
+| `work/policy_base.py` | Policy metaclass registry and abstraction |
+| `work/telemetry_window.py` | Shared aware-UTC freshness selector |
+| `work/deviation_policy.py` | Concrete registered policy |
+| `work/policy_catalog.py` | Read-only registry projection |
+| `work/recommendation_service.py` | Policy construction and machine payload |
+| `work/test_recommendation.py` | Supplied observable checks |
+| `work/NOTES.md` | Participant handover |
 
-## Lane and role boundary
+## Lanes
 
-- **Supported:** selection-window and record-membership behaviour, including the
-  three dates, aware UTC bounds, and half-open boundary; review and handover are
-  still required. The full verifier may fail on explicitly unfinished groups.
-- **Core:** all four missing operations, full verifier, review, and handover.
-- **Extension:** one independently chosen focused test only after Core and the
-  handover are complete.
+- **Supported:** registry, time-window, sample-count, and threshold behaviours,
+  with a reviewed diff and handover. The service boundary may remain incomplete.
+- **Core:** the complete observable contract, participant-owned adversarial
+  check, reviewed diff, handover, and green verifier.
+- **Extension:** after Core, add one bounded check for a risk not represented in
+  the supplied suite.
 
-Choose Builder or Supervising architect. Both add a participant-owned adversarial check for
-a material assumption and produce concrete code/test evidence. The architect
-route requests or produces the selected-lane candidate, reviews the full diff,
-and makes at least one bounded correction; it is not prose-only.
-
-Everything runs on the standard library. Offline copies live under
-`workshop/fallbacks/capstone-transfer/`.
+Offline copies live under `workshop/fallbacks/capstone-transfer/`.

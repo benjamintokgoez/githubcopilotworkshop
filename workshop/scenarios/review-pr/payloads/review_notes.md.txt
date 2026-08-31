@@ -1,4 +1,4 @@
-# Review notes - PR #212 "Normalise overdue workload reporting"
+# Review notes - PR #212 "Add organisation SLA snapshots"
 
 Reviewer: <your name or initials>
 Reviewed on: <date, Europe/Berlin>

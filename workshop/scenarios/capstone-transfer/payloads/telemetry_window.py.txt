@@ -1,0 +1,31 @@
+"""Time-window selection shared by telemetry-backed policies."""
+
+from __future__ import annotations
+
+from collections.abc import Sequence
+from datetime import datetime, timedelta
+
+from policy_models import PolicyError, TelemetryReading, aware_utc
+
+
+def fresh_readings(
+    readings: Sequence[TelemetryReading],
+    asset_id: str,
+    *,
+    as_of: datetime,
+    max_age: timedelta,
+) -> list[TelemetryReading]:
+    moment = aware_utc(as_of, "as_of")
+    if max_age <= timedelta(0):
+        raise PolicyError("max_age must be positive")
+
+    # Readings are sorted here so policy results do not depend on input order.
+    return sorted(
+        (
+            reading
+            for reading in readings
+            if reading.asset_id == asset_id
+            and reading.recorded_at <= moment
+        ),
+        key=lambda reading: reading.recorded_at,
+    )

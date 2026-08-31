@@ -1,4 +1,4 @@
-# Lab 6 - Capstone: transfer under mild adversity
+# Lab 6 - Capstone: transfer across unfamiliar boundaries
 
 **Block:** 15:45-16:35 (50 minutes) - **Mode:** individual
 **Loop stages:** all four
@@ -8,43 +8,14 @@
 
 ## Outcome
 
-You run the whole loop alone on an unseen, domain-light task. Treat every
-supplied claim as something to check against the acceptance evidence.
+You run the complete engineering loop alone on an unseen cross-module change.
+The task is small enough to verify in the block, but no single file contains the
+behaviour: you must map a policy registry, time-window selector, concrete policy,
+application service, machine serializer, and their tests.
 
-This is an assessment of **transfer**, not typing speed or feature access. A
-small, reviewed result with honest evidence is stronger than a rushed full
-implementation. Your work and self-assessment remain private: facilitators do not
-collect code, prompts, notes, transcripts, or scores. You may choose to show an
-artifact for feedback.
-
-Live Copilot features are optional. The scenario, tests, standard library, and
-captured fallback are enough.
-
----
-
-## What fits in 50 minutes
-
-The scenario supplies:
-
-- a four-operation utility skeleton;
-- a complete standard-library acceptance suite;
-- synthetic sample data; and
-- a short handover template.
-
-For Core, you implement the four missing operations, run the supplied tests, add
-one participant-owned check for a material assumption, review the diff, complete
-the handover, and use the private rubric. You do **not** need another test suite
-or dependency. A helper that sums stored amount strings with `Decimal` is already
-implemented.
-
-The four operations are:
-
-1. calculate the UTC selection window for a Berlin business date;
-2. select the records in that half-open window;
-3. produce the ISO-dated filename; and
-4. format the display total with an explicit currency.
-
-That is the entire scope.
+This is an assessment of transfer, not typing speed or feature access. A bounded,
+reviewed result with honest evidence is stronger than an unreviewed full repair.
+Your work and self-assessment remain private.
 
 ---
 
@@ -55,208 +26,209 @@ python scripts/workshop.py start capstone-transfer
 python scripts/workshop.py verify capstone-transfer
 ```
 
-Work only in `workshop/scenarios/capstone-transfer/work/`. The first verification
-is expected to fail because the staged operations are not implemented. Record
-the command and the first useful failure; do not diagnose every downstream
-failure.
+The first verification is expected to fail at several observable boundaries.
+Record the command and the first useful failure. Do not diagnose every failure
+before you have mapped the path they share.
 
-If `start` is unavailable, move immediately to
-`workshop/fallbacks/capstone-transfer/README.md`. Do not spend the capstone
-troubleshooting workshop tooling.
+If staging is unavailable, move immediately to
+`workshop/fallbacks/capstone-transfer/`.
 
 ---
 
 ## Read these artifacts in order
 
-| Artifact | What to take from it |
-|---|---|
-| `issue.md` | The requested behaviour, supplied claims, and explicit non-goals |
-| `acceptance.md` | The authority when the issue and expected behaviour disagree |
-| `data/records_2026-08-19.json` | UTC timestamps and dot-decimal amount strings |
-| `work/test_daily_export.py` | The supplied observable checks; read before editing |
-| `work/daily_export.py` | Four missing operations and one supplied Decimal helper |
-| `work/NOTES.md` | The handover you must finish even if code is incomplete |
+| Order | Artifact | What to take from it |
+|---:|---|---|
+| 1 | `issue.md` | Required behaviour, authority, and non-goals |
+| 2 | `acceptance.md` | Observable contract and focused Supported check |
+| 3 | `work/test_recommendation.py` | Public effects, not an implementation recipe |
+| 4 | `work/policy_models.py` | Typed time, decimal, and error boundaries |
+| 5 | `work/policy_base.py` and `work/policy_catalog.py` | Registration and discovery path |
+| 6 | `work/telemetry_window.py` | Shared freshness selection |
+| 7 | `work/deviation_policy.py` | Concrete policy calculation |
+| 8 | `work/recommendation_service.py` | Construction and machine-facing output |
+| 9 | `work/NOTES.md` | Handover that remains required if code is incomplete |
 
-Do not ask an assistant to summarise these before you read them. Independent
-transfer includes deciding which source is authoritative.
-
-## Choose a role-equivalent route
-
-Both routes perform the same loop and use the same lane and rubric.
-
-| Route | Substantive Implement/Test evidence |
-|---|---|
-| **Builder** | Implement the selected-lane operations and add one participant-owned adversarial check for a material assumption not safely left implicit |
-| **Supervising architect** | Turn one material assumption into a participant-owned adversarial check, request or produce a candidate for the selected lane, inspect the complete diff, make at least one bounded correction, and run the focused checks |
-
-The architect route is not a prose review. It changes a test and code, or
-corrects a concrete candidate, and records the same command/result evidence.
+Do not ask for a repository-wide fix. Ask for the smallest map from a failing
+observation to its source, related contract, and downstream consumer. Require
+named files and unknowns, then verify the map yourself.
 
 ---
 
-## Business invariants at stake
+## Business invariants
 
-Everything needed is stated in
-[reference/invariants.md](reference/invariants.md). No field-service knowledge
-is required.
+- Fresh readings for asset `A` belong to the inclusive interval
+  `[as_of - max_age, as_of]`.
+- Stored and exchanged timestamps are timezone-aware UTC.
+- The policy requires at least three fresh readings.
+- Absolute deviation equal to the threshold is actionable.
+- Calculation remains `Decimal`; machine JSON uses dot-decimal strings.
+- Policies register through the existing metaclass mechanism.
+- A recommendation is advisory. It does not automatically submit work.
 
-- **INV-TIME-1** - stored and exchanged timestamps are timezone-aware UTC.
-- **INV-TIME-3** - business date `D` is
-  `[D 00:00 Europe/Berlin, D+1 00:00 Europe/Berlin)`, converted to UTC. It is not
-  a fixed 24-hour UTC window and not UTC plus a constant offset.
-- **INV-FMT-1** - machine values use a decimal point; German-language display
-  uses a decimal comma and dot thousands separators.
-- **INV-FMT-2** - a displayed amount carries its currency.
-- **INV-FMT-3** - rounding happens only for display, never in stored values or
-  intermediate arithmetic.
-- **INV-FMT-4** - identifiers and filenames use ISO 8601 dates.
+Everything required is in the issue, acceptance document, staged code, and
+repository instructions. No equipment-domain knowledge is assessed.
 
-Amounts remain `Decimal` throughout storage and arithmetic; do not introduce
-binary float.
+---
 
-### Expected values
+## Choose a route
 
-Selection windows:
+| Route | Implement/Test evidence |
+|---|---|
+| **Builder** | Map the complete path, repair one boundary at a time, add one participant-owned adversarial check, and run focused checks after each batch |
+| **Supervising architect** | Produce or request a candidate for one bounded batch, inspect its complete diff, make at least one evidence-based correction, and verify the same observable contract |
 
-| Business date (Europe/Berlin) | Window start (UTC) | Window end (UTC) | Length |
-|---|---|---|---|
-| `2026-03-29` | `2026-03-28T23:00:00Z` | `2026-03-29T22:00:00Z` | 23 hours |
-| `2026-08-19` | `2026-08-18T22:00:00Z` | `2026-08-19T22:00:00Z` | 24 hours |
-| `2026-10-25` | `2026-10-24T22:00:00Z` | `2026-10-25T23:00:00Z` | 25 hours |
-
-Filename for business date `2026-08-19`:
-
-```text
-service_export_2026-08-19.csv
-```
-
-Display total for the stored value `1234567.891`:
-
-```text
-1.234.567,89 EUR
-```
-
-A record whose UTC timestamp is exactly the window end belongs to the **next**
-business date.
+The architect route is not prose-only. Both routes change and test concrete
+artifacts.
 
 ---
 
 ## Use the clock
 
-| Time | Stage | Work and stop rule |
+| Time | Stage | Required result |
 |---|---|---|
-| 15:45-15:49 | Set up | Start the scenario and capture the expected failing baseline. Switch to fallback immediately if staging is blocked. |
-| 15:49-15:57 | Understand/Plan | Read the six artifacts. Record behaviour, claim to check, non-goal, role route, lane, and workflow. |
-| 15:57-16:17 | Implement/Test | Work one observable behaviour at a time; add one participant-owned adversarial check. At 16:10, narrow if Core is not on course. |
-| 16:17-16:23 | Review | Freeze behaviour. Read the diff line by line; for the architect route, record the bounded correction. |
-| 16:23-16:28 | Explain | Complete the handover with evidence, checked claim, blast radius, and uncertainty. |
-| 16:28-16:31 | [Private rubric](../workshop/ops/ASSESSMENT_RUBRIC.md) | Self-score the five dimensions and name one next practice action. Scores remain private. |
-| 16:31-16:35 | Preserve/reset | Run the full verifier once, record the result, and reset. |
+| 15:45-15:49 | Set up | Expected fail-before run captured |
+| 15:49-15:58 | Understand/Plan | Dependency map, invariant, non-goal, route, lane, verification |
+| 15:58-16:17 | Implement/Test | Small verified batches and participant-owned adversarial check |
+| 16:17-16:23 | Review | Behaviour frozen; complete diff read line by line |
+| 16:23-16:28 | Explain | Handover with actual evidence and uncertainty |
+| 16:28-16:31 | Private rubric | Self-score and next practice action |
+| 16:31-16:35 | Preserve/reset | Final verifier recorded and scenario reset |
 
-The stop times are part of the assessment. Scope control and a usable handover
-are engineering work.
+At 16:17, stop adding behaviour. Review and handover are not optional rewards for
+finishing implementation.
 
 ---
 
-## Choose one lane by 15:57
+## Understand/Plan
+
+Create a bounded map with:
+
+1. the failing observable behaviour;
+2. the public test or consumer that observes it;
+3. every file crossed before the value reaches that consumer;
+4. the invariant enforced at each boundary;
+5. the smallest independently verifiable repair batch; and
+6. one adjacent risk you will not solve.
+
+Do not assume all failures share one cause. Do not change the registry,
+calculation, and payload in one unreviewable prompt. A useful plan separates:
+
+- time-window membership;
+- policy threshold and sample semantics; and
+- service or machine-serialization behaviour.
+
+---
+
+## Implement/Test
+
+For each batch:
+
+1. State the files and intended behavioural change.
+2. Run the narrowest relevant check before editing.
+3. Permit or make only that batch.
+4. Read the complete diff.
+5. Re-run the same check and record its observed result.
+6. Continue only when you can explain why the result changed.
+
+Add one participant-owned `test_*.py` check for a material assumption not merely
+copied from the supplied suite. Good checks challenge another timezone offset,
+input ordering, the exact freshness boundary, negative deviation, or registry
+construction. Pick one; do not build another suite.
+
+Interrupt an editing agent if it introduces a service switch statement, binary
+float conversion, naive timestamps, automatic work-order submission, or a new
+dependency.
+
+---
+
+## Review
+
+Freeze code at 16:17 and review the diff using these questions:
+
+- Does freshness include the lower bound and exclude future readings?
+- Are asset filtering and input-order independence preserved?
+- Is the threshold inclusive without changing insufficient-sample behaviour?
+- Does every exact value remain `Decimal` until machine serialization?
+- Is policy registration still automatic and discoverable?
+- Did any change cross into dispatch mutation, storage, networking, or dashboard
+  behaviour?
+- Does the participant-owned check fail against the original staged state?
+
+For the architect route, record the bounded correction you made to the candidate.
+
+---
+
+## Explain
+
+Complete `NOTES.md` with:
+
+- task and chosen lane;
+- map and files actually changed;
+- material claim challenged;
+- fail-before and latest observed command results;
+- blast radius and non-goals;
+- what remains if incomplete; and
+- the three-part uncertainty sentence.
+
+---
+
+## Lanes
 
 | Lane | Completion boundary |
 |---|---|
-| **Supported** | Implement and verify the selection window and record membership, including all three dates, timezone-aware UTC bounds, and the half-open boundary. Review the diff and complete the handover. Filename and display formatting remain explicitly unfinished. |
-| **Core** | Implement all four missing operations, pass the full supplied suite, add one participant-owned adversarial check, review the diff, complete the handover, and self-score. |
-| **Extension** | Only after Core evidence and the handover are complete: add one focused test of a risk not already covered, without a new dependency, and explain what failure it would detect. |
+| **Supported** | Registry, freshness window, sample count, and threshold behaviour are mapped and verified; the diff is reviewed and the handover is complete. The service payload may remain explicitly unfinished. |
+| **Core** | Full supplied suite passes, one participant-owned adversarial check is included, the complete diff is reviewed, and the handover and private rubric are complete. |
+| **Extension** | Only after Core: one additional focused risk check or a reusable policy-change plan template. No new dependency or second feature. |
 
-A Supported attempt is intentionally allowed to fail the full verifier on the
-unfinished groups. Record which focused behaviour passed and the first remaining
-failure. Do not present it as Core.
-
-### Partial-success protocol
-
-If you are blocked or behind:
-
-1. keep the last passing behaviour and stop expanding scope;
-2. record the exact command, observed result, and first unresolved failure;
-3. state what remains unimplemented in the handover;
-4. inspect the diff you do have; and
-5. verify and reset at 16:31 with everyone else.
-
-This is an honest incomplete result, not a penalty and not a reason to skip
-Review or Explain.
+A red full verifier can accompany honest Supported evidence. It cannot be
+described as Core.
 
 ---
 
-## Acceptance
+## Partial-success protocol
 
-### Supported and Core
+If blocked or behind:
 
-- [ ] The baseline command and its observed starting failure are recorded
-- [ ] The plan names the requested behaviour, one claim to check, one non-goal,
-      the role route, and the chosen lane
-- [ ] One participant-owned adversarial check tests a material assumption without
-      weakening or merely copying a supplied assertion
-- [ ] The 23-, 24-, and 25-hour windows are correct and timezone-aware UTC
-- [ ] Record membership is half-open: the start is included and the end is
-      excluded
-- [ ] The diff contains only work needed for the selected lane
-- [ ] The handover states what passed, what remains, and the three-part
-      uncertainty sentence
-- [ ] The private rubric was used and one next practice action was named; no
-      score was submitted
-- [ ] The full verifier result is recorded honestly, then the scenario is reset
-
-### Core adds
-
-- [ ] Selected stored amount strings are summed without binary float
-- [ ] Machine values keep a decimal point; only display output uses a comma
-- [ ] The displayed total carries its currency
-- [ ] The filename is ISO-dated and sortable
-- [ ] `python scripts/workshop.py verify capstone-transfer` passes
-
-The verifier checks the complete Core scenario. It does not read `NOTES.md`, so a
-green command alone is not complete transfer evidence.
+1. keep the last passing boundary;
+2. stop expanding the dependency map;
+3. record the exact unresolved failure;
+4. review the diff you do have;
+5. complete the handover; and
+6. verify once and reset at 16:31.
 
 ---
 
-## Preserve and reset - 16:31
-
-Everyone stops at 16:31. Run both commands even if the utility is incomplete:
+## Preserve and reset
 
 ```bash
 python scripts/workshop.py verify capstone-transfer
 python scripts/workshop.py reset capstone-transfer
 ```
 
-Reset archives the attempt and prints its location before restoring the
-pre-start tree. Put that archive path and the first unfinished behaviour in the
-Lab 7 remediation line. Nothing in Lab 7 depends on a green verifier.
+Reset archives the attempt before restoring the known-good tree. Put the archive
+path and first unfinished boundary into the Lab 7 remediation line.
 
-While the room resets, answer in one sentence:
-**what did you check that you were tempted to take on trust?**
+While the room resets, answer:
 
----
-
-## Solo path
-
-Use the same 50-minute clock and stop rules. If scenario tooling is unavailable,
-follow `workshop/fallbacks/capstone-transfer/README.md`; it contains the same
-brief, data, skeleton, tests, and handover template. No network or live Copilot
-feature is required.
+**Which architectural link did you verify instead of taking on trust?**
 
 ---
 
 ## Hints
 
-[hints/lab_06.md](hints/lab_06.md) provides process nudges only. It does not name
-which claim to challenge, prescribe code structure, or disclose a test name.
+[hints/lab_06.md](hints/lab_06.md) supports mapping, batching, review, and honest
+completion without identifying a defect or prescribing a repair.
 
 ---
 
-## Reflection and retrieval
+## Reflection
 
-1. Which result came from evidence rather than familiarity?
-2. Where did you narrow scope, and what did that preserve?
-3. Without looking: why can a Berlin business date be 23 or 25 hours?
-4. Where in your own systems is a "day" silently treated as 24 hours?
+1. Which failing observations shared a cause, and which did not?
+2. Where did repository-aware assistance save navigation time?
+3. Which generated suggestion would have crossed a contract boundary?
+4. What evidence would you require before applying the same policy change in an
+   unfamiliar production repository?
 
 ---
 

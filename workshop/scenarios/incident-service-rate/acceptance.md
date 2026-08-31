@@ -8,7 +8,9 @@ python scripts/workshop.py verify incident-service-rate
 
 The unchanged checks require:
 
-- assignments use the accepted provider offer's rate;
+- matching-engine assignments use the accepted provider offer's rate;
+- the versioned event retains the accepted rate and request ceiling separately;
+- the projected and persisted operations confirmation keeps the assignment rate;
 - lower eligible rates are consumed before higher rates;
 - equal-rate offers remain FIFO;
 - assigned hours are conserved; and

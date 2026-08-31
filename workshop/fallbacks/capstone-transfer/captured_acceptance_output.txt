@@ -1,62 +1,21 @@
-Captured run of the acceptance check for scenario 'capstone-transfer', in its starting
-state - that is, immediately after 'start' and before any participant work.
+Captured starting run for scenario 'capstone-transfer'.
+
 Command: python scripts/workshop.py verify capstone-transfer
-Exit code: 3
-Repository paths are replaced with <repo>; the output is truncated exactly as
-the runner truncates it. Synthetic capture for the workshop.
-------------------------------------------------------------------------------
-
-Verifying scenario: capstone-transfer
-Acceptance contract: workshop/scenarios/capstone-transfer/acceptance.md
-
-Check 1/1: Business-date windows, half-open boundary, filename, and display total
-  command: python -m unittest discover -s workshop/scenarios/capstone-transfer/work -t workshop/scenarios/capstone-transfer/work -p 'test_*.py'
-  result:  FAIL (exit 1)
-  | EEEEEEEEEEEEE
-  | ======================================================================
-  | ERROR: test_currency_is_explicit_and_configurable (test_daily_export.DisplayTotalTest.test_currency_is_explicit_and_configurable)
-  | ----------------------------------------------------------------------
-  | Traceback (most recent call last):
-  |   File "<repo>/workshop/scenarios/capstone-transfer/work/test_daily_export.py", line 114, in test_currency_is_explicit_and_configurable
-  |     self.assertEqual(display_total(Decimal("0.5"), "CHF"), "0,50 CHF")
-  |                      ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-  |   File "<repo>/workshop/scenarios/capstone-transfer/work/daily_export.py", line 52, in display_total
-  |     raise NotImplementedError("display_total")
-  | NotImplementedError: display_total
-  | 
-  | ======================================================================
-  | ERROR: test_display_total_formats_for_a_german_reader (test_daily_export.DisplayTotalTest.test_display_total_formats_for_a_german_reader)
-  | ----------------------------------------------------------------------
-  | Traceback (most recent call last):
-  |   File "<repo>/workshop/scenarios/capstone-transfer/work/test_daily_export.py", line 111, in test_display_total_formats_for_a_german_reader
-  |     self.assertEqual(display_total(Decimal("1234567.891")), "1.234.567,89 EUR")
-  |                      ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^
-  |   File "<repo>/workshop/scenarios/capstone-transfer/work/daily_export.py", line 52, in display_total
-  |     raise NotImplementedError("display_total")
-  | NotImplementedError: display_total
-  | 
-  | ======================================================================
-  | ERROR: test_sample_day_total_is_formatted_from_the_stored_value (test_daily_export.DisplayTotalTest.test_sample_day_total_is_formatted_from_the_stored_value)
-  | ----------------------------------------------------------------------
-  | Traceback (most recent call last):
-  |   File "<repo>/workshop/scenarios/capstone-transfer/work/test_daily_export.py", line 117, in test_sample_day_total_is_formatted_from_the_stored_value
-  |     selected = records_in_window(sample_records(), date(2026, 8, 19))
-  |   File "<repo>/workshop/scenarios/capstone-transfer/work/daily_export.py", line 42, in records_in_window
-  |     raise NotImplementedError("records_in_window")
-  | NotImplementedError: records_in_window
-  | 
-  | ======================================================================
-  | ERROR: test_filename_for_the_sample_business_date (test_daily_export.FilenameTest.test_filename_for_the_sample_business_date)
-  | ----------------------------------------------------------------------
-  | Traceback (most recent call last):
-  |   File "<repo>/workshop/scenarios/capstone-transfer/work/test_daily_export.py", line 96, in test_filename_for_the_sample_business_date
-  |     self.assertEqual(export_filename(date(2026, 8, 19)), "service_export_2026-08-19.csv")
-  |                      ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
-  | ... output truncated at 40 lines / 4000 chars
-
+Result: exit 3 (acceptance not met)
 Summary: 0/1 acceptance checks passed
 
-This is the expected result before your change is complete.
-Keep this output: it is your fail-before evidence.
+The registry, naive-time rejection, future exclusion, insufficient-sample
+behaviour, and unknown-policy error pass.
 
-error: acceptance not met for capstone-transfer
+The starting failures are:
+
+- the freshness selector includes a 45-minute-old reading outside the 15-minute
+  window;
+- the policy therefore reports four samples and average Decimal('124.50')
+  instead of three samples and Decimal('106.00');
+- an absolute deviation exactly equal to the threshold returns no
+  recommendation; and
+- the machine payload converts average and deviation values to binary floats
+  instead of dot-decimal strings.
+
+This captured output is synthetic fail-before evidence for the offline route.

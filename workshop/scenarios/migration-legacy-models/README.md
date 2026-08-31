@@ -1,7 +1,7 @@
 # Scenario: migration-legacy-models (Lab 3)
 
-A bounded equipment and service-rate model surface that still runs through a
-deprecated compatibility shim, its consumer, and the contract checks that define
+An equipment and service-rate model surface that still runs through a deprecated
+compatibility shim, plus REST, MCP, and batch consumers whose contracts define
 "behaviour preserving".
 
 ```bash
@@ -23,7 +23,10 @@ python scripts/workshop.py reset migration-legacy-models
 ## What `start` stages
 
 - `work/legacy_models.py` - the models, on the 1.x idioms
-- `work/legacy_service.py` - the consumer that serialises them
+- `work/legacy_service.py` - the shared parser and serializer
+- `work/legacy_api.py` - REST documents and machine JSON
+- `work/legacy_mcp.py` - text and structured MCP results
+- `work/legacy_batch.py` - deterministic JSON-lines publication
 - `work/test_contract.py` - the contract checks
 
 `mittelwerk/` is untouched. The canonical runtime models are deliberately **not** part of
@@ -43,8 +46,8 @@ python -m pip install -r requirements.txt
 
 - Create `work/MIGRATION_NOTES.md`. Capture the initial verifier run, one valid
   equipment reference and service-rate record through their public
-  parser/payload/JSON paths, and one
-  invalid case per model family **before** the first edit.
+  parser/payload/JSON paths, one REST/MCP/batch representation, and one invalid
+  case per model family **before** the first edit.
 - Save the edited plan, how task context was loaded, each batch's diff/check
   result, the contract comparison, and handover in that note. An arbitrary note
   is not automatic agent context; explicitly attach, reference, or hand it off.
@@ -60,5 +63,5 @@ python -m pip install -r requirements.txt
 ## Offline
 
 `workshop/fallbacks/migration-legacy-models/` carries the ticket, the inventory,
-copies of all three staged files, and a captured run of the acceptance check.
+copies of all staged files, and a captured run of the acceptance check.
 Mark captured results as captured rather than personally executed.

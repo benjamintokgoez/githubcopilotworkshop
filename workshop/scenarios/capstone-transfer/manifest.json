@@ -1,32 +1,60 @@
 {
   "schema_version": 1,
   "id": "capstone-transfer",
-  "title": "Capstone - a daily service export under mild adversity",
+  "title": "Capstone - a telemetry policy across unfamiliar boundaries",
   "kind": "code",
   "lab": "Lab 6",
-  "summary": "An individual service-operations task: business-date windows, an ISO filename, and a German-formatted cost total, with synthetic input and explicit expected values.",
+  "summary": "An individual cross-module task: repair a metaclass-registered telemetry policy across freshness selection, exact calculations, service orchestration, and machine serialization.",
   "fallback": "workshop/fallbacks/capstone-transfer",
   "acceptance_doc": "workshop/scenarios/capstone-transfer/acceptance.md",
   "required_artifacts": [
-    "workshop/scenarios/capstone-transfer/issue.md",
-    "workshop/scenarios/capstone-transfer/data/records_2026-08-19.json"
+    "workshop/scenarios/capstone-transfer/issue.md"
   ],
   "briefing": [
-    "workshop/scenarios/capstone-transfer/issue.md",
-    "workshop/scenarios/capstone-transfer/data/records_2026-08-19.json"
+    "workshop/scenarios/capstone-transfer/issue.md"
   ],
   "stage": [
     {
-      "payload": "workshop/scenarios/capstone-transfer/payloads/daily_export.py.txt",
-      "target": "workshop/scenarios/capstone-transfer/work/daily_export.py",
+      "payload": "workshop/scenarios/capstone-transfer/payloads/policy_models.py.txt",
+      "target": "workshop/scenarios/capstone-transfer/work/policy_models.py",
       "mode": "0644",
-      "description": "The utility skeleton. Four functions, nothing more."
+      "description": "Typed telemetry, recommendation, and error boundaries."
     },
     {
-      "payload": "workshop/scenarios/capstone-transfer/payloads/test_daily_export.py.txt",
-      "target": "workshop/scenarios/capstone-transfer/work/test_daily_export.py",
+      "payload": "workshop/scenarios/capstone-transfer/payloads/policy_base.py.txt",
+      "target": "workshop/scenarios/capstone-transfer/work/policy_base.py",
       "mode": "0644",
-      "description": "The acceptance checks, using the expected values from the lab."
+      "description": "Metaclass registry and policy abstraction."
+    },
+    {
+      "payload": "workshop/scenarios/capstone-transfer/payloads/telemetry_window.py.txt",
+      "target": "workshop/scenarios/capstone-transfer/work/telemetry_window.py",
+      "mode": "0644",
+      "description": "Shared aware-UTC freshness selection."
+    },
+    {
+      "payload": "workshop/scenarios/capstone-transfer/payloads/deviation_policy.py.txt",
+      "target": "workshop/scenarios/capstone-transfer/work/deviation_policy.py",
+      "mode": "0644",
+      "description": "Concrete telemetry-deviation policy registered by metaclass."
+    },
+    {
+      "payload": "workshop/scenarios/capstone-transfer/payloads/policy_catalog.py.txt",
+      "target": "workshop/scenarios/capstone-transfer/work/policy_catalog.py",
+      "mode": "0644",
+      "description": "Read-only policy catalogue."
+    },
+    {
+      "payload": "workshop/scenarios/capstone-transfer/payloads/recommendation_service.py.txt",
+      "target": "workshop/scenarios/capstone-transfer/work/recommendation_service.py",
+      "mode": "0644",
+      "description": "Application service and machine-facing recommendation payload."
+    },
+    {
+      "payload": "workshop/scenarios/capstone-transfer/payloads/test_recommendation.py.txt",
+      "target": "workshop/scenarios/capstone-transfer/work/test_recommendation.py",
+      "mode": "0644",
+      "description": "Observable checks across registry, freshness, policy, service, and serialization."
     },
     {
       "payload": "workshop/scenarios/capstone-transfer/payloads/NOTES.md.txt",
@@ -39,7 +67,7 @@
     "kind": "command",
     "commands": [
       {
-        "label": "Business-date windows, half-open boundary, filename, and display total",
+        "label": "Policy registry, freshness window, deviation semantics, and machine payload",
         "argv": [
           "{python}",
           "-m",

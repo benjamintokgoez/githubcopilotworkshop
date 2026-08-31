@@ -1,83 +1,406 @@
 # Captured synthetic diff for PR #212. Read it; do not apply it.
 
-diff --git a/mittelwerk/analytics/sla.py b/mittelwerk/analytics/sla.py
-index 8b1f2ca..3d47e10 100644
---- a/mittelwerk/analytics/sla.py
-+++ b/mittelwerk/analytics/sla.py
-@@ -72,8 +72,23 @@ class ServiceRiskCalculator:
-         return (open_hours * probability).quantize(HUNDREDTH)
-
-+def report_overdue_hours(value: Decimal) -> Decimal:
-+    """Put overdue workload below completed workload in sorted reports."""
-+    return -abs(value)
+diff --git a/mittelwerk/core/models.py b/mittelwerk/core/models.py
+index 4151d42..2be37e8 100644
+--- a/mittelwerk/core/models.py
++++ b/mittelwerk/core/models.py
+@@ -15,6 +15,7 @@ from datetime import UTC, datetime
+ from decimal import Decimal
+ from typing import Annotated
+ 
++from pydantic import AfterValidator
+ from pydantic import BaseModel, ConfigDict, Field, field_validator
+ 
+ 
+@@ -541,6 +542,52 @@ class OperationalRiskMetrics(BaseModel):
+     max_backlog_overrun: Decimal | None = None
+ 
+ 
++def _magnitude(value: Decimal) -> Decimal:
++    if not value.is_finite():
++        raise ValueError("operational magnitude must be finite")
++    if value < 0:
++        raise ValueError("operational magnitude must not be negative")
++    return value
 +
-+def report_estimated_cost(value: Decimal) -> Decimal:
-+    return -abs(value)
 +
-     def summary(self) -> dict:
--        return {"overdue_hours": self.overdue_hours(), "estimated_service_cost": self.cost()}
-+        return {
-+            "overdue_workload_1d": report_overdue_hours(self.overdue_hours()),
-+            "overdue_workload_7d": report_overdue_hours(self.overdue_hours(days=7)),
-+            "service_cost_1d": report_estimated_cost(self.cost()),
-+        }
-
++OperationalMagnitude = Annotated[Decimal, AfterValidator(_magnitude)]
++
++
++class OrganizationSLASnapshot(BaseModel):
++    """Published machine-facing SLA snapshot for one organisation."""
++
++    model_config = ConfigDict(
++        frozen=True,
++        json_encoders={Decimal: str},
++    )
++
++    organization_id: str
++    horizon_days: int
++    open_requester_hours: OperationalMagnitude
++    overdue_hours: OperationalMagnitude
++    estimated_service_cost: OperationalMagnitude
++    as_of: datetime
++
++    @field_validator("organization_id")
++    @classmethod
++    def validate_organization_id(cls, value: str) -> str:
++        normalized = value.strip().upper()
++        if not normalized:
++            raise ValueError("organization_id must not be empty")
++        return normalized
++
++    @field_validator("horizon_days")
++    @classmethod
++    def validate_horizon(cls, value: int) -> int:
++        if value not in (1, 7):
++            raise ValueError("horizon_days must be 1 or 7")
++        return value
++
++    @field_validator("as_of")
++    @classmethod
++    def normalize_as_of(cls, value: datetime) -> datetime:
++        if value.tzinfo is None:
++            return value.replace(tzinfo=UTC)
++        return value.astimezone(UTC)
++
++    @property
++    def is_overdue(self) -> bool:
++        return self.overdue_hours > 0
++
++
+ class TelemetryReading:
+     """One synthetic equipment reading."""
+ 
+diff --git a/mittelwerk/analytics/operations.py b/mittelwerk/analytics/operations.py
+index a2ca91a..77c303b 100644
+--- a/mittelwerk/analytics/operations.py
++++ b/mittelwerk/analytics/operations.py
+@@ -15,7 +15,14 @@ from typing import Any
+ 
+ import numpy as np
+ 
+-from mittelwerk.core.models import OperationalRiskMetrics, OrganizationSnapshot, Workload
++from mittelwerk.core.models import (
++    OperationalRiskMetrics,
++    OrganizationSLASnapshot,
++    OrganizationSnapshot,
++    Workload,
++)
+ 
+ WorkloadProvider = Callable[[], Sequence[Workload]]
+ WORKING_DAYS_PER_YEAR = 260
+@@ -72,6 +79,18 @@ def _exposure_value(workloads: Iterable[Workload]) -> Decimal:
+     return sum((workload.exposure_value() for workload in workloads), Decimal("0"))
+ 
+ 
++def _window_total(values: Sequence[float], days: int) -> Decimal:
++    selected = values[-days:]
++    return sum((Decimal(str(value)) for value in selected), Decimal("0"))
++
++
++def _rate_for_hours(workloads: Sequence[Workload], hours: Decimal) -> Decimal:
++    if hours == 0:
++        return Decimal("0")
++    value = sum(
++        (abs(workload.net_hours) * workload.average_service_rate for workload in workloads),
++        Decimal("0"),
++    )
++    return value / hours
++
++
+ class OperationsAnalytics:
+     """Compute organization operational metrics and safely compose independent units.
+ 
+@@ -232,6 +251,48 @@ class OperationsAnalytics:
+             confidence=confidence,
+         )
+ 
++    def sla_snapshot(
++        self,
++        horizon_days: int,
++        *,
++        as_of: datetime | None = None,
++    ) -> OrganizationSLASnapshot:
++        if horizon_days not in (1, 7):
++            raise ValueError("horizon_days must be 1 or 7")
++
++        workloads = self._current_workloads()
++        open_hours = sum(
++            (abs(workload.net_hours) for workload in workloads),
++            Decimal("0"),
++        )
++        organization_history = self._backlog_history.get("__organization__", [])
++        signed_window = _window_total(organization_history, horizon_days)
++
++        # Backlog reductions arrive as negative deltas. Reports use magnitudes.
++        overdue_hours = min(open_hours, abs(signed_window))
++        average_rate = _rate_for_hours(workloads, open_hours)
++
++        return OrganizationSLASnapshot(
++            organization_id=self._organization_id,
++            horizon_days=horizon_days,
++            open_requester_hours=open_hours,
++            overdue_hours=overdue_hours,
++            estimated_service_cost=overdue_hours * average_rate,
++            as_of=as_of or datetime.now(),
++        )
++
+     def compute_utilization(self) -> dict[str, float]:
+         """Aggregate capacity metrics from the registered capacity models."""
+         if not self._capacity_models:
+diff --git a/mittelwerk/api/schemas.py b/mittelwerk/api/schemas.py
+index c733008..a6649c2 100644
+--- a/mittelwerk/api/schemas.py
++++ b/mittelwerk/api/schemas.py
+@@ -7,9 +7,11 @@ from datetime import datetime
+ from decimal import Decimal
+ 
+ from pydantic import BaseModel, ConfigDict, Field, field_validator
++from pydantic.functional_serializers import PlainSerializer
++from typing_extensions import Annotated
+ 
+ 
++DecimalText = Annotated[Decimal, PlainSerializer(str, return_type=str, when_used="json")]
+ 
+ class WorkOrderRequest(BaseModel):
+     model_config = ConfigDict(extra="forbid")
+@@ -168,6 +170,27 @@ class DashboardResponse(BaseModel):
+     dispatch_queues: list[dict[str, object]]
+ 
+ 
++class OrganizationSLAResponse(BaseModel):
++    model_config = ConfigDict(extra="forbid")
++
++    organization_id: str
++    horizon_days: int
++    open_requester_hours: DecimalText
++    overdue_hours: DecimalText
++    estimated_service_cost: DecimalText
++    as_of: datetime
++
++    @field_validator("horizon_days")
++    @classmethod
++    def validate_horizon(cls, value: int) -> int:
++        if value not in (1, 7):
++            raise ValueError("horizon_days must be 1 or 7")
++        return value
++
++
++class OrganizationSLAQuery(BaseModel):
++    days: int = Field(default=1, ge=1, le=7)
++    organization_id: str | None = None
++
++
+ __all__ = [
+     "WorkOrderRequest",
+     "WorkOrderSubmissionResponse",
+@@ -184,4 +207,6 @@ __all__ = [
+     "HealthResponse",
+     "DashboardResponse",
++    "OrganizationSLAResponse",
++    "OrganizationSLAQuery",
+ ]
+diff --git a/mittelwerk/api/service.py b/mittelwerk/api/service.py
+index 92f8134..7fe9260 100644
+--- a/mittelwerk/api/service.py
++++ b/mittelwerk/api/service.py
+@@ -14,6 +14,7 @@ from mittelwerk.analytics.operations import OperationsAnalytics
+ from mittelwerk.core.engine import DispatchEngine
+ from mittelwerk.core.models import (
+     Equipment,
++    OrganizationSLASnapshot,
+     ServiceAssignment,
+     WorkOrder,
+ )
+@@ -110,6 +111,7 @@ class DispatchService:
+         self._organizations = _OrganizationBook()
+         self._equipment = dict(equipment)
+         self._store = store
++        self._sla_cache: dict[int, OrganizationSLASnapshot] = {}
+ 
+     def _analytics_for(self, organization_id: str) -> OperationsAnalytics:
+         return OperationsAnalytics(
+@@ -336,6 +338,29 @@ class DispatchService:
+         )
+         return result
+ 
++    def organization_sla(
++        self,
++        organization_id: str,
++        horizon_days: int,
++    ) -> OrganizationSLASnapshot:
++        cached = self._sla_cache.get(horizon_days)
++        if cached is not None:
++            return cached
++
++        analytics = self._analytics_for(organization_id)
++        for change in self._organizations.backlog_history(organization_id):
++            analytics.record_organization_backlog(change)
++
++        snapshot = analytics.sla_snapshot(horizon_days)
++        self._sla_cache[horizon_days] = snapshot
++        return snapshot
++
++    def invalidate_sla_cache(self) -> None:
++        self._sla_cache.clear()
++
+     def search_equipment_in_memory(
+         self,
+         term: str,
 diff --git a/mittelwerk/api/routes.py b/mittelwerk/api/routes.py
-index 5c0aa91..7f2b3de 100644
+index e801ac5..c081d47 100644
 --- a/mittelwerk/api/routes.py
 +++ b/mittelwerk/api/routes.py
-@@ -206,9 +206,10 @@ async def get_operations_summary(
-     summary = calculator.summary()
-     return {
--        "overdue_hours": summary["overdue_hours"],
--        "estimated_service_cost": summary["estimated_service_cost"],
-+        "overdue_service_hours_1d": summary["overdue_workload_1d"],
-+        "overdue_service_hours_7d": summary["overdue_workload_7d"],
-+        "service_cost_estimate_1d": summary["service_cost_1d"],
-         "as_of": utcnow(),
-     }
-
-diff --git a/mittelwerk/utils/serializer.py b/mittelwerk/utils/serializer.py
-index a41c007..b98d114 100644
---- a/mittelwerk/utils/serializer.py
-+++ b/mittelwerk/utils/serializer.py
-@@ -58,7 +58,14 @@ def _default(obj: Any) -> Any:
-     if isinstance(obj, datetime):
-         return obj.isoformat()
-     if isinstance(obj, Decimal):
--        return str(obj)
-+        whole, _, fraction = f"{obj:,.2f}".partition(".")
-+        return f"{whole.replace(',', '.')},{fraction}"
-     raise TypeError(f"Object of type {type(obj).__name__} is not JSON serialisable")
-
-diff --git a/mittelwerk/data/store.py b/mittelwerk/data/store.py
-index d0e5f31..1a9c8b7 100644
---- a/mittelwerk/data/store.py
-+++ b/mittelwerk/data/store.py
-@@ -88,13 +88,16 @@ class OperationsStore:
--        reading = TelemetryRow(asset_code=asset_code, recorded_at=datetime.now(timezone.utc))
--        with self._session() as session:
--            session.add(reading)
--            session.commit()
-+        logger.info("recording telemetry for organisation %s asset %s", organization_id, asset_code)
-+        reading = TelemetryRow(asset_code=asset_code, recorded_at=datetime.now())
-+        try:
-+            with self._session() as session:
-+                session.add(reading)
-+                session.commit()
-+        except Exception:
-+            pass
-
-diff --git a/tests/test_analytics.py b/tests/test_analytics.py
-index 2f77b0e..6ac1d02 100644
---- a/tests/test_analytics.py
-+++ b/tests/test_analytics.py
-@@ -34,12 +34,12 @@ def test_overdue_hours_match_reference_value(calculator):
--    assert hours == Decimal("24.00")
--    assert hours >= 0
-+    assert hours == pytest.approx(Decimal("24.00"), abs=Decimal("1.00"))
-+    assert hours != 0
-
- def test_cost_is_non_negative(calculator):
--    assert calculator.cost() >= 0
-+    assert abs(calculator.cost()) >= 0
+@@ -22,6 +22,7 @@ from mittelwerk.api.schemas import (
+     HealthResponse,
++    OrganizationSLAQuery,
++    OrganizationSLAResponse,
+     WorkOrderListResponse,
+     WorkOrderRequest,
+ )
+@@ -337,6 +339,37 @@ async def organization_snapshot(
+     return services.dispatch.organization_snapshot(principal.organization_id)
+ 
+ 
++@router.get(
++    "/organizations/me/sla",
++    response_model=OrganizationSLAResponse,
++    dependencies=[Depends(require_permission("analytics:read"))],
++)
++async def organization_sla(
++    request: Request,
++    services: ServicesDep,
++    principal: PrincipalDep,
++    days: int = Query(default=1, ge=1, le=7),
++    organization_id: str | None = Query(default=None),
++) -> OrganizationSLAResponse:
++    query = OrganizationSLAQuery(
++        days=days,
++        organization_id=organization_id,
++    )
++    selected_organization = query.organization_id or principal.organization_id
++    snapshot = services.dispatch.organization_sla(
++        selected_organization,
++        query.days,
++    )
++    logger.info(
++        "SLA snapshot requested",
++        extra={
++            "request_id": request.state.request_id,
++            "organization_id": selected_organization,
++            "horizon_days": query.days,
++        },
++    )
++    return OrganizationSLAResponse.model_validate(snapshot, from_attributes=True)
++
++
+ @router.get("/organizations/me/risk", response_model=OperationalRiskMetrics)
+ async def organization_risk(
+     services: ServicesDep,
+diff --git a/tests/test_api_app_v2.py b/tests/test_api_app_v2.py
+index d5319a2..61c997a 100644
+--- a/tests/test_api_app_v2.py
++++ b/tests/test_api_app_v2.py
+@@ -410,6 +410,89 @@ async def test_organization_snapshot_uses_key_identity(app_client):
+     assert response.json()["organization_id"] == "ORG-A"
+ 
+ 
++async def test_sla_snapshot_defaults_to_one_day(app_client):
++    client, key_manager = app_client
++    key = key_manager.issue_key(
++        "ORG-A",
++        permissions={"analytics:read"},
++    ).raw_key
++
++    response = await client.get(
++        "/api/v1/organizations/me/sla",
++        headers={"X-API-Key": key},
++    )
++
++    assert response.status_code == 200
++    body = response.json()
++    assert body["organization_id"] == "ORG-A"
++    assert body["horizon_days"] == 1
++    assert Decimal(body["open_requester_hours"]) >= 0
++    assert Decimal(body["overdue_hours"]) >= 0
++    assert Decimal(body["estimated_service_cost"]) >= 0
++    assert body["as_of"].endswith("+00:00")
++
++
++async def test_sla_snapshot_accepts_seven_day_horizon(app_client):
++    client, key_manager = app_client
++    key = key_manager.issue_key(
++        "ORG-A",
++        permissions={"analytics:read"},
++    ).raw_key
++
++    response = await client.get(
++        "/api/v1/organizations/me/sla?days=7",
++        headers={"X-API-Key": key},
++    )
++
++    assert response.status_code == 200
++    assert response.json()["horizon_days"] == 7
++
++
++async def test_sla_snapshot_rejects_other_horizons(app_client):
++    client, key_manager = app_client
++    key = key_manager.issue_key(
++        "ORG-A",
++        permissions={"analytics:read"},
++    ).raw_key
++
++    for days in (0, 2, 30):
++        response = await client.get(
++            f"/api/v1/organizations/me/sla?days={days}",
++            headers={"X-API-Key": key},
++        )
++        assert response.status_code == 422
++
++
++async def test_sla_snapshot_uses_the_requested_organization(app_client):
++    client, key_manager = app_client
++    key = key_manager.issue_key(
++        "ORG-B",
++        permissions={"analytics:read"},
++    ).raw_key
++
++    response = await client.get(
++        "/api/v1/organizations/me/sla?organization_id=ORG-B",
++        headers={"X-API-Key": key},
++    )
++
++    assert response.status_code == 200
++    assert response.json()["organization_id"] == "ORG-B"
++
++
++async def test_sla_cache_does_not_leak_between_app_instances():
++    first = create_app(enable_feed=False)
++    second = create_app(enable_feed=False)
++
++    async with app_client_for(first) as first_client:
++        first_key = first.state.services.key_manager.issue_key(
++            "ORG-A",
++            permissions={"analytics:read"},
++        ).raw_key
++        first_result = await first_client.get(
++            "/api/v1/organizations/me/sla",
++            headers={"X-API-Key": first_key},
++        )
++
++    async with app_client_for(second) as second_client:
++        second_key = second.state.services.key_manager.issue_key(
++            "ORG-B",
++            permissions={"analytics:read"},
++        ).raw_key
++        second_result = await second_client.get(
++            "/api/v1/organizations/me/sla",
++            headers={"X-API-Key": second_key},
++        )
++
++    assert first_result.json()["organization_id"] == "ORG-A"
++    assert second_result.json()["organization_id"] == "ORG-B"
++
+ async def test_dashboard_requires_dashboard_permission(app_client):
+     client, key_manager = app_client

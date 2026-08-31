@@ -4,7 +4,7 @@
   "title": "Incident - a service assignment at a rate nobody offered",
   "kind": "code",
   "lab": "Lab 2",
-  "summary": "A service-operations ticket about an incorrect assignment rate, with UTC logs, dispatch invariants, and a bounded reproduction of provider-capacity allocation.",
+  "summary": "A service-operations ticket about an incorrect persisted assignment rate, with UTC logs and a multi-module dispatch, event, projection, and confirmation path.",
   "fallback": "workshop/fallbacks/incident-service-rate",
   "acceptance_doc": "workshop/scenarios/incident-service-rate/acceptance.md",
   "required_artifacts": [
@@ -20,10 +20,46 @@
   ],
   "stage": [
     {
+      "payload": "workshop/scenarios/incident-service-rate/payloads/dispatch_models.py.txt",
+      "target": "workshop/scenarios/incident-service-rate/work/dispatch_models.py",
+      "mode": "0644",
+      "description": "Domain records shared across matching, events, projection, and confirmation persistence."
+    },
+    {
+      "payload": "workshop/scenarios/incident-service-rate/payloads/capacity_queue.py.txt",
+      "target": "workshop/scenarios/incident-service-rate/work/capacity_queue.py",
+      "mode": "0644",
+      "description": "Provider-capacity queue implementing rate-time priority."
+    },
+    {
       "payload": "workshop/scenarios/incident-service-rate/payloads/dispatch_engine.py.txt",
       "target": "workshop/scenarios/incident-service-rate/work/dispatch_engine.py",
       "mode": "0644",
-      "description": "Bounded reproduction of the service-dispatch path as it ran on 2026-08-19."
+      "description": "Matching engine that produces domain assignments."
+    },
+    {
+      "payload": "workshop/scenarios/incident-service-rate/payloads/assignment_events.py.txt",
+      "target": "workshop/scenarios/incident-service-rate/work/assignment_events.py",
+      "mode": "0644",
+      "description": "Versioned assignment-event publisher."
+    },
+    {
+      "payload": "workshop/scenarios/incident-service-rate/payloads/confirmation_projection.py.txt",
+      "target": "workshop/scenarios/incident-service-rate/work/confirmation_projection.py",
+      "mode": "0644",
+      "description": "Projection from versioned assignment events to operations confirmations."
+    },
+    {
+      "payload": "workshop/scenarios/incident-service-rate/payloads/confirmation_store.py.txt",
+      "target": "workshop/scenarios/incident-service-rate/work/confirmation_store.py",
+      "mode": "0644",
+      "description": "Operations confirmation read model."
+    },
+    {
+      "payload": "workshop/scenarios/incident-service-rate/payloads/dispatch_service.py.txt",
+      "target": "workshop/scenarios/incident-service-rate/work/dispatch_service.py",
+      "mode": "0644",
+      "description": "Application service joining matching, events, projection, and persistence."
     },
     {
       "payload": "workshop/scenarios/incident-service-rate/payloads/test_service_rate.py.txt",

@@ -63,7 +63,7 @@ captured/offline route. Do not spend the block repairing workshop tooling.
 |---|---|
 | `issue.md` | The migration request and business constraint |
 | `inventory.md` | The authoritative file scope and public surface |
-| Staged legacy modules | The code you may migrate |
+| Staged model and adapter modules | The code you may migrate or update |
 | `acceptance.md` | What the verifier proves, and what it cannot prove |
 
 The request is deliberately underspecified in one respect. Record the decision
@@ -76,7 +76,7 @@ you make; do not guess silently. The hints do not identify it.
 **The external contract does not change.**
 
 - Serialised field names, aliases, nesting, order where consumers rely on it,
-  and value types stay identical.
+  and value types stay identical across model, REST, MCP, and batch boundaries.
 - Accepted inputs remain accepted. Rejected inputs still raise the public
   exception with a useful message.
 - **INV-TIME-1:** timestamps remain timezone-aware UTC after a round trip.
@@ -131,10 +131,13 @@ Use the public surface in `inventory.md`, not internal model methods. Capture:
    runtime types.
 4. One invalid equipment reference and one invalid service-rate record through the public error
    boundary. Preserve the exception type and whether the message is non-empty.
+5. One representative REST document, MCP result, and batch record. Preserve
+   envelope names, nested shape, runtime types, timestamp text, and decimal text.
 
-This matrix covers both model families without multiplying equivalent invalid
-cases across every adapter. The supplied contract tests cover more cases; your
-capture proves that you observed the boundary before changing it.
+This matrix covers both model families and every consumer category without
+multiplying equivalent invalid cases across each adapter. The supplied contract
+tests cover more cases; your capture proves that you observed the boundaries
+before changing them.
 
 ### 2. Plan, then edit the plan - 10 minutes
 
@@ -209,8 +212,9 @@ the inventory is a claim to investigate, not permission.
 
 ### 5. Review and explain - 10 minutes
 
-- Compare the valid baseline with the post-change public output, including types,
-  UTC representation, and machine number formatting.
+- Compare the valid baseline with the post-change model, REST, MCP, and batch
+  output, including types, nesting, UTC representation, and machine number
+  formatting.
 - Re-run the invalid boundary cases.
 - Inspect the complete scenario diff for scope.
 - Write the handover: completed batches, remaining batches, ambiguity decision,

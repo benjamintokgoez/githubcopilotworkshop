@@ -1,0 +1,73 @@
+"""Project assignment events into the operations confirmation read model."""
+
+from __future__ import annotations
+
+from decimal import Decimal, InvalidOperation
+from typing import Any
+
+from dispatch_models import (
+    AssignmentConfirmation,
+    AssignmentEvent,
+    DispatchError,
+)
+
+# Version 1 events exposed only ``hourly_rate``. Version 2 separates the
+# accepted provider rate from the request ceiling so operations can audit both.
+RATE_FIELDS_BY_SCHEMA = {
+    1: ("hourly_rate",),
+    2: ("request_rate_ceiling", "accepted_hourly_rate"),
+}
+
+
+def _required(mapping: dict[str, Any], field: str) -> Any:
+    if field not in mapping:
+        raise DispatchError(f"assignment event is missing {field}")
+    return mapping[field]
+
+
+class ConfirmationProjector:
+    """Translate versioned assignment events into persisted confirmations."""
+
+    def project(self, event: AssignmentEvent) -> AssignmentConfirmation:
+        if event.event_type != "service.assignment.confirmed":
+            raise DispatchError(f"unsupported event type: {event.event_type}")
+        assignment = _required(event.payload, "assignment")
+        pricing = _required(event.payload, "pricing")
+        if not isinstance(assignment, dict) or not isinstance(pricing, dict):
+            raise DispatchError("assignment event sections must be objects")
+
+        return AssignmentConfirmation(
+            confirmation_id=f"CONF-{_required(assignment, 'assignment_id')}",
+            assignment_id=str(_required(assignment, "assignment_id")),
+            work_order_id=str(_required(assignment, "work_order_id")),
+            provider_code=str(_required(assignment, "provider_code")),
+            provider_offer_id=str(_required(assignment, "provider_offer_id")),
+            hourly_rate=self._rate(event.schema_version, pricing),
+            assigned_hours=self._decimal(
+                _required(assignment, "assigned_hours"),
+                "assigned_hours",
+            ),
+            currency=str(_required(pricing, "currency")),
+            confirmed_at=event.occurred_at,
+        )
+
+    @staticmethod
+    def _rate(schema_version: int, pricing: dict[str, Any]) -> Decimal:
+        fields = RATE_FIELDS_BY_SCHEMA.get(schema_version)
+        if fields is None:
+            raise DispatchError(f"unsupported assignment event schema: {schema_version}")
+        for field in fields:
+            value = pricing.get(field)
+            if value is not None:
+                return ConfirmationProjector._decimal(value, field)
+        raise DispatchError("assignment event contains no recognised rate")
+
+    @staticmethod
+    def _decimal(value: Any, field: str) -> Decimal:
+        try:
+            result = value if isinstance(value, Decimal) else Decimal(str(value))
+        except (InvalidOperation, TypeError, ValueError) as exc:
+            raise DispatchError(f"{field} must be a decimal") from exc
+        if not result.is_finite() or result <= 0:
+            raise DispatchError(f"{field} must be a positive finite decimal")
+        return result

@@ -4,7 +4,7 @@
   "title": "Migration - a legacy model surface off its compatibility shim",
   "kind": "code",
   "lab": "Lab 3",
-  "summary": "A bounded equipment and service-rate model surface still written against 1.x validation idioms, its consumer, and contract checks for a behaviour-preserving migration.",
+  "summary": "An equipment and service-rate model surface still written against 1.x validation idioms, with REST, MCP, and batch consumers whose published contracts must survive migration.",
   "fallback": "workshop/fallbacks/migration-legacy-models",
   "acceptance_doc": "workshop/scenarios/migration-legacy-models/acceptance.md",
   "required_artifacts": [
@@ -27,7 +27,25 @@
       "payload": "workshop/scenarios/migration-legacy-models/payloads/legacy_service.py.txt",
       "target": "workshop/scenarios/migration-legacy-models/work/legacy_service.py",
       "mode": "0644",
-      "description": "In-scope: the consumer that serialises the models for downstream systems."
+      "description": "In-scope: the shared parser and serialisation boundary."
+    },
+    {
+      "payload": "workshop/scenarios/migration-legacy-models/payloads/legacy_api.py.txt",
+      "target": "workshop/scenarios/migration-legacy-models/work/legacy_api.py",
+      "mode": "0644",
+      "description": "In-scope: REST-document adapters consuming the shared boundary."
+    },
+    {
+      "payload": "workshop/scenarios/migration-legacy-models/payloads/legacy_mcp.py.txt",
+      "target": "workshop/scenarios/migration-legacy-models/work/legacy_mcp.py",
+      "mode": "0644",
+      "description": "In-scope: MCP-shaped text and structured results."
+    },
+    {
+      "payload": "workshop/scenarios/migration-legacy-models/payloads/legacy_batch.py.txt",
+      "target": "workshop/scenarios/migration-legacy-models/work/legacy_batch.py",
+      "mode": "0644",
+      "description": "In-scope: deterministic batch publication adapter."
     },
     {
       "payload": "workshop/scenarios/migration-legacy-models/payloads/test_contract.py.txt",

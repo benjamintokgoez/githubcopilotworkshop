@@ -1,0 +1,158 @@
+"""Acceptance checks for the telemetry-policy capstone."""
+
+import unittest
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal
+
+from deviation_policy import FreshTelemetryDeviation
+from policy_catalog import policy_catalog
+from policy_models import PolicyError, TelemetryReading
+from recommendation_service import (
+    RecommendationService,
+    default_parameters,
+    recommendation_payload,
+)
+from telemetry_window import fresh_readings
+
+
+AS_OF = datetime(2026, 8, 19, 8, 0, tzinfo=UTC)
+
+
+def reading(minutes_ago: int, value: str, asset_id: str = "PRESS-17") -> TelemetryReading:
+    return TelemetryReading(
+        asset_id=asset_id,
+        recorded_at=AS_OF - timedelta(minutes=minutes_ago),
+        value=Decimal(value),
+    )
+
+
+def sample_readings() -> list[TelemetryReading]:
+    return [
+        reading(45, "180.00"),
+        reading(15, "105.00"),
+        reading(10, "106.00"),
+        reading(5, "107.00"),
+        reading(3, "999.00", asset_id="ROBOT-07"),
+    ]
+
+
+class RegistryContractTest(unittest.TestCase):
+    def test_policy_is_registered_without_service_switch_statements(self) -> None:
+        entries = policy_catalog()
+        self.assertIn(
+            {
+                "name": "fresh-telemetry-deviation",
+                "implementation": "deviation_policy.FreshTelemetryDeviation",
+            },
+            entries,
+        )
+
+
+class WindowContractTest(unittest.TestCase):
+    def test_window_includes_exact_lower_bound_and_excludes_older_readings(self) -> None:
+        selected = fresh_readings(
+            sample_readings(),
+            "PRESS-17",
+            as_of=AS_OF,
+            max_age=timedelta(minutes=15),
+        )
+        self.assertEqual(
+            [(AS_OF - item.recorded_at).total_seconds() // 60 for item in selected],
+            [15, 10, 5],
+        )
+
+    def test_window_excludes_future_and_other_asset_readings(self) -> None:
+        future = TelemetryReading(
+            "PRESS-17",
+            AS_OF + timedelta(seconds=1),
+            Decimal("250.00"),
+        )
+        selected = fresh_readings(
+            [*sample_readings(), future],
+            "PRESS-17",
+            as_of=AS_OF,
+            max_age=timedelta(minutes=15),
+        )
+        self.assertNotIn(future, selected)
+        self.assertTrue(all(item.asset_id == "PRESS-17" for item in selected))
+
+    def test_naive_times_are_rejected_at_the_boundary(self) -> None:
+        with self.assertRaisesRegex(PolicyError, "timezone-aware"):
+            TelemetryReading("PRESS-17", datetime(2026, 8, 19, 8, 0), Decimal("1"))
+
+
+class PolicyContractTest(unittest.TestCase):
+    def test_only_fresh_samples_contribute_to_the_recommendation(self) -> None:
+        result = FreshTelemetryDeviation(
+            target_value=Decimal("100.00"),
+            deviation_threshold=Decimal("5.00"),
+        ).evaluate("PRESS-17", sample_readings(), as_of=AS_OF)
+        self.assertIsNotNone(result)
+        assert result is not None
+        self.assertEqual(result.sample_count, 3)
+        self.assertEqual(result.average_value, Decimal("106.00"))
+        self.assertEqual(result.deviation, Decimal("6.00"))
+
+    def test_threshold_is_inclusive(self) -> None:
+        result = FreshTelemetryDeviation(
+            target_value=Decimal("100.00"),
+            deviation_threshold=Decimal("5.00"),
+        ).evaluate(
+            "PRESS-17",
+            [reading(15, "105"), reading(10, "105"), reading(5, "105")],
+            as_of=AS_OF,
+        )
+        self.assertIsNotNone(result)
+        assert result is not None
+        self.assertEqual(result.deviation, Decimal("5"))
+
+    def test_insufficient_fresh_samples_produce_no_recommendation(self) -> None:
+        result = FreshTelemetryDeviation(
+            target_value=Decimal("100.00"),
+            deviation_threshold=Decimal("5.00"),
+        ).evaluate(
+            "PRESS-17",
+            [reading(10, "120"), reading(5, "121")],
+            as_of=AS_OF,
+        )
+        self.assertIsNone(result)
+
+
+class ServiceBoundaryTest(unittest.TestCase):
+    def test_service_constructs_registered_policy_from_bounded_parameters(self) -> None:
+        result = RecommendationService(sample_readings()).evaluate(
+            "fresh-telemetry-deviation",
+            "PRESS-17",
+            default_parameters(),
+            as_of=AS_OF,
+        )
+        self.assertIsNotNone(result)
+        assert result is not None
+        self.assertEqual(result.average_value, Decimal("106.00"))
+
+    def test_machine_payload_keeps_decimal_text_and_aware_utc(self) -> None:
+        result = RecommendationService(sample_readings()).evaluate(
+            "fresh-telemetry-deviation",
+            "PRESS-17",
+            default_parameters(),
+            as_of=AS_OF,
+        )
+        assert result is not None
+        payload = recommendation_payload(result)
+        self.assertEqual(payload["as_of"], "2026-08-19T08:00:00+00:00")
+        for field in ("average_value", "target_value", "deviation", "confidence"):
+            self.assertIsInstance(payload[field], str)
+            self.assertNotIn(",", payload[field])
+
+    def test_unknown_policy_fails_explicitly(self) -> None:
+        with self.assertRaisesRegex(PolicyError, "unknown policy"):
+            RecommendationService(sample_readings()).evaluate(
+                "missing-policy",
+                "PRESS-17",
+                default_parameters(),
+                as_of=AS_OF,
+            )
+
+
+if __name__ == "__main__":
+    unittest.main()

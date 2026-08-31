@@ -1,0 +1,86 @@
+"""Domain records for the bounded service-assignment incident."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from decimal import Decimal
+from typing import Any
+
+ZERO = Decimal("0")
+
+
+class DispatchError(ValueError):
+    """Raised when dispatch cannot produce an honest assignment."""
+
+
+def aware_utc(value: datetime, field_name: str) -> datetime:
+    if value.tzinfo is None:
+        raise DispatchError(f"{field_name} must be timezone-aware UTC")
+    return value.astimezone(UTC)
+
+
+@dataclass(frozen=True)
+class CapacityOffer:
+    offer_id: str
+    provider_code: str
+    hourly_rate: Decimal
+    available_hours: Decimal
+    offered_at: datetime
+
+    def __post_init__(self) -> None:
+        if self.hourly_rate <= ZERO:
+            raise DispatchError(f"{self.offer_id}: hourly rate must be positive")
+        if self.available_hours <= ZERO:
+            raise DispatchError(f"{self.offer_id}: available hours must be positive")
+        object.__setattr__(self, "offered_at", aware_utc(self.offered_at, "offered_at"))
+
+
+@dataclass(frozen=True)
+class ServiceRequest:
+    work_order_id: str
+    organization_id: str
+    requested_hours: Decimal
+    maximum_hourly_rate: Decimal
+    submitted_at: datetime
+
+    def __post_init__(self) -> None:
+        if self.requested_hours <= ZERO:
+            raise DispatchError(f"{self.work_order_id}: requested hours must be positive")
+        if self.maximum_hourly_rate <= ZERO:
+            raise DispatchError(f"{self.work_order_id}: maximum rate must be positive")
+        object.__setattr__(self, "submitted_at", aware_utc(self.submitted_at, "submitted_at"))
+
+
+@dataclass(frozen=True)
+class ServiceAssignment:
+    assignment_id: str
+    work_order_id: str
+    provider_code: str
+    provider_offer_id: str
+    hourly_rate: Decimal
+    assigned_hours: Decimal
+    assigned_at: datetime
+
+
+@dataclass(frozen=True)
+class AssignmentEvent:
+    event_id: str
+    event_type: str
+    schema_version: int
+    occurred_at: datetime
+    correlation_id: str
+    payload: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class AssignmentConfirmation:
+    confirmation_id: str
+    assignment_id: str
+    work_order_id: str
+    provider_code: str
+    provider_offer_id: str
+    hourly_rate: Decimal
+    assigned_hours: Decimal
+    currency: str
+    confirmed_at: datetime

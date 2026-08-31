@@ -37,7 +37,10 @@ Capture this first run. It is the only honest "before".
 | Serialised shape | Alias names, key order, types, the optional field, the dot decimal separator, and the timestamp representation consumers parse |
 | Accepted input | Inputs that work today still work, including the ones the ticket forgot to mention |
 | Rejected input | Everything rejected today is still rejected, through the same public exception, with a non-empty message |
-| Migration completed | The in-scope modules no longer reach the surface through the 1.x compatibility shim, at import level and at runtime, and the public names still exist |
+| REST adapter | Envelope names, nested model shape, request identifier, UTC generation time, and machine JSON remain stable |
+| MCP adapter | Text and structured content remain equivalent and retain the published key spelling |
+| Batch adapter | Asset identity, nested model contracts, order, and deterministic JSON-lines output remain stable |
+| Migration completed | No in-scope module uses the 1.x compatibility import or deprecated parse/dump calls, runtime models use v2, and public names still exist |
 
 ## What passing does and does not prove
 

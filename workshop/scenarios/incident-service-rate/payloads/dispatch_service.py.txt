@@ -1,0 +1,59 @@
+"""Application service joining dispatch, events, projection, and persistence."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import datetime
+
+from assignment_events import AssignmentEventPublisher
+from confirmation_projection import ConfirmationProjector
+from confirmation_store import ConfirmationStore
+from dispatch_engine import DispatchEngine
+from dispatch_models import (
+    AssignmentConfirmation,
+    AssignmentEvent,
+    ServiceAssignment,
+    ServiceRequest,
+)
+
+
+@dataclass(frozen=True)
+class DispatchOutcome:
+    assignments: list[ServiceAssignment]
+    events: list[AssignmentEvent]
+    confirmations: list[AssignmentConfirmation]
+
+
+class DispatchService:
+    def __init__(
+        self,
+        engine: DispatchEngine,
+        publisher: AssignmentEventPublisher,
+        projector: ConfirmationProjector,
+        store: ConfirmationStore,
+    ) -> None:
+        self._engine = engine
+        self._publisher = publisher
+        self._projector = projector
+        self._store = store
+
+    def submit(
+        self,
+        request: ServiceRequest,
+        *,
+        assigned_at: datetime | None = None,
+    ) -> DispatchOutcome:
+        assignments = self._engine.dispatch(request, assigned_at=assigned_at)
+        events: list[AssignmentEvent] = []
+        confirmations: list[AssignmentConfirmation] = []
+        for assignment in assignments:
+            event = self._publisher.publish(request, assignment)
+            confirmation = self._projector.project(event)
+            self._store.add(confirmation)
+            events.append(event)
+            confirmations.append(confirmation)
+        return DispatchOutcome(
+            assignments=assignments,
+            events=events,
+            confirmations=confirmations,
+        )

@@ -8,8 +8,9 @@
 | Deadline | 2026-08-28 |
 
 The equipment catalogue and service-rate models still use the validation
-library's 1.x compatibility shim. That shim is deprecated and falls outside the
-dependency policy exception in October.
+library's 1.x compatibility shim. Their shared service boundary is consumed by
+REST documents, MCP results, and batch publication. The shim is deprecated and
+falls outside the dependency policy exception in October.
 
 ## Constraint
 

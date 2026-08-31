@@ -1,0 +1,56 @@
+"""Application service for telemetry-backed policy evaluation."""
+
+from __future__ import annotations
+
+from collections.abc import Mapping, Sequence
+from datetime import datetime
+from decimal import Decimal
+from typing import Any
+
+import deviation_policy  # noqa: F401 - import registers the policy
+from policy_base import BasePolicy
+from policy_models import PolicyError, PolicyRecommendation, TelemetryReading
+
+
+class RecommendationService:
+    def __init__(
+        self,
+        readings: Sequence[TelemetryReading],
+    ) -> None:
+        self._readings = list(readings)
+
+    def evaluate(
+        self,
+        policy_name: str,
+        asset_id: str,
+        parameters: Mapping[str, Any],
+        *,
+        as_of: datetime,
+    ) -> PolicyRecommendation | None:
+        policy_type = BasePolicy.registered().get(policy_name)
+        if policy_type is None:
+            raise PolicyError(f"unknown policy: {policy_name}")
+        policy = policy_type(**parameters)
+        return policy.evaluate(asset_id, self._readings, as_of=as_of)
+
+
+def recommendation_payload(
+    recommendation: PolicyRecommendation,
+) -> dict[str, object]:
+    return {
+        "policy": recommendation.policy_name,
+        "asset": recommendation.asset_id,
+        "as_of": recommendation.as_of.isoformat(),
+        "sample_count": recommendation.sample_count,
+        "average_value": float(recommendation.average_value),
+        "target_value": str(recommendation.target_value),
+        "deviation": float(recommendation.deviation),
+        "confidence": str(recommendation.confidence),
+    }
+
+
+def default_parameters() -> dict[str, object]:
+    return {
+        "target_value": Decimal("100.00"),
+        "deviation_threshold": Decimal("5.00"),
+    }

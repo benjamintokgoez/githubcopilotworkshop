@@ -1,4 +1,4 @@
-"""Published serialisation boundary for equipment and service-rate data."""
+"""Published parsing and serialisation boundary for regional integrations."""
 
 from typing import Any, Dict
 

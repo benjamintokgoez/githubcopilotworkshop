@@ -43,11 +43,11 @@ result is expected **only after** the scenario starts. A red clean baseline is a
 environment problem, not lab material.
 
 If the runner is unavailable, use the complete copy under
-`workshop/fallbacks/incident-service-rate/`. If Python is available, copy the two
-`.txt` staged files to a participant-owned working directory and remove only the
-trailing `.txt`. If execution is unavailable, use the captured failing output,
-inspect the staged copies read-only, and complete the Supported evidence without
-claiming a pass. See
+`workshop/fallbacks/incident-service-rate/`. If Python is available, copy every
+`.txt` staged module to a participant-owned working directory and remove only the
+trailing `.txt`. Keep the modules together. If execution is unavailable, use the
+captured failing output, inspect the staged copies read-only, and complete the
+Supported evidence without claiming a pass. See
 [reference/scenario_tooling.md](reference/scenario_tooling.md).
 
 > **Before and after.** Your checkout was green when you arrived; the scenario is
@@ -130,8 +130,8 @@ Slack A block is protected recovery time, not hidden Core-lab budget.
   words: what the reporter observed, what they concluded, what you are assuming,
   and which statements the supplied evidence supports.
 - Use **Ask**, another read-only Q&A role, or direct code reading to orient: how
-  does an incoming service request become an assignment in this bounded scenario? This is a map,
-  not a diagnosis.
+  does an incoming request become a matched assignment, a versioned event, and
+  an operations confirmation? This is a map, not a diagnosis.
 - **Reproduce it.** A failing reproduction that you can run on demand is the
   single most valuable artifact in this lab. Until you have one, you are guessing.
 - Name the violated invariant, one non-goal, the files you expect to touch, and
@@ -183,6 +183,8 @@ Specific things worth checking in this incident:
 
 - Is the invariant restored, or is the symptom suppressed?
 - Does the change alter other request priorities or provider eligibility rules?
+- Does the matching engine remain correct while event projection and
+  confirmation retain the same authoritative rate?
 - Are timestamps still timezone-aware UTC (INV-TIME-1)?
 - Did anything about assigned-hour accounting change as a side effect
   (INV-DISPATCH-3)?

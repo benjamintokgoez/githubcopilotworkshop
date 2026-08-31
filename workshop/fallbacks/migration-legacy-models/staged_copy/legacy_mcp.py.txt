@@ -1,0 +1,43 @@
+"""MCP-shaped read results over the same equipment and rate contracts."""
+
+from __future__ import annotations
+
+import json
+from datetime import datetime
+from typing import Any, Dict
+
+from legacy_service import (
+    equipment_json,
+    equipment_payload,
+    service_rate_json,
+    service_rate_payload,
+)
+
+
+def _tool_result(structured: Dict[str, Any], machine_json: str) -> Dict[str, Any]:
+    # The key spelling is a published client contract.
+    return {
+        "content": [{"type": "text", "text": machine_json}],
+        "structuredContent": structured,
+        "isError": False,
+    }
+
+
+def _machine_value(value: Any) -> str:
+    if isinstance(value, datetime):
+        return value.isoformat()
+    return str(value)
+
+
+def equipment_tool_result(raw: Dict[str, Any]) -> Dict[str, Any]:
+    return _tool_result(equipment_payload(raw), equipment_json(raw))
+
+
+def service_rate_tool_result(raw: Dict[str, Any]) -> Dict[str, Any]:
+    result = _tool_result(service_rate_payload(raw), service_rate_json(raw))
+    # Fail explicitly if the two representations drift during migration.
+    if json.loads(result["content"][0]["text"]) != json.loads(
+        json.dumps(result["structuredContent"], default=_machine_value)
+    ):
+        raise ValueError("MCP text and structured content disagree")
+    return result

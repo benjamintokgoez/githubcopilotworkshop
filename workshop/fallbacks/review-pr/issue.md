@@ -1,4 +1,4 @@
-# MW-4488 - Report overdue service workload as non-negative magnitudes
+# MW-4488 - Add an organisation SLA snapshot endpoint
 
 | Field | Value |
 |---|---|
@@ -7,21 +7,29 @@
 | Priority | Normal |
 | Assigned to | Delegated unattended agent run |
 
-The operational summary sometimes returns negative overdue hours and sometimes
-positive values. The dashboard displays whichever it receives. Our contract is
-simple: `overdue_hours` and `estimated_service_cost` are non-negative magnitudes.
+Operations needs a protected endpoint that reports the current organisation's
+one-day or seven-day service position.
 
-## Requested change
+## Requested behaviour
 
-1. Make both values non-negative.
-2. Preserve the existing daily and weekly summary horizons.
-3. Add a regression check that fails without the correction.
+1. Add `GET /api/v1/organizations/me/sla?days=1|7`.
+2. Derive organisation identity from the validated `X-API-Key`; callers cannot
+   select another organisation in a query, path, or body.
+3. Return open requester hours, overdue hours, estimated service cost, and an
+   aware-UTC `as_of` timestamp.
+4. Hours and costs are non-negative magnitudes. Overdue hours cannot exceed open
+   requester hours. Provider capacity is not requester backlog.
+5. Keep exact values as `Decimal` and machine JSON as dot-decimal strings.
+6. Preserve per-application isolation and ensure one organisation's result can
+   never be reused for another.
+7. Cover both horizons and a cross-organisation negative case.
 
 ## Explicitly out of scope
 
-- Response field names and shape.
-- Human-facing number formatting.
-- Storage, telemetry ingestion, or work-order identity.
+- Dashboard changes or human-facing number formatting.
+- New persistence tables or background refresh jobs.
+- Changes to API-key permissions or organisation identity rules.
+- Renaming existing response fields.
 
 ---
 

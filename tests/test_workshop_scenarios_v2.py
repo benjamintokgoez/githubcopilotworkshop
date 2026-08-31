@@ -7,6 +7,7 @@ or writes scenario state in the real working tree.
 
 from __future__ import annotations
 
+import ast
 import hashlib
 import importlib.util
 import json
@@ -239,455 +240,215 @@ def iter_workshop_files(*roots: Path) -> Iterator[Path]:
 
 
 # ---------------------------------------------------------------------------
-# Repairs and evidence used to prove pass-after
+# Scenario-neutral evidence used to exercise structural verifiers
 # ---------------------------------------------------------------------------
 
-CAPSTONE_IMPLEMENTATION = '''"""Daily export helper (test-local reference implementation)."""
-
-from __future__ import annotations
-
-from collections.abc import Iterable, Sequence
-from datetime import UTC, date, datetime, time, timedelta
-from decimal import ROUND_HALF_UP, Decimal
-from zoneinfo import ZoneInfo
-
-EXPORT_PREFIX = "service_export"
-
-
-def selection_window(business_date: date) -> tuple[datetime, datetime]:
-    tz = ZoneInfo("Europe/Berlin")
-    start = datetime.combine(business_date, time(0, 0), tzinfo=tz)
-    end = datetime.combine(business_date + timedelta(days=1), time(0, 0), tzinfo=tz)
-    return start.astimezone(UTC), end.astimezone(UTC)
-
-
-def records_in_window(
-    records: Iterable[dict[str, str]], business_date: date
-) -> list[dict[str, str]]:
-    start, end = selection_window(business_date)
-    selected: list[dict[str, str]] = []
-    for record in records:
-        moment = datetime.fromisoformat(record["recorded_at"].replace("Z", "+00:00"))
-        if start <= moment.astimezone(UTC) < end:
-            selected.append(record)
-    return selected
-
-
-def export_filename(business_date: date) -> str:
-    return f"{EXPORT_PREFIX}_{business_date.isoformat()}.csv"
-
-
-def display_total(amount: Decimal, currency: str = "EUR") -> str:
-    quantised = amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-    whole, _, fraction = f"{quantised:,.2f}".partition(".")
-    return f"{whole.replace(',', '.')},{fraction} {currency}"
-
-
-def total_of(records: Sequence[dict[str, str]]) -> Decimal:
-    return sum((Decimal(record["amount"]) for record in records), Decimal("0"))
-'''
-
-MIGRATED_MODELS = '''"""MittelWerk model surface (test-local migrated implementation)."""
-
-from datetime import UTC, datetime
-from decimal import Decimal
-
-from pydantic import (
-    BaseModel,
-    ConfigDict,
-    Field,
-    field_serializer,
-    field_validator,
-    model_validator,
-)
-
-SUPPORTED_CURRENCIES = ("EUR", "CHF")
-
-
-class EquipmentRef(BaseModel):
-    model_config = ConfigDict(populate_by_name=True, str_strip_whitespace=True)
-
-    asset_code: str = Field(..., alias="asset", min_length=1, max_length=24)
-    name: str = Field(..., min_length=1, max_length=80)
-    currency: str = Field("EUR", min_length=3, max_length=3)
-    standard_hourly_rate: Decimal = Field(..., gt=0)
-    service_region: str | None = None
-
-    @field_validator("asset_code")
-    @classmethod
-    def asset_code_is_upper_case(cls, value: str) -> str:
-        upper = value.upper()
-        if not upper.replace("-", "").isalnum():
-            raise ValueError("asset code must be alphanumeric, optionally with '-'")
-        return upper
-
-    @field_validator("currency")
-    @classmethod
-    def currency_is_supported(cls, value: str) -> str:
-        upper = value.upper()
-        if upper not in SUPPORTED_CURRENCIES:
-            raise ValueError(f"currency must be one of {', '.join(SUPPORTED_CURRENCIES)}")
-        return upper
-
-
-class ServiceRatePayload(BaseModel):
-    model_config = ConfigDict(populate_by_name=True)
-
-    asset_code: str = Field(..., alias="asset", min_length=1, max_length=24)
-    standard_rate: Decimal = Field(..., ge=0)
-    emergency_rate: Decimal = Field(..., ge=0)
-    as_of: datetime
-    service_region: str | None = None
-
-    @field_validator("asset_code")
-    @classmethod
-    def asset_code_is_upper_case(cls, value: str) -> str:
-        return value.upper()
-
-    @field_validator("as_of")
-    @classmethod
-    def as_of_is_utc(cls, value: datetime) -> datetime:
-        if value.tzinfo is None:
-            raise ValueError("as_of must be timezone-aware (INV-TIME-1)")
-        return value.astimezone(UTC)
-
-    @field_serializer("as_of", when_used="json")
-    def serialise_as_of(self, value: datetime) -> str:
-        return value.astimezone(UTC).isoformat()
-
-    @model_validator(mode="after")
-    def emergency_rate_is_not_lower(self) -> "ServiceRatePayload":
-        if self.emergency_rate < self.standard_rate:
-            raise ValueError("emergency rate must not be below standard rate")
-        return self
-'''
-
-MIGRATED_SERVICE = '''"""Serialisation boundary (test-local migrated implementation)."""
-
-from typing import Any
-
-from legacy_models import EquipmentRef, ServiceRatePayload
-
-
-class ContractError(ValueError):
-    """Raised when input does not satisfy the published contract."""
-
-
-def parse_equipment(raw: dict[str, Any]) -> EquipmentRef:
-    try:
-        return EquipmentRef.model_validate(raw)
-    except ValueError as exc:
-        raise ContractError(str(exc)) from exc
-
-
-def parse_service_rate(raw: dict[str, Any]) -> ServiceRatePayload:
-    try:
-        return ServiceRatePayload.model_validate(raw)
-    except ValueError as exc:
-        raise ContractError(str(exc)) from exc
-
-
-def equipment_payload(raw: dict[str, Any]) -> dict[str, Any]:
-    return parse_equipment(raw).model_dump(by_alias=True)
-
-
-def equipment_json(raw: dict[str, Any]) -> str:
-    return parse_equipment(raw).model_dump_json(by_alias=True)
-
-
-def service_rate_payload(raw: dict[str, Any]) -> dict[str, Any]:
-    return parse_service_rate(raw).model_dump(by_alias=True)
-
-
-def service_rate_json(raw: dict[str, Any]) -> str:
-    return parse_service_rate(raw).model_dump_json(by_alias=True)
-'''
-
-REVIEW_NOTES = """# Review notes - PR #212
+REVIEW_STRUCTURE_FIXTURE = """# Structural verifier fixture
 
 ## 1. What I think the diff does
 
-It makes overdue workload and service-cost values negative, renames published
-summary fields, weakens analytics assertions, puts locale-formatted numbers into
-machine JSON, and drops timezone awareness while swallowing storage failures.
+This deliberately generic fixture describes a fictional parser change. It exists
+only to exercise note validation and contains no findings from the workshop pull
+request or any other participant scenario.
 
 ## 2. Findings
 
-### Finding 1 - overdue workload becomes negative
+### Finding 1 - generic boundary concern
 
-- Location: mittelwerk/analytics/sla.py, reporting helpers
-- Severity: blocking
-- Evidence: the issue requires non-negative operational magnitudes, but both
-  helpers return minus the absolute value, so overdue hours and cost are negative.
-- Requested change: return the absolute value and restore the exact analytics
-  assertions that would fail for negative values.
+- Location: sample/parser.py, parse_record function
+- Severity: should-fix
+- Evidence: the fictional contract requires rejected records to retain a useful
+  error message, while the sample change replaces it with an empty message.
+- Requested change: preserve a non-empty boundary error and add a focused check
+  that observes the public exception rather than an internal helper.
 
-### Finding 2 - response field names changed although the issue forbade it
+### Finding 2 - generic scope concern
 
-- Location: mittelwerk/api/routes.py, get_operations_summary return value
-- Severity: blocking
-- Evidence: the issue puts the response shape explicitly out of scope, the diff
-  renames the two published keys, and the session log records a dashboard
-  consumer that was found and then not updated.
-- Requested change: restore the original field names and raise a separate ticket
-  with a deprecation window if the rename is still wanted.
-
-### Finding 3 - test assertions were weakened to make the change pass
-
-- Location: tests/test_analytics.py, both updated assertions
-- Severity: blocking
-- Evidence: the tolerance widened and the non-negative assertion became a
-  non-zero assertion, so the suite no longer detects the reported defect.
-- Requested change: restore the original assertions and let the implementation
-  satisfy them instead.
+- Location: sample/formatting.py, render_value function
+- Severity: nit
+- Evidence: the fictional issue limits work to parsing, but the sample patch also
+  changes unrelated display punctuation without a supporting requirement.
+- Requested change: remove the unrelated formatting edit and keep this fictional
+  change set within the scope stated by its sample issue.
 
 ## 3. Comparison with the captured automated review
 
-- Found by the captured review, missed by me: the naive timestamp and swallowed
-  storage failure, which I skipped while reading analytics first.
-- Found by me, missed by the captured review: the renamed response keys that
-  break the documented contract, because judging that needs the linked issue and
-  the downstream consumer rather than the diff alone.
-- Comment I would not forward to the author: converting Decimal rates to float,
-  because that contradicts the exact money-boundary contract.
+- Found by the captured review, missed by me: a generic cleanup issue in a sample
+  module that is unrelated to any workshop scenario or its expected findings.
+- Found by me, missed by the captured review: the fictional scope expansion above,
+  because it required comparing the sample request with the sample change.
+- Comment I would not forward to the author: a preference-only rename that has no
+  behavioural consequence and does not improve the fictional public contract.
 
 ## 4. Decision
 
-- Decision: request changes, with the conditions listed below
-- Condition that would flip it: original field names restored, non-negative
-  magnitudes returned, and strong assertions reinstated.
-
-## 5. Uncertainty
-
-I verified the sign convention and the field names against the issue. I assumed
-the dashboard consumer is the only one. It could still be wrong if another
-service parses the same response.
+- Decision: request changes to the fictional sample
+- Condition that would flip it: restore its public error and remove the unrelated
+  sample formatting change.
 """
 
-MCP_INVENTORY = """# MCP permission inventory
+MCP_STRUCTURE_FIXTURE = """# Structural verifier fixture
 
 ## 1. What this server can reach
 
-The default server exposes three read-only tools over standard input and output,
-and the process itself runs unsandboxed in the workspace folder with whatever the
-environment file hands it.
+This generic fixture models a fictional local calculator with no connection to
+the workshop MCP scenario. Its only purpose is to exercise evidence validation.
 
-- Data that leaves this machine: nothing beyond the local process, but every
-  response enters the model context, which is the part worth stating explicitly.
+- Data that leaves this machine: sample arithmetic inputs enter a local model
+  context, but this statement is not evidence about the workshop server.
 
 ## 2. Tools offered, enabled, disabled
 
-- Tools offered: list_equipment, get_dispatch_queue, calculate_service_risk
-- Tools enabled: get_dispatch_queue, calculate_service_risk
-- Tools disabled: list_equipment was deselected in the client; submit_work_order and
-  cancel_work_order were never registered by this read-only server
-
-The writing tools are absent because the task is read-only, and the equipment
-listing is deselected because it returns the whole reference set when the
-question concerned one asset.
-
-- Where the control lives: the process confinement is mcp.json with sandboxEnabled
-  and the top-level sandbox rules, tool selection and approval are client settings,
-  and the argument bounds plus write registration are the server's own code.
-- Approval boundary: I left the sandbox off for this session, so per-call
-  confirmation is still the boundary; enabling it would auto-approve confirmations
-  for this server and make the filesystem and network rules the only check.
+- Tools offered: add_sample_values and describe_sample_units
+- Tools enabled: add_sample_values
+- Tools disabled: describe_sample_units
+- Where the control lives: fictional client selection and sample server argument
+  validation both contribute to the boundary in this verifier-only example.
+- Approval boundary: a fictional confirmation prompt remains required because
+  the sample process is not running in a sandbox.
 
 ## 3. Evidence the answer came from the tool
 
-Captured evidence from the shipped tool-call log: the queue call returned three
-offers and one request for PRESS-17 at 13:03 UTC, values the model could not have
-produced without the call, and the reply quoted them exactly.
+The fictional trace returned a deliberately unique sample total and unit label,
+which distinguishes a tool observation from an unsupported narrative claim.
 
 ## 4. Negative case
 
-- What I asked for outside the permission: submitting a work order for four
-  hours, and then requesting queue depth far beyond the documented bound.
-- Observed behaviour: the server answered unknown tool for the write, because it
-  was never registered, and rejected the depth argument in its own validation, so
-  the refusals came from the server rather than from the client.
+- What I asked for outside the permission: writing a sample result to a remote
+  service that the fictional tool does not expose.
+- Observed behaviour: the fictional client rejected the unknown operation before
+  any sample data crossed its stated boundary.
 
 ## 5. What MCP configuration does not protect against
 
-It does not protect against a permitted tool returning more than the task needs,
-and it does not protect against instructions embedded in the data that a
-permitted tool returns. The process sandbox is also macOS and Linux only, so on
-Windows that layer is documentation rather than enforcement, and turning it on
-elsewhere removes the per-call prompts rather than adding to them.
+This sample configuration cannot prove that permitted output is minimal or that
+returned fictional content is trustworthy. Those require separate review.
 
 ## 6. What I would ask my platform team for
 
-A registry entry for the local server with reading tools only, an approval prompt
-for anything that changes state, and tool-call logging retained long enough to
-reconstruct a session the next morning.
+The fictional rollout needs an owner for tool selection, retained observations,
+and a review point before permissions change.
 
-- Approval owner: the platform security group that maintains the tool allowlist
+- Approval owner: sample platform governance owner
 """
 
-CLI_POLICY = """# Terminal agent permission policy
+CLI_STRUCTURE_FIXTURE = """# Structural verifier fixture
 
-- Evidence source: captured transcript shipped with the scenario
+- Evidence source: captured fictional transcript
 
 ## 1. Default posture
 
-Deny by default and ask for anything not on the list, because this machine also
-holds credentials for other systems and an unattended command cannot be reviewed
-after the fact.
+This generic fixture uses a deny-first posture for a fictional calculator task
+and does not describe the workshop terminal exercise.
 
-- Default posture: deny by default, ask for everything not explicitly allowed
+- Default posture: deny commands outside the fictional sample task
 
 ## 2. Rules
 
 ### Rule 1
 
-- Command: repository-scoped source search inside the working directory
+- Command: read a sample input file
 - Verdict: allow
-- Why: reading source inside the checkout is what the task needs and it changes
-  nothing on disk or in the environment.
-- Blast radius if wrong: a file inside the repository is read into the context,
-  which is why the repository must not hold secrets.
+- Why: the fictional task needs this bounded read and it does not modify state.
+- Blast radius if wrong: unrelated sample content could enter the model context.
 
 ### Rule 2
 
-- Command: the test runner with an explicit path inside the repository
+- Command: run the fictional calculator check
 - Verdict: ask
-- Why: running tests executes repository code, and arguments can widen the scope
-  well beyond the directory the agent started in.
-- Blast radius if wrong: arbitrary code execution with the developer's own
-  environment and credentials.
+- Why: even a sample executable runs code with the caller's local permissions.
+- Blast radius if wrong: the fictional process could access more than intended.
 
 ### Rule 3
 
-- Command: any version-control command that writes, and any network call
+- Command: publish a sample result remotely
 - Verdict: deny
-- Why: writes to a remote or calls to the network are outside the task and cannot
-  be reviewed afterwards.
-- Blast radius if wrong: published changes, or data leaving the machine without
-  anyone reading it first.
+- Why: network publication is outside this fictional verifier-only exercise.
+- Blast radius if wrong: sample content could leave the controlled environment.
 
-- Broadest entry I wrote: the test-runner entry, because a wildcard on arguments
-  also grants paths outside the working directory.
+- Broadest entry I wrote: the fictional calculator command with bounded arguments
 
 ## 3. Negative case
 
-- What I asked for outside the policy: a network call to check whether a service
-  was reachable from this machine.
-- Observed behaviour: the request was surfaced for approval and denied, and the
-  session continued without it.
+- What I asked for outside the policy: upload the fictional sample result
+- Observed behaviour: the captured fictional session denied that remote action
 
 ## 4. What an allowlist does not protect against
 
-It does not protect against a permitted command carrying hostile arguments, and
-it does not protect against credentials already exported in the environment.
+A fictional allowlist cannot validate hostile arguments or guarantee that local
+sample files contain no sensitive material.
 
 ## 5. Shared machines and CI
 
-On a shared runner I would remove the test-runner allowance entirely, require
-approval for every command, and keep a retained log so that what ran overnight
-can be reconstructed the next morning.
+The fictional shared runner would require isolated credentials, retained command
+evidence, and narrower permissions than a developer workstation.
 """
 
-CUSTOMIZATION_NOTES = """# Customization notes
+CUSTOMIZATION_STRUCTURE_FIXTURE = """# Structural verifier fixture
 
 ## 1. The task I measured with
 
-Write a unit test for a small helper that formats an amount for display, using
-the repository conventions and nothing else, in a single file.
+This generic fixture compares output for a fictional parser instruction and is
+unrelated to the workshop customization task or its expected conclusions.
 
 ## 2. Before
 
-The generated test asserted a formatted string with a dot decimal separator and
-used a naive timestamp for the recorded field, which no reviewer here would
-accept in a payload.
+The fictional response omitted a sample unit label and returned an ambiguous
+error that could not be checked at the public boundary.
 
 ## 3. After
 
-- Observable difference: the regenerated test used a decimal comma with the
-  currency attached and a timezone-aware timestamp, without being reminded.
-
-The same task also produced a test that fails before the fix rather than one that
-asserts the behaviour that already exists.
+- Observable difference: the fictional response retained the unit label and
+  produced a boundary error that a reviewer could reproduce.
 
 ## 4. Rules
 
 ### Rule 1
 
-- Rule: store timestamps as timezone-aware UTC and convert to Europe/Berlin only
-  at the presentation edge.
-- How a reviewer checks it: search the diff for naive timestamp construction and
-  for conversion outside the display layer.
-- Belongs in: instruction plus a test for the round trip
+- Rule: preserve the fictional parser's public unit label in every response
+- How a reviewer checks it: run a sample boundary check and inspect the result
+- Belongs in: instruction and test
 
 ### Rule 2
 
-- Rule: use a dot decimal separator in code, configuration and payloads, and keep
-  the comma for display only.
-- How a reviewer checks it: read the serialised payload in the fixtures and
-  confirm that no comma appears in a stored value.
-- Belongs in: CI check on the serialised fixtures
+- Rule: keep fictional parsing errors non-empty and actionable for callers
+- How a reviewer checks it: submit a rejected sample and inspect its exception
+- Belongs in: test and review
 
 ### Rule 3
 
-- Rule: a test must fail before the fix and pass after it, and the failing output
-  belongs in the pull request.
-- How a reviewer checks it: ask for the failing run, or revert the change locally
-  and run the test again.
+- Rule: do not modify fictional display output during a parser-only change
+- How a reviewer checks it: inspect the sample diff for unrelated formatting
 - Belongs in: review checklist
 
 ## 5. What I deleted or rewrote
 
-- Rule I deleted or rewrote: always use the fastest available model for this
-  repository.
-- Why its effect was not observable: model availability differs per organisation,
-  nothing in a diff shows whether it was followed, and the rule expires.
+- Rule I deleted or rewrote: always choose the shortest fictional implementation
+- Why its effect was not observable: source length does not establish correctness
+  or prove that the public sample contract remained intact.
 
 ## 6. Contradiction test
 
-- What I asked for that contradicts a rule: a helper that formats an amount with
-  a comma and then stores that string in the payload.
-- Observed behaviour: the first answer followed the rule and warned about it, and
-  a second, more insistent request complied, which is why the rule needs a check.
+- What I asked for that contradicts a rule: remove the fictional unit label
+- Observed behaviour: the revised sample response retained the required label and
+  explained why the conflicting request was outside its contract.
 
 ## 7. What durable context cannot enforce
 
-Nothing in an instruction file is guaranteed. The separator rule and the storage
-rule both need a test or a lint rule, and only the review checklist item really
-depends on a human reading it.
+Fictional instructions cannot enforce runtime behaviour by themselves. Boundary
+tests and human review remain necessary for the sample contract.
 """
 
 EVIDENCE_FIXTURES: dict[str, str] = {
-    "review-pr": REVIEW_NOTES,
-    "elective-mcp": MCP_INVENTORY,
-    "elective-cli": CLI_POLICY,
-    "elective-customization": CUSTOMIZATION_NOTES,
+    "review-pr": REVIEW_STRUCTURE_FIXTURE,
+    "elective-mcp": MCP_STRUCTURE_FIXTURE,
+    "elective-cli": CLI_STRUCTURE_FIXTURE,
+    "elective-customization": CUSTOMIZATION_STRUCTURE_FIXTURE,
 }
 
 
-def apply_repair(root: Path, scenario_id: str) -> None:
-    """Simulate a correct participant repair for a code scenario."""
-    work = root / "workshop" / "scenarios" / scenario_id / "work"
-    if scenario_id == "incident-service-rate":
-        module = work / "dispatch_engine.py"
-        source = module.read_text(encoding="utf-8")
-        assert "hourly_rate=request.maximum_hourly_rate," in source
-        module.write_text(
-            source.replace(
-                "hourly_rate=request.maximum_hourly_rate,",
-                "hourly_rate=offer.hourly_rate,",
-            ),
-            encoding="utf-8",
-        )
-    elif scenario_id == "capstone-transfer":
-        (work / "daily_export.py").write_text(CAPSTONE_IMPLEMENTATION, encoding="utf-8")
-    elif scenario_id == "migration-legacy-models":
-        (work / "legacy_models.py").write_text(MIGRATED_MODELS, encoding="utf-8")
-        (work / "legacy_service.py").write_text(MIGRATED_SERVICE, encoding="utf-8")
-    else:  # pragma: no cover - guarded by the parametrisation
-        raise AssertionError(f"no repair defined for {scenario_id}")
-
-
 def apply_evidence(root: Path, scenario_id: str) -> None:
-    """Write substantive evidence in place of the staged template."""
+    """Write scenario-neutral content that satisfies a structural verifier."""
     evidence_path_of(root, scenario_id).write_text(EVIDENCE_FIXTURES[scenario_id], encoding="utf-8")
 
 
@@ -1105,39 +866,30 @@ class TestScenarioLifecycle:
 
 class TestCodeScenarios:
     @pytest.mark.parametrize("scenario_id", CODE_SCENARIOS)
-    def test_repair_turns_the_acceptance_check_green(self, sandbox: Path, scenario_id: str) -> None:
+    def test_started_code_scenario_runs_its_acceptance_check(
+        self, sandbox: Path, scenario_id: str
+    ) -> None:
         skip_without_prerequisites(scenario_id)
         assert run(sandbox, "start", scenario_id).returncode == EXIT_OK
-        assert run(sandbox, "verify", scenario_id).returncode == EXIT_ACCEPTANCE_FAILED
-        apply_repair(sandbox, scenario_id)
-        after = run(sandbox, "verify", scenario_id)
-        assert after.returncode == EXIT_OK, after.stdout + after.stderr
-        assert "Summary: 1/1 acceptance checks passed" in after.stdout
+        result = run(sandbox, "verify", scenario_id)
+        assert result.returncode == EXIT_ACCEPTANCE_FAILED
+        assert "Summary:" in result.stdout
 
     @pytest.mark.parametrize("scenario_id", CODE_SCENARIOS)
-    def test_reset_after_a_repair_returns_to_the_original_bytes(
+    def test_reset_after_a_participant_edit_returns_to_the_original_bytes(
         self, sandbox: Path, scenario_id: str
     ) -> None:
         skip_without_prerequisites(scenario_id)
         before = tree_state(sandbox)
         run(sandbox, "start", scenario_id)
-        apply_repair(sandbox, scenario_id)
-        run(sandbox, "verify", scenario_id)
-        assert run(sandbox, "reset", scenario_id).returncode == EXIT_OK
-        assert tree_state(sandbox) == before
-
-    def test_the_incident_check_asserts_the_invariant_not_one_literal(self, sandbox: Path) -> None:
-        run(sandbox, "start", "incident-service-rate")
-        module = sandbox / "workshop/scenarios/incident-service-rate/work/dispatch_engine.py"
-        source = module.read_text(encoding="utf-8")
-        module.write_text(
-            source.replace(
-                "hourly_rate=request.maximum_hourly_rate,",
-                'hourly_rate=Decimal("110.00"),',
-            ),
+        work = sandbox / "workshop" / "scenarios" / scenario_id / "work"
+        editable = next(path for path in sorted(work.iterdir()) if path.is_file())
+        editable.write_text(
+            editable.read_text(encoding="utf-8") + "\n# participant checkpoint\n",
             encoding="utf-8",
         )
-        assert run(sandbox, "verify", "incident-service-rate").returncode == EXIT_ACCEPTANCE_FAILED
+        assert run(sandbox, "reset", scenario_id).returncode == EXIT_OK
+        assert tree_state(sandbox) == before
 
     @NEEDS_PYDANTIC
     def test_the_migration_contract_checks_pass_before_the_migration(self, sandbox: Path) -> None:
@@ -1145,20 +897,6 @@ class TestCodeScenarios:
         result = run(sandbox, "verify", "migration-legacy-models")
         assert result.returncode == EXIT_ACCEPTANCE_FAILED
         assert "compatibility shim" in result.stdout
-
-    @NEEDS_PYDANTIC
-    def test_a_migration_that_breaks_the_contract_is_caught(self, sandbox: Path) -> None:
-        run(sandbox, "start", "migration-legacy-models")
-        apply_repair(sandbox, "migration-legacy-models")
-        models = sandbox / "workshop/scenarios/migration-legacy-models/work/legacy_models.py"
-        source = models.read_text(encoding="utf-8")
-        models.write_text(
-            source.replace('alias="asset"', 'alias="equipment_code"'),
-            encoding="utf-8",
-        )
-        assert (
-            run(sandbox, "verify", "migration-legacy-models").returncode == EXIT_ACCEPTANCE_FAILED
-        )
 
 
 class TestEvidenceScenarios:
@@ -1199,7 +937,7 @@ class TestEvidenceScenarios:
 
     def test_a_truncated_review_note_still_fails(self, sandbox: Path) -> None:
         run(sandbox, "start", "review-pr")
-        trimmed = REVIEW_NOTES.split("### Finding 2")[0]
+        trimmed = REVIEW_STRUCTURE_FIXTURE.split("### Finding 2")[0]
         evidence_path_of(sandbox, "review-pr").write_text(trimmed, encoding="utf-8")
         result = run(sandbox, "verify", "review-pr")
         assert result.returncode == EXIT_ACCEPTANCE_FAILED
@@ -1208,8 +946,8 @@ class TestEvidenceScenarios:
     def test_a_decision_without_a_verdict_fails(self, sandbox: Path) -> None:
         run(sandbox, "start", "review-pr")
         evidence_path_of(sandbox, "review-pr").write_text(
-            REVIEW_NOTES.replace(
-                "- Decision: request changes, with the conditions listed below",
+            REVIEW_STRUCTURE_FIXTURE.replace(
+                "- Decision: request changes to the fictional sample",
                 "- Decision: I have mixed feelings about this one",
             ),
             encoding="utf-8",
@@ -1220,9 +958,9 @@ class TestEvidenceScenarios:
 
     def test_a_finding_without_evidence_fails(self, sandbox: Path) -> None:
         run(sandbox, "start", "review-pr")
-        weakened = REVIEW_NOTES.replace(
-            "- Evidence: the issue requires non-negative operational magnitudes, but both\n"
-            "  helpers return minus the absolute value, so overdue hours and cost are negative.",
+        weakened = REVIEW_STRUCTURE_FIXTURE.replace(
+            "- Evidence: the fictional contract requires rejected records to retain a useful\n"
+            "  error message, while the sample change replaces it with an empty message.",
             "- Evidence: looks wrong",
         )
         evidence_path_of(sandbox, "review-pr").write_text(weakened, encoding="utf-8")
@@ -1986,8 +1724,8 @@ class TestMultiTargetStaging:
         work = sandbox / "workshop/scenarios/capstone-transfer/work"
         work.mkdir(parents=True)
         contents = {
-            "daily_export.py": "# mine 1\n",
-            "test_daily_export.py": "# mine 2\n",
+            "telemetry_window.py": "# mine 1\n",
+            "test_recommendation.py": "# mine 2\n",
             "NOTES.md": "# mine 3\n",
         }
         for name, body in contents.items():
@@ -2117,6 +1855,60 @@ class TestRecoveryWithoutTheCatalogue:
 
 
 # ---------------------------------------------------------------------------
+# Participant challenge depth and answer-key resistance
+# ---------------------------------------------------------------------------
+
+
+class TestParticipantChallengeDepth:
+    @pytest.mark.parametrize(
+        ("scenario_id", "minimum_modules", "minimum_lines"),
+        [
+            ("incident-service-rate", 6, 450),
+            ("migration-legacy-models", 5, 400),
+            ("capstone-transfer", 5, 400),
+        ],
+    )
+    def test_code_scenarios_require_cross_module_navigation(
+        self,
+        scenario_id: str,
+        minimum_modules: int,
+        minimum_lines: int,
+    ) -> None:
+        payloads = sorted((SCENARIO_ROOT / scenario_id / "payloads").glob("*.py.txt"))
+        implementation = [path for path in payloads if not path.name.startswith("test_")]
+        assert len(implementation) >= minimum_modules
+        assert sum(len(path.read_text(encoding="utf-8").splitlines()) for path in payloads) >= (
+            minimum_lines
+        )
+
+    def test_review_diff_is_cross_module_and_not_a_micro_patch(self) -> None:
+        patch = (FALLBACK_ROOT / "review-pr" / "pr_diff.patch").read_text(encoding="utf-8")
+        assert len(patch.splitlines()) >= 300
+        assert patch.count("diff --git ") >= 5
+
+    def test_public_scenario_tests_do_not_embed_canonical_repairs(self) -> None:
+        source = Path(__file__).read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        suspicious_fixtures = {
+            target.id
+            for node in ast.walk(tree)
+            if isinstance(node, (ast.Assign, ast.AnnAssign))
+            for target in (node.targets if isinstance(node, ast.Assign) else [node.target])
+            if isinstance(target, ast.Name)
+            and target.id.endswith(("IMPLEMENTATION", "SOLUTION", "REPAIR"))
+        }
+        repair_helpers = {
+            node.name
+            for node in ast.walk(tree)
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and node.name.startswith(("apply_", "write_"))
+            and "repair" in node.name
+        }
+        assert not suspicious_fixtures
+        assert not repair_helpers
+
+
+# ---------------------------------------------------------------------------
 # Fallbacks
 # ---------------------------------------------------------------------------
 
@@ -2177,9 +1969,9 @@ class TestFallbacks:
         captured = (FALLBACK_ROOT / "review-pr" / "captured_code_review.md").read_text(
             encoding="utf-8"
         )
-        assert "value_at_risk" not in captured
-        assert "response shape" not in captured
-        assert "No blocking issues found in" in captured
+        assert "organization_id" not in captured
+        assert "_sla_cache" not in captured
+        assert "did not analyse authorization flow" in captured
 
     def test_captured_review_contains_a_comment_worth_suppressing(self) -> None:
         captured = (FALLBACK_ROOT / "review-pr" / "captured_code_review.md").read_text(
@@ -2191,7 +1983,10 @@ class TestFallbacks:
         captured = (FALLBACK_ROOT / "review-pr" / "captured_code_review.md").read_text(
             encoding="utf-8"
         )
-        for spoiler in ("abs(value)", "Remove the unnecessary identifier"):
+        for spoiler in (
+            "organization_id or principal.organization_id",
+            "_sla_cache: dict[int",
+        ):
             assert spoiler not in captured
 
     def test_cli_capture_leaves_the_permission_inference_to_the_participant(self) -> None:
@@ -2288,7 +2083,14 @@ class TestContentHygiene:
         for path in iter_workshop_files(SCENARIO_ROOT, FALLBACK_ROOT):
             for token in path.read_text(encoding="utf-8").split():
                 cleaned = token.strip("<>(),.;:\"'`")
-                if "@" in cleaned and "." in cleaned.split("@")[-1]:
+                local, separator, domain = cleaned.partition("@")
+                if (
+                    separator
+                    and local
+                    and local[0].isalnum()
+                    and local[-1].isalnum()
+                    and "." in domain
+                ):
                     raise AssertionError(f"{path} may contain an address: {cleaned}")
 
     def test_workshop_content_and_tool_are_ascii(self) -> None:

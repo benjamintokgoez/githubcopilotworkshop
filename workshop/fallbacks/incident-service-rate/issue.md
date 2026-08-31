@@ -26,7 +26,8 @@ attached queue snapshot and UTC log excerpt are the available evidence.
 
 ## Scope
 
-Reproduce and repair only the bounded dispatch path staged by this scenario.
+Reproduce and repair only the staged path from provider capacity through the
+matching engine, assignment event, operations projection, and confirmation.
 Do not add invoicing, provider onboarding, personal technician data, or a new
 scheduler. Preserve `Decimal` rates and timezone-aware UTC timestamps.
 

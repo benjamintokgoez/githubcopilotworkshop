@@ -1,12 +1,15 @@
 # Synthetic review thread
 
-**Platform owner:** Please keep the published response names. Regional systems
-outside this repository consume them.
+**API owner:** Please use the existing `/organizations/me` identity boundary.
+Adding a selector for convenience would be a separate authorization design.
 
-**Author:** The new names are clearer, and the dashboard can migrate later.
+**Author:** The selector is optional and the normal call still uses the key, so I
+considered it backward compatible.
 
-**Operations reviewer:** The issue explicitly excludes a response-shape change.
-Please split any deprecation proposal into a separate ticket.
+**Analytics owner:** Signed workload is intentional: requester backlog is
+positive and provider capacity is negative. Reporting a magnitude does not
+necessarily mean taking an absolute value before deciding what the quantity
+represents.
 
-This thread is targeted context, not permission to skip reading the issue and
-diff.
+This thread is targeted process context, not permission to skip reading the
+issue and diff.

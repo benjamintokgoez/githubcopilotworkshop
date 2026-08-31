@@ -1,0 +1,37 @@
+"""Versioned event envelope emitted after a service assignment."""
+
+from __future__ import annotations
+
+from dispatch_models import AssignmentEvent, ServiceAssignment, ServiceRequest
+
+EVENT_SCHEMA_VERSION = 2
+
+
+class AssignmentEventPublisher:
+    def publish(
+        self,
+        request: ServiceRequest,
+        assignment: ServiceAssignment,
+    ) -> AssignmentEvent:
+        return AssignmentEvent(
+            event_id=f"EV-{assignment.assignment_id}",
+            event_type="service.assignment.confirmed",
+            schema_version=EVENT_SCHEMA_VERSION,
+            occurred_at=assignment.assigned_at,
+            correlation_id=request.work_order_id,
+            payload={
+                "assignment": {
+                    "assignment_id": assignment.assignment_id,
+                    "work_order_id": assignment.work_order_id,
+                    "provider_code": assignment.provider_code,
+                    "provider_offer_id": assignment.provider_offer_id,
+                    "assigned_hours": str(assignment.assigned_hours),
+                },
+                "pricing": {
+                    "basis": "accepted_provider_offer",
+                    "accepted_hourly_rate": str(assignment.hourly_rate),
+                    "request_rate_ceiling": str(request.maximum_hourly_rate),
+                    "currency": "EUR",
+                },
+            },
+        )

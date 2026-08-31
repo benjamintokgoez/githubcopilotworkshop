@@ -1,0 +1,74 @@
+"""Telemetry-deviation policy used by the operations recommendation service."""
+
+from __future__ import annotations
+
+from collections.abc import Sequence
+from datetime import datetime, timedelta
+from decimal import Decimal
+
+from policy_base import BasePolicy
+from policy_models import PolicyError, PolicyRecommendation, TelemetryReading, aware_utc
+from telemetry_window import fresh_readings
+
+
+class FreshTelemetryDeviation(BasePolicy):
+    policy_name = "fresh-telemetry-deviation"
+
+    def __init__(
+        self,
+        *,
+        target_value: Decimal,
+        deviation_threshold: Decimal,
+        max_age: timedelta = timedelta(minutes=15),
+        min_samples: int = 3,
+    ) -> None:
+        if not target_value.is_finite():
+            raise PolicyError("target_value must be finite")
+        if not deviation_threshold.is_finite() or deviation_threshold <= 0:
+            raise PolicyError("deviation_threshold must be positive and finite")
+        if min_samples < 1:
+            raise PolicyError("min_samples must be positive")
+        self._target_value = target_value
+        self._deviation_threshold = deviation_threshold
+        self._max_age = max_age
+        self._min_samples = min_samples
+
+    def evaluate(
+        self,
+        asset_id: str,
+        readings: Sequence[TelemetryReading],
+        *,
+        as_of: datetime,
+    ) -> PolicyRecommendation | None:
+        moment = aware_utc(as_of, "as_of")
+        selected = fresh_readings(
+            readings,
+            asset_id,
+            as_of=moment,
+            max_age=self._max_age,
+        )
+        if len(selected) < self._min_samples:
+            return None
+
+        average = sum(
+            (reading.value for reading in selected),
+            Decimal("0"),
+        ) / Decimal(len(selected))
+        deviation = average - self._target_value
+        if abs(deviation) <= self._deviation_threshold:
+            return None
+
+        confidence = min(
+            Decimal("1"),
+            Decimal(len(selected)) / Decimal(self._min_samples * 2),
+        )
+        return PolicyRecommendation(
+            policy_name=self.policy_name,
+            asset_id=asset_id,
+            as_of=moment,
+            sample_count=len(selected),
+            average_value=average,
+            target_value=self._target_value,
+            deviation=deviation,
+            confidence=confidence,
+        )
