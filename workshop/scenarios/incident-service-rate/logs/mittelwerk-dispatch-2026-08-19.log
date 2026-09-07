@@ -1,0 +1,8 @@
+2026-08-19T07:14:02+00:00 INFO capacity.offer offer_id=CAP-1 provider=MW-NORD rate=110.00 currency=EUR hours=10
+2026-08-19T07:14:09+00:00 INFO capacity.offer offer_id=CAP-2 provider=MW-WEST rate=110.00 currency=EUR hours=5
+2026-08-19T07:13:55+00:00 INFO capacity.offer offer_id=CAP-3 provider=MW-SUED rate=112.00 currency=EUR hours=20
+2026-08-19T07:16:31+00:00 INFO service.request work_order_id=WO-2026-0819-0442 organization=ORG-104 hours=12 max_rate=118.00
+2026-08-19T07:16:32+00:00 INFO dispatch.assignment work_order_id=WO-2026-0819-0442 offer_id=CAP-1 hours=10 rate=110.00
+2026-08-19T07:16:32+00:00 INFO dispatch.assignment work_order_id=WO-2026-0819-0442 offer_id=CAP-2 hours=2 rate=110.00
+2026-08-19T07:16:32+00:00 INFO assignment.event work_order_id=WO-2026-0819-0442 schema=2 accepted_rate=110.00 request_ceiling=118.00
+2026-08-19T07:16:32+00:00 INFO operations.confirmation work_order_id=WO-2026-0819-0442 assignments=2 average_rate=118.00
