@@ -4,8 +4,11 @@
   // pyproject.toml `requires-python` and .github/workflows/ci.yml
   // PYTHON_VERSION). This base image only publishes major.minor tags, so it
   // tracks the latest 3.12.x patch available at build time; CI pins the
-  // interpreter to the verified 3.12.14 patch. Dependencies remain bounded
-  // rather than locked, so release readiness still requires a clean-room run.
+  // interpreter to the verified 3.12.14 patch. This is a moving development
+  // image, not a reproducible delivery image. Development ranges remain;
+  // tagged deliveries retain the tested snapshot and, when approved, an image
+  // by immutable digest. See workshop/ops/RELEASE_CHECKLIST.md for capture,
+  // constraints-based restore, offline wheels, and exact environment checks.
   "image": "mcr.microsoft.com/devcontainers/python:3.12-bookworm",
 
   // Europe/Berlin timezone for a DACH/European audience; application

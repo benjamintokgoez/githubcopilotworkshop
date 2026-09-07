@@ -1,6 +1,9 @@
-# Contributing to the training substrate
+# Contributing to the workshop
 
-This repository is a trustworthy training substrate for an advanced GitHub Copilot workshop. Changes must make exercises reproducible, safe, accessible, and honest about current product behavior. Workshop operations live under `workshop/ops/`; keep operational guidance there and do not mix it into exercises or product code.
+This repository supports a workshop in supervised agentic engineering. Changes
+must keep exercises reproducible, safe, accessible, and honest about current
+product behavior. Delivery guidance belongs in `workshop/ops/`, not in the
+application or exercise code.
 
 ## Scope and scenario isolation
 
@@ -9,11 +12,14 @@ This repository is a trustworthy training substrate for an advanced GitHub Copil
 - Isolate scenarios with disposable branches, fixtures, and repositories. A participant must be able to reset without affecting another scenario.
 - Prefer deterministic local tests and pre-created artifacts. Cloud services, model availability, network access, MCP, Actions, and organization policy must never be the only route to the learning objective.
 - Label optional live paths and keep local or captured/offline alternatives current.
-- Preserve the learning loop: diagnose, identify an invariant, retrieve context, plan, generate, critically review, verify, and explain uncertainty.
+- Preserve the exact learning loop: **Understand/Plan -> Implement/Test -> Review -> Explain**.
 
 ## Content quality
 
 - Write accessible international English. Add concise German participant-facing phrases where they improve DACH delivery; do not translate code, identifiers, or commands unnecessarily.
+- Prefer short instructions with one action each. Explain terms such as
+  invariant, contract, blast radius, and resync before relying on them. Keep
+  precise engineering requirements; plain language is not a lower evidence bar.
 - Use real headings, short paragraphs, descriptive links, readable tables, meaningful alt text, and non-colour status cues.
 - Keep keyboard, captions, zoom, reduced-motion, quiet, solo, and confidential-help alternatives in mind.
 - Do not add comments, prompts, test names, or fixture labels that reveal an exercise answer. Hints should point to evidence or a question, not state the patch.
@@ -30,6 +36,13 @@ Before opening a change:
 - [ ] Confirm the local lane works without network and the captured lane is sanitized.
 - [ ] Check accessibility and localization implications.
 - [ ] Add or update the reset path and facilitator intervention questions.
+- [ ] Check both cohort and self-paced run cards. Keep shared timing, cut points,
+      and evidence locations aligned with `workshop/journeys.json`.
+- [ ] Use `workshop.py diff` to review scenario work against its starting point;
+      do not assume newly staged working files have a Git baseline.
+- [ ] Keep verification recording optional and local. A saved result must not
+      claim that a participant reviewed the diff, completed a lane, or used a
+      live product.
 - [ ] Update the release manifest if product behavior, links, commands, or policy assumptions changed.
 
 ## Tests and CI
@@ -44,6 +57,7 @@ python -m ruff format --check .
 python -m mypy mittelwerk main.py scripts
 python -m pip check
 python scripts/workshop_doctor.py --strict
+python scripts/workshop_journeys.py --check
 python -m bandit -r mittelwerk main.py -ll
 python security_check.py
 ```
@@ -62,6 +76,14 @@ If a check is not applicable, record why in the change description rather than s
 ## Product-current release discipline
 
 Every delivery must have a dated manifest entry covering Copilot login and entitlement, models/Auto, Agent, cloud agent, code review, MCP, Actions/runners, organization policies, AI-credit budgets/rate limits, network/proxy/SSL, devcontainer/Codespaces, and privacy. Revalidate two weeks before delivery and quarterly thereafter. A changed UI without a tested fallback is not release-ready.
+
+After validating a dedicated delivery environment, retain its exact inputs with
+`python scripts/workshop_release.py capture --output dist/delivery-target` and
+check them with `python scripts/workshop_release.py check --snapshot
+dist/delivery-target`. Capture does not mean that tests passed or a release was
+approved. Follow the [delivery snapshot and restore
+instructions](workshop/ops/RELEASE_CHECKLIST.md#retain-and-replay-the-tested-environment);
+keep development dependency ranges unchanged.
 
 ## Review standard
 

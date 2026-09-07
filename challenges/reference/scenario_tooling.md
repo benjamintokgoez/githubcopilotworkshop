@@ -13,18 +13,109 @@ the same starting state and can return to it.
 | `python scripts/workshop.py list` | List available scenarios and their state |
 | `python scripts/workshop.py start <scenario-id>` | Stage a scenario: artifacts, working tree state, checkpoint |
 | `python scripts/workshop.py status` | Show the active scenario, staged targets, and participant-added work files |
+| `python scripts/workshop.py diff <scenario-id> [--path <work-relative-file>]` | Compare content and file modes with the original staged payload, including added and deleted files; binary contents are summarised |
 | `python scripts/workshop.py resync <scenario-id> --blocked-at <phase>` | Print an answer-neutral route around a blocked phase without changing files |
 | `python scripts/workshop.py verify <scenario-id>` | Run the scenario's acceptance checks |
+| `python scripts/workshop.py verify <scenario-id> --record` | Save opt-in local check evidence with bounded, sanitized output and pre/post file inventories under `.workshop-state/evidence/` |
 | `python scripts/workshop.py reset <scenario-id>` | Preserve the attempt and restore the exact pre-start scenario work directory |
+| `python scripts/workshop.py attempts <scenario-id>` | List archive IDs, inspection paths, and available resume routes |
+| `python scripts/workshop.py resume <scenario-id> <attempt-id>` | Reopen a validated saved attempt when no scenario is active |
 | `python scripts/workshop.py fallback <scenario-id>` | Print the path to the captured, non-live artifacts |
+| `python scripts/workshop_journeys.py --check` | Check that run cards, agenda, and facilitator cuts agree with the journey definition; does not edit documents |
 
 `reset` is the safety net that makes the resync checkpoints work. Use it without
-embarrassment: rejoining the room is worth more than salvaging a tangled tree.
+embarrassment: keeping evidence and practising the next phase matters more than
+finishing every repair.
+
+### Read a smaller diff
+
+`diff` shows the full text comparison, not only a file list. File modes describe
+permissions, such as whether a file is executable. To review one file, give its
+path relative to the scenario's `work/` directory:
+
+```bash
+python scripts/workshop.py diff capstone-transfer --path NOTES.md
+```
+
+Do not prepend `work/` or the repository path. Review the full scenario diff
+before accepting the overall change; a focused diff is not a complete scope
+check.
+
+## Pause and return
+
+Run these commands from the repository root, one at a time. Replace placeholders
+with the scenario ID in your run card and an attempt ID printed by `attempts`.
+
+**Before a break:**
+
+```bash
+python scripts/workshop.py diff <scenario-id>
+python scripts/workshop.py verify <scenario-id> --record
+python scripts/workshop.py reset <scenario-id>
+python scripts/workshop.py attempts <scenario-id>
+```
+
+`--record` is optional: use plain `verify` if you do not want a saved check
+record. A failing verifier is useful evidence, not a reason to skip reset.
+Do not join verify and reset with `&&`, which would skip reset on failure.
+Keep the phase, last observed result, next safe action, and archive pointer in
+your private note.
+
+**When you return:**
+
+```bash
+python scripts/workshop.py status
+python scripts/workshop.py attempts <scenario-id>
+python scripts/workshop.py resume <scenario-id> <attempt-id>
+python scripts/workshop.py diff <scenario-id>
+python scripts/workshop.py verify <scenario-id>
+```
+
+Finish and reset any active scenario before resuming another. Resume checks the
+original manifest and payload hashes, then reconstructs a size-bounded attempt
+of regular files, including additions, deletions, and file modes. Use the original
+workshop checkout if the baseline no longer matches.
+
+For a selective archive, unchanged files come from those same pristine payloads;
+changed definitions are refused, not silently substituted.
+
+The original archive stays unchanged. Existing pre-start work is preserved
+through the normal start/reset lifecycle. **Resume never reruns saved commands
+or restores a grade or pass:** verify the resumed state yourself.
+
+Legacy archives, oversized attempts, and archives containing symbolic links
+require manual recovery. Keep them intact, inspect the printed path, and use the
+fallback rather than forcing a resume.
+If reset cannot save the optional resume metadata, it warns you and continues
+after preserving the work. Use the printed archive path for manual inspection.
+
+### What a saved check proves
+
+The opt-in record contains command/check observations, bounded sanitized output,
+and before/after file inventories and work fingerprints (hashes that identify
+the checked file states). Records start under ignored
+`.workshop-state/evidence/<scenario>/<run>/`. Reset moves the matching directory
+into the saved attempt's `verification/`, preserving all records without letting
+record size or count block reset. **The old record paths change at reset.**
+Use the archive path printed by reset and `attempts` to inspect metadata and
+`verification/` afterwards.
+
+The source label is `local-runner-execution`: the check ran locally. The record
+does not infer a teaching phase such as fail-before or pass-after, or prove
+personally operated product use. It is not a grade or proof of supervision,
+lane completion, or honest review. Keep the evidence note too.
+
+Output sanitization removes some recognised patterns; **it does not guarantee
+secret-free content**. Use synthetic data only and inspect files before sharing.
+Private notes, check records, and archives are Git-ignored, not automatically
+deleted or encrypted. Organisers do not collect them. Follow the
+[data-handling policy](../../workshop/ops/DATA_HANDLING.md).
 
 ## Side effects, concurrency, and preserved work
 
-One checkout is one transactional workshop workspace. Run only one `start`,
-`verify`, or `reset` command at a time. The runner uses an operating-system lock
+One checkout is one transactional workshop workspace. Run lifecycle commands
+one at a time. `start`, `verify`, `reset`, `resume`, `diff`, and `attempts` share
+an operating-system lock
 at `.workshop-state/lifecycle.lock`; a competing lifecycle command exits with a
 state-conflict message instead of racing. Do not delete the lock file. A stale
 file is harmless because the operating system releases the actual lock when the
@@ -38,7 +129,10 @@ files, nested directories, symbolic links, and modes. Do not edit the backup by
 hand while a scenario is active.
 
 Normally `reset` copies only participant-changed files into the timestamped
-attempt archive. If a file, file count, or total size exceeds the selective
+attempt archive and saves the information needed to reconstruct the attempt.
+Matching check records are moved into the archive's `verification/` directory.
+An attempt containing only file deletions is
+preserved too. If a file, file count, or total size exceeds the selective
 archive limits, or the work tree contains an entry that cannot be copied safely,
 the runner moves the complete active `work/` directory into the attempt archive
 and continues restoring the pre-start state. This avoids a large generated file
@@ -100,7 +194,7 @@ rationalised afterwards.
 | 3 | `migration-legacy-models` | `issue.md`, staged legacy module set, `acceptance.md` |
 | 4 | `review-pr` | Pre-created PR diff, PR description, review thread, agent session transcript, captured automated code-review result |
 | 5 | `elective-mcp`, `elective-cli`, `elective-customization` | Elective-specific briefs and sample configuration |
-| 6 | `capstone-transfer` | Task brief, sample input, expected values, utility skeleton, and acceptance suite |
+| 6 | `capstone-transfer` | Issue, acceptance contract, staged policy/service modules, and checks; Core builds its own bounded map |
 
 Artifacts live under `workshop/scenarios/<scenario-id>/`. Captured, non-live
 copies - used when there is no network, no cloud agent, or no time - live under
@@ -113,7 +207,7 @@ outcome, not a degraded workshop.
 
 1. **Local scenario runner.** `python scripts/workshop.py start <id>`.
 2. **Captured artifacts.** Read `workshop/fallbacks/<id>/` directly. The ticket,
-   logs, diff and transcripts are real captures, so the analysis work is
+   logs, diff and transcripts are synthetic workshop captures, so the analysis work is
    unchanged; only the staging is skipped.
 3. **Manual fallback.** Each lab has a "Solo path" and a "No tooling" note telling
    you how to reconstruct the same starting state by hand from the repository and
@@ -127,7 +221,8 @@ outcome, not a degraded workshop.
 ## Offline and restricted networks
 
 - Labs 1, 2, 3, 6 and the customization elective work without any cloud
-  service beyond the Copilot connection your organisation already permits.
+  service. An approved Copilot connection is optional; direct work and captured
+  inputs preserve the stated engineering objective.
 - Lab 4's **cloud agent** portion is optional by design. Its default path uses a
   pre-created pull request. If the cloud agent is disabled, unavailable, or slow,
   you lose a demonstration, not a learning outcome.

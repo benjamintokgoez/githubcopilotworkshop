@@ -6,12 +6,21 @@ Run a pilot before publishing the workshop as ready. The pilot must test learnin
 
 - [ ] Include a representative technical cohort: mixed experience, keyboard layouts, language confidence, accessibility needs, and remote/onsite participation.
 - [ ] Include an enterprise-restricted cohort: Copilot policy restrictions, proxy/TLS inspection, SSO, limited Actions/MCP/cloud-agent access, and restricted package indexes.
-- [ ] Use synthetic or approved data and disposable repositories throughout.
+- [ ] Use synthetic data only and disposable training repositories throughout.
 
 ## Pilot execution
 
 - [ ] Run the canonical 09:00-17:15 schedule, including every protected break,
       lunch, and all 60 minutes of slack.
+- [ ] Run `python scripts/workshop_journeys.py --check`; confirm Lab 0 switches
+      from repair to routing at 09:08 / T+8 in both participant and facilitator
+      views.
+- [ ] Complete a self-paced pass using elapsed clocks: pause between phases,
+      replace pair review with a separate diff pass, choose one elective, and
+      follow Next/Return links without a facilitator.
+- [ ] In Lab 6 Core, start with issue/contracts and let the learner make the
+      first map. Keep the file-reading aid optional; do not project it as the
+      default answer route.
 - [ ] Start with one helper per six participants or a floating technical
       producer; record privacy-safe queue counts and wait distributions.
 - [ ] Execute Supported/Core/Extension evidence and `live`, `local`, and
@@ -22,6 +31,12 @@ Run a pilot before publishing the workshop as ready. The pilot must test learnin
       directory with unrelated files, an oversized attempt, and a competing
       lifecycle command. Confirm exact restoration, a usable archive path, and
       no next-lab block.
+- [ ] Inspect untracked scenario changes with `diff`; opt in to a local check
+      record, reset, list attempts, resume one, and verify again. Confirm
+      baseline mismatch and manual-only archives do not invite forced recovery.
+- [ ] Confirm non-scenario notes use `.workshop-state/notes/`, not tracked
+      `notes/`. Saved checks are optional, bounded, and private; sanitization is
+      not a guarantee that participants may include sensitive data.
 - [ ] Test keyboard-only, captions, zoom, quiet/solo route, and readable documents with representative users.
 - [ ] Check German keyboard, decimal, date, and time examples in the actual room.
 - [ ] Collect only the minimum approved feedback; no full prompt capture or surveillance.

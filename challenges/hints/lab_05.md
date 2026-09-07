@@ -3,13 +3,13 @@
 Use one level at a time. These prompts help you inspect your own evidence; they
 do not provide configuration values or a finished policy.
 
-**Time recovery:** at 15:18, stop adding controls. Move to the supplied capture
+**Time recovery:** at T+18 / 15:18, stop adding controls. Move to the supplied capture
 if necessary, then complete the negative case and explanation. A labelled
 captured result is stronger than an unfinished live claim.
 
-Use L1 at 15:06 if the control/evidence boundary is not written, L2 at 15:12 if
-no positive trace exists, and L3 at 15:18 to finish. The same gates apply to all
-three branches.
+Use L1 at T+6 / 15:06 if you have not named the control and evidence source.
+Use L2 at T+12 / 15:12 if you have no positive observation or trace. Use L3 at
+T+18 / 15:18 to finish. These points apply to all three branches.
 
 ## 5A - Secure MCP context
 
@@ -50,7 +50,8 @@ Residual risk:
 Approval owner:
 ```
 
-If two rows cite the same evidence for different layers, revisit the attribution.
+If two rows use the same evidence for different layers, check which layer the
+observation actually proves.
 
 </details>
 
@@ -61,7 +62,8 @@ If two rows cite the same evidence for different layers, revisit the attribution
 
 - Separate "the model cannot see this tool" from "the tool is visible but cannot
   run" and "the tool can run only after a prompt."
-- For captured work, fill the verdict column before opening the transcript.
+- For captured work, write your predicted decisions in the work note before
+  opening the transcript.
 - Name the directory, credentials, network, and user account in the blast radius.
 
 </details>
@@ -105,8 +107,8 @@ A rule that says only "safe commands" or "read-only" needs another pass.
 <summary><strong>L1 - Re-orient</strong></summary>
 
 - Keep the task exactly the same before and after.
-- State whether the draft was explicitly attached, scored locally, or
-  automatically discovered. These are different claims.
+- State whether you attached the draft explicitly or scored it locally.
+  Automatic discovery is a separate claim that this scenario does not test.
 - Give each rule one scope and one reviewer-visible check.
 
 </details>

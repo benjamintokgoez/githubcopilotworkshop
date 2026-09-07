@@ -19,8 +19,12 @@ import sys
 import types
 from collections.abc import Iterator
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
+
+if TYPE_CHECKING:
+    from scripts.workshop import ScenarioState
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 TOOL_PATH = REPO_ROOT / "scripts" / "workshop.py"
@@ -237,6 +241,411 @@ def iter_workshop_files(*roots: Path) -> Iterator[Path]:
         for path in sorted(root.rglob("*")):
             if path.is_file() and not path.is_symlink():
                 yield path
+
+
+@pytest.fixture
+def supervision_scenario(sandbox: Path) -> Path:
+    scenario_id = "supervision-example"
+    work = f"workshop/scenarios/{scenario_id}/work"
+    manifest = base_command_manifest(scenario_id, ["{python}", f"{work}/probe.py"])
+    write_custom_scenario(
+        sandbox, scenario_id, manifest, {"probe.py.txt": "print('synthetic observation')\n"}
+    )
+    assert run(sandbox, "start", scenario_id).returncode == EXIT_OK
+    return sandbox / work
+
+
+def saved_attempts(root: Path, scenario_id: str = "supervision-example") -> list[Path]:
+    return sorted((root / ".workshop-state" / "attempts" / scenario_id).iterdir())
+
+
+class TestSupervisionTools:
+    def test_diff_compares_untracked_work_without_mutating_it(
+        self, sandbox: Path, supervision_scenario: Path
+    ) -> None:
+        before = tree_state(sandbox)
+        unchanged = run(sandbox, "diff", "supervision-example")
+        assert unchanged.returncode == EXIT_OK, unchanged.stderr
+        assert "No file content or mode changes" in unchanged.stdout
+        assert tree_state(sandbox) == before
+        (supervision_scenario / "probe.py").write_text("print('new observation')\n")
+        (supervision_scenario / "NOTES.md").write_text("A participant-owned note.")
+        before = tree_state(sandbox)
+        changed = run(sandbox, "diff", "supervision-example")
+        assert changed.returncode == EXIT_OK, changed.stderr
+        assert "-print('synthetic observation')" in changed.stdout
+        assert "+print('new observation')" in changed.stdout
+        assert "+A participant-owned note." in changed.stdout
+        assert "\\ No newline at end of file" in changed.stdout
+        assert tree_state(sandbox) == before
+        focused = run(sandbox, "diff", "supervision-example", "--path", "NOTES.md")
+        assert focused.returncode == EXIT_OK
+        assert "probe.py" not in focused.stdout
+
+    def test_diff_reports_deletions_modes_and_binary_files(
+        self, sandbox: Path, supervision_scenario: Path
+    ) -> None:
+        (supervision_scenario / "probe.py").chmod(0o600)
+        assert "0644 -> 0600" in run(sandbox, "diff", "supervision-example").stdout
+        (supervision_scenario / "probe.py").unlink()
+        (supervision_scenario / "sample.bin").write_bytes(b"\x00\xff")
+        result = run(sandbox, "diff", "supervision-example")
+        assert result.returncode == EXIT_OK
+        assert "-print('synthetic observation')" in result.stdout
+        assert "Binary contents" in result.stdout
+
+    def test_diff_refuses_changed_baseline_and_unsafe_paths(
+        self, sandbox: Path, supervision_scenario: Path
+    ) -> None:
+        outside = sandbox / "outside.txt"
+        outside.write_text("MUST NOT BE READ")
+        (supervision_scenario / "link.txt").symlink_to(outside)
+        result = run(sandbox, "diff", "supervision-example")
+        assert result.returncode == EXIT_INVALID_ARTIFACT
+        assert "MUST NOT BE READ" not in result.stdout
+        (supervision_scenario / "link.txt").unlink()
+        (supervision_scenario.parent / "payloads/probe.py.txt").write_text("new baseline\n")
+        result = run(sandbox, "diff", "supervision-example")
+        assert result.returncode == EXIT_INVALID_ARTIFACT
+        assert "no longer matches" in result.stderr
+
+    def test_recording_is_opt_in_and_preserves_success_output(
+        self, sandbox: Path, supervision_scenario: Path
+    ) -> None:
+        assert run(sandbox, "verify", "supervision-example").returncode == EXIT_OK
+        assert not (sandbox / ".workshop-state/evidence").exists()
+        initial = tree_state(sandbox)
+        result = run(sandbox, "verify", "supervision-example", "--record")
+        assert result.returncode == EXIT_OK, result.stderr
+        records = list((sandbox / ".workshop-state/evidence").rglob("*.json"))
+        assert len(records) == 1
+        record = json.loads(records[0].read_text())
+        assert record["acceptance_passed"] is True
+        assert record["before"] == record["after"]
+        assert record["observations"][0]["output"] == "synthetic observation\n"
+        assert record["observations"][0]["exit_code"] == 0
+        assert "not assessed" in record["assessment"]
+        assert tree_state(sandbox) == initial
+        assert str(sandbox) not in records[0].read_text()
+        assert records[0].stat().st_mode & 0o777 == 0o600
+
+    def test_failed_and_later_checks_are_distinct_and_output_is_redacted(
+        self, sandbox: Path, supervision_scenario: Path
+    ) -> None:
+        probe = supervision_scenario / "probe.py"
+        probe.write_text("print('token=synthetic-value-12345')\nraise SystemExit(7)\n")
+        first = run(sandbox, "verify", "supervision-example", "--record")
+        assert first.returncode == EXIT_ACCEPTANCE_FAILED
+        probe.write_text("print('second observation')\n")
+        assert run(sandbox, "verify", "supervision-example", "--record").returncode == EXIT_OK
+        paths = sorted((sandbox / ".workshop-state/evidence").rglob("*.json"))
+        assert len(paths) == 2
+        first_record, second_record = [json.loads(path.read_text()) for path in paths]
+        assert first_record["observations"][0]["exit_code"] == 7
+        assert "synthetic-value-12345" not in paths[0].read_text()
+        assert "<redacted>" in first_record["observations"][0]["output"]
+        assert first_record["before"]["sha256"] != second_record["before"]["sha256"]
+
+    def test_record_identifies_work_changed_by_a_check(
+        self, sandbox: Path, supervision_scenario: Path
+    ) -> None:
+        (supervision_scenario / "probe.py").write_text(
+            "from pathlib import Path\n"
+            "Path(__file__).with_name('observation.txt').write_text('synthetic result')\n"
+        )
+        result = run(sandbox, "verify", "supervision-example", "--record")
+        assert result.returncode == EXIT_OK
+        path = next((sandbox / ".workshop-state/evidence").rglob("*.json"))
+        record = json.loads(path.read_text())
+        assert record["work_changed_during_check"] is True
+        assert record["before"]["sha256"] != record["after"]["sha256"]
+        assert "files changed" in result.stdout
+
+    def test_record_only_attempt_survives_reset(
+        self, sandbox: Path, supervision_scenario: Path
+    ) -> None:
+        run(sandbox, "verify", "supervision-example", "--record")
+        reset = run(sandbox, "reset", "supervision-example")
+        assert reset.returncode == EXIT_OK, reset.stderr
+        attempt = saved_attempts(sandbox)[0]
+        assert len(list((attempt / "verification").glob("*.json"))) == 1
+        assert not supervision_scenario.exists()
+        listing = run(sandbox, "attempts", "supervision-example")
+        assert listing.returncode == EXIT_OK
+        assert attempt.name in listing.stdout
+        assert f"resume supervision-example {attempt.name}" in listing.stdout
+        resumed = run(sandbox, "resume", "supervision-example", attempt.name)
+        assert resumed.returncode == EXIT_OK, resumed.stderr
+        assert "not a pass for this run" in resumed.stdout
+        assert (supervision_scenario / "probe.py").read_text() == "print('synthetic observation')\n"
+
+    def test_resume_preserves_added_deleted_nested_files_and_existing_work(
+        self, sandbox: Path, supervision_scenario: Path
+    ) -> None:
+        (supervision_scenario / "probe.py").unlink()
+        (supervision_scenario / "new-note.txt").write_text("private synthetic learning note\n")
+        (supervision_scenario / "new-note.txt").chmod(0o600)
+        (supervision_scenario / "nested/empty").mkdir(parents=True)
+        (supervision_scenario / "nested/example.txt").write_text("another observation\n")
+        expected = tree_state(sandbox)
+        assert run(sandbox, "reset", "supervision-example").returncode == EXIT_OK
+        attempt = saved_attempts(sandbox)[0]
+        original_metadata = (attempt / "attempt.json").read_bytes()
+        supervision_scenario.mkdir()
+        (supervision_scenario / "pre-existing.txt").write_text("do not overwrite me\n")
+        resumed = run(sandbox, "resume", "supervision-example", attempt.name)
+        assert resumed.returncode == EXIT_OK, resumed.stderr
+        assert tree_state(sandbox) == expected
+        assert (supervision_scenario / "nested/empty").is_dir()
+        assert (attempt / "attempt.json").read_bytes() == original_metadata
+        reset = run(sandbox, "reset", "supervision-example")
+        assert reset.returncode == EXIT_OK, reset.stderr
+        assert (supervision_scenario / "pre-existing.txt").read_text() == "do not overwrite me\n"
+        assert not (supervision_scenario / "new-note.txt").exists()
+
+    def test_deletion_only_attempt_can_be_resumed(
+        self, sandbox: Path, supervision_scenario: Path
+    ) -> None:
+        (supervision_scenario / "probe.py").unlink()
+        assert run(sandbox, "reset", "supervision-example").returncode == EXIT_OK
+        attempt = saved_attempts(sandbox)[0]
+        result = run(sandbox, "resume", "supervision-example", attempt.name)
+        assert result.returncode == EXIT_OK, result.stderr
+        assert not (supervision_scenario / "probe.py").exists()
+
+    def test_resume_refuses_active_work_and_changed_archive(
+        self, sandbox: Path, supervision_scenario: Path
+    ) -> None:
+        (supervision_scenario / "probe.py").write_text("a saved attempt\n")
+        run(sandbox, "reset", "supervision-example")
+        attempt = saved_attempts(sandbox)[0]
+        run(sandbox, "start", "review-pr")
+        before = tree_state(sandbox)
+        refused = run(sandbox, "resume", "supervision-example", attempt.name)
+        assert refused.returncode == EXIT_STATE_CONFLICT
+        assert tree_state(sandbox) == before
+        run(sandbox, "reset", "review-pr")
+        archived = attempt / "workshop/scenarios/supervision-example/work/probe.py"
+        archived.write_text("tampered bytes\n")
+        refused = run(sandbox, "resume", "supervision-example", attempt.name)
+        assert refused.returncode == EXIT_INVALID_ARTIFACT
+        assert not supervision_scenario.exists()
+        assert not (sandbox / ".workshop-state/state.json").exists()
+
+    @pytest.mark.parametrize("change", ["payload", "manifest", "traversal", "symlink"])
+    def test_resume_checks_provenance_and_confinement(
+        self, sandbox: Path, supervision_scenario: Path, change: str
+    ) -> None:
+        (supervision_scenario / "probe.py").write_text("saved work\n")
+        run(sandbox, "reset", "supervision-example")
+        attempt = saved_attempts(sandbox)[0]
+        if change == "payload":
+            (supervision_scenario.parent / "payloads/probe.py.txt").write_text("new baseline\n")
+        elif change == "manifest":
+            path = supervision_scenario.parent / "manifest.json"
+            path.write_text(path.read_text() + "\n")
+        elif change == "traversal":
+            path = attempt / "attempt.json"
+            metadata = json.loads(path.read_text())
+            metadata["tree"][1]["path"] = "../outside.py"
+            path.write_text(json.dumps(metadata))
+        else:
+            path = attempt / "workshop/scenarios/supervision-example/work/probe.py"
+            path.unlink()
+            outside = sandbox / "outside.txt"
+            outside.write_text("saved work\n")
+            path.symlink_to(outside)
+        before = tree_state(sandbox)
+        result = run(sandbox, "resume", "supervision-example", attempt.name)
+        assert result.returncode == EXIT_INVALID_ARTIFACT, result.stderr
+        assert tree_state(sandbox) == before
+        assert not (sandbox / ".workshop-state/state.json").exists()
+
+    def test_legacy_and_oversized_attempts_remain_available_for_manual_recovery(
+        self, sandbox: Path, supervision_scenario: Path
+    ) -> None:
+        (supervision_scenario / "oversized.bin").write_bytes(b"x" * (3 * 1024 * 1024))
+        result = run(sandbox, "reset", "supervision-example")
+        assert result.returncode == EXIT_OK, result.stderr
+        attempt = saved_attempts(sandbox)[0]
+        result = run(sandbox, "resume", "supervision-example", attempt.name)
+        assert result.returncode == EXIT_INVALID_ARTIFACT
+        assert "manual recovery" in result.stderr
+        (attempt / "attempt.json").unlink()
+        listing = run(sandbox, "attempts", "supervision-example")
+        assert listing.returncode == EXIT_OK
+        assert "manual inspection only" in listing.stdout
+
+    def test_unsafe_record_directory_does_not_block_reset(
+        self, cli: types.ModuleType, sandbox: Path, supervision_scenario: Path
+    ) -> None:
+        (supervision_scenario / "probe.py").write_text("participant work\n")
+        state = cli.load_state(sandbox)
+        records = cli.record_directory(sandbox, state)
+        records.parent.mkdir(parents=True)
+        outside = sandbox / "outside-records"
+        outside.mkdir()
+        (outside / "keep.txt").write_text("unrelated data\n")
+        records.symlink_to(outside, target_is_directory=True)
+        result = run(sandbox, "reset", "supervision-example")
+        assert result.returncode == EXIT_OK, result.stderr
+        assert "left in place, not opened" in result.stdout
+        assert (outside / "keep.txt").read_text() == "unrelated data\n"
+        assert not supervision_scenario.exists()
+        assert len(saved_attempts(sandbox)) == 1
+
+    def test_record_collection_cannot_block_reset_on_size(
+        self, cli: types.ModuleType, sandbox: Path, supervision_scenario: Path
+    ) -> None:
+        state = cli.load_state(sandbox)
+        records = cli.record_directory(sandbox, state)
+        records.mkdir(parents=True)
+        (records / "large-output.json").write_bytes(b"x" * (3 * 1024 * 1024))
+        result = run(sandbox, "reset", "supervision-example")
+        assert result.returncode == EXIT_OK, result.stderr
+        archived = saved_attempts(sandbox)[0] / "verification/large-output.json"
+        assert archived.stat().st_size == 3 * 1024 * 1024
+        assert not records.exists()
+
+    def test_diff_shows_empty_added_directory(
+        self, sandbox: Path, supervision_scenario: Path
+    ) -> None:
+        (supervision_scenario / "private-notes").mkdir()
+        result = run(sandbox, "diff", "supervision-example")
+        assert result.returncode == EXIT_OK
+        assert "Added directory:" in result.stdout
+        assert "No file content or mode changes" not in result.stdout
+
+    def test_resume_rolls_back_partial_materialization(
+        self,
+        cli: types.ModuleType,
+        sandbox: Path,
+        supervision_scenario: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        import argparse
+
+        (supervision_scenario / "new-note.txt").write_text("saved evidence\n")
+        run(sandbox, "reset", "supervision-example")
+        attempt = saved_attempts(sandbox)[0]
+        supervision_scenario.mkdir()
+        (supervision_scenario / "original.txt").write_text("pre-start contents\n")
+        before = tree_state(sandbox)
+        original_write = cli.atomic_write_bytes
+
+        def failing_write(path: Path, data: bytes, mode: int) -> None:
+            if path.name == "new-note.txt":
+                raise cli.WorkshopError("synthetic write failure")
+            original_write(path, data, mode)
+
+        monkeypatch.setattr(cli, "atomic_write_bytes", failing_write)
+        with pytest.raises(cli.WorkshopError, match="pre-start work directory was restored"):
+            cli.cmd_resume(
+                sandbox,
+                argparse.Namespace(scenario_id="supervision-example", attempt_id=attempt.name),
+            )
+        assert tree_state(sandbox) == before
+        assert (attempt / "attempt.json").is_file()
+        assert not (sandbox / ".workshop-state/state.json").exists()
+
+    @pytest.mark.parametrize("whole_tree", [False, True])
+    def test_optional_metadata_failure_does_not_prevent_reset(
+        self,
+        cli: types.ModuleType,
+        sandbox: Path,
+        supervision_scenario: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+        whole_tree: bool,
+    ) -> None:
+        import argparse
+
+        run(sandbox, "reset", "supervision-example")
+        supervision_scenario.mkdir()
+        (supervision_scenario / "pre-start.txt").write_text("original work\n")
+        before = tree_state(sandbox)
+        run(sandbox, "start", "supervision-example")
+        (supervision_scenario / "NOTES.md").write_text("retain this attempt\n")
+        if whole_tree:
+            (supervision_scenario / "large.bin").write_bytes(b"x" * (3 * 1024 * 1024))
+        original_write = cli.atomic_write_bytes
+
+        def failing_metadata(path: Path, data: bytes, mode: int) -> None:
+            if path.name == "attempt.json":
+                raise cli.WorkshopError("synthetic metadata failure")
+            original_write(path, data, mode)
+
+        monkeypatch.setattr(cli, "atomic_write_bytes", failing_metadata)
+        assert (
+            cli.cmd_reset(sandbox, argparse.Namespace(scenario_id="supervision-example")) == EXIT_OK
+        )
+        assert tree_state(sandbox) == before
+        assert not (sandbox / ".workshop-state/state.json").exists()
+        assert "Use manual inspection. Reset will continue." in capsys.readouterr().out
+        attempt = saved_attempts(sandbox)[0]
+        note = attempt / "workshop/scenarios/supervision-example/work/NOTES.md"
+        assert note.read_text() == "retain this attempt\n"
+
+    def test_resume_only_publishes_active_after_reconstruction(
+        self,
+        cli: types.ModuleType,
+        sandbox: Path,
+        supervision_scenario: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        import argparse
+
+        (supervision_scenario / "NOTES.md").write_text("saved attempt\n")
+        run(sandbox, "reset", "supervision-example")
+        attempt = saved_attempts(sandbox)[0]
+        original_save = cli.save_state
+        phases: list[str] = []
+
+        def observe_save(root: Path, state: ScenarioState) -> None:
+            phase = state.phase
+            phases.append(phase)
+            if phase == "active":
+                assert (supervision_scenario / "NOTES.md").read_text() == "saved attempt\n"
+            original_save(root, state)
+
+        monkeypatch.setattr(cli, "save_state", observe_save)
+        result = cli.cmd_resume(
+            sandbox, argparse.Namespace(scenario_id="supervision-example", attempt_id=attempt.name)
+        )
+        assert result == EXIT_OK
+        assert phases == ["staging", "staging", "active"]
+        assert all(item["staged_sha256"] for item in state_json(sandbox)["targets"])
+
+    def test_resume_staging_save_failure_restores_previous_work(
+        self,
+        cli: types.ModuleType,
+        sandbox: Path,
+        supervision_scenario: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        import argparse
+
+        (supervision_scenario / "NOTES.md").write_text("saved attempt\n")
+        run(sandbox, "reset", "supervision-example")
+        attempt = saved_attempts(sandbox)[0]
+        supervision_scenario.mkdir()
+        (supervision_scenario / "pre-start.txt").write_text("original work\n")
+        before = tree_state(sandbox)
+        original_save = cli.save_state
+
+        def fail_after_payloads(root: Path, state: ScenarioState) -> None:
+            if state.phase == "staging" and all(item.staged_sha256 for item in state.targets):
+                raise cli.WorkshopError("synthetic staging-state failure")
+            original_save(root, state)
+
+        monkeypatch.setattr(cli, "save_state", fail_after_payloads)
+        with pytest.raises(cli.WorkshopError, match="was rolled back"):
+            cli.cmd_resume(
+                sandbox,
+                argparse.Namespace(scenario_id="supervision-example", attempt_id=attempt.name),
+            )
+        assert tree_state(sandbox) == before
+        assert not (sandbox / ".workshop-state/state.json").exists()
 
 
 # ---------------------------------------------------------------------------

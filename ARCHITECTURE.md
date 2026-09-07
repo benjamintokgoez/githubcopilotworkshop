@@ -288,6 +288,12 @@ and `dispatch_queues` from `/api/v1/dashboard`.
 
 ## Workshop scenario system
 
+The optional [domain walkthrough](docs/SIMULATOR_WALKTHROUGH.md) introduces
+requests, capacity, assignments, and costs before an exercise. Its default CLI
+prints a checked-in capture using only the standard library; `--run` uses a
+fresh in-memory engine. Neither route seeds the application or changes a
+scenario workspace.
+
 The baseline remains green. `scripts/workshop.py` stages seven deterministic
 scenario IDs under their own `work/` directories:
 
@@ -306,6 +312,33 @@ captured fallbacks. Runtime state lives under ignored `.workshop-state/`.
 Start is transactional; verify runs bounded checks or validates structured
 evidence; reset archives participant work and restores original bytes and
 modes without destructive Git commands.
+
+The runner also supports the work between those lifecycle steps:
+
+- `diff` compares current files with the exact staged baseline, including
+  additions, deletions, and file modes. It does not depend on a Git commit.
+- `verify --record` optionally saves bounded, pattern-redacted observations
+  and before/after work-directory fingerprints. The record makes no claim about
+  supervision, achievement lane, or live product use.
+- `attempts` lists local archives. `resume` validates their metadata, source
+  baseline, and file hashes before rebuilding a bounded regular-file attempt.
+  It refuses an active scenario, preserves pre-existing work, and rolls back
+  failed reconstruction through the normal recovery path.
+
+Reset remains available for oversized or unusual work trees. Those attempts
+are preserved for manual inspection rather than followed through symbolic
+links or automatically reconstructed. Historical check results remain historical
+after resume; participants run fresh checks.
+
+`workshop/journeys.json` is the shared source for lab timing, workspace and
+evidence locations, and route links. `scripts/workshop_journeys.py --check`
+detects drift between that definition and the published run cards.
+
+Delivery snapshots are separate from development dependency ranges.
+`scripts/workshop_release.py` captures and checks exact external package pins,
+the Python/platform target, repository source fingerprints, and optional
+binary-wheel hashes. It neither publishes releases nor records approval;
+the [release checklist](workshop/ops/RELEASE_CHECKLIST.md) owns those decisions.
 
 ## Time, number, and currency boundaries
 
@@ -335,6 +368,9 @@ python -m mittelwerk.mcp_server.server
 # workshop scenarios
 python scripts/workshop.py list
 
+# optional domain introduction: captured by default, real local run with --run
+python scripts/workshop_demo.py
+
 # release baseline
 python -m compileall -q mittelwerk main.py scripts security_check.py tests
 python -m pytest tests/ -v
@@ -345,6 +381,7 @@ python -m pip check
 python -m bandit -r mittelwerk main.py -ll
 python security_check.py
 python scripts/workshop_doctor.py --strict
+python scripts/workshop_journeys.py --check
 ```
 
 The supported interpreter is Python 3.12.x; CI pins 3.12.14.

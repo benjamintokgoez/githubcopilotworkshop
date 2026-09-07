@@ -21,17 +21,26 @@ in the room, but does not record it.
 
 ## Participant workflow
 
-1. Read the Lab 6 scenario and record the observable problem, relevant context, invariant, and non-goal.
+1. Read the Lab 6 issue and acceptance contract. Build your own bounded map and
+   record the observed problem, rule, and non-goal. The Supported reading aid is
+   optional, not the Core starting route.
 2. Select the Supported, Core, or Extension lane; use the captured/offline fallback if a product path is unavailable.
 3. Choose Builder or Supervising architect. Both make a concrete code/test
    change; neither is prose-only.
-4. Implement the selected lane, add one participant-owned adversarial check for
-   a material assumption, then inspect the full diff.
+4. Implement the selected lane. Core adds one participant-owned adversarial
+   check (a test that tries to disprove an important assumption). Inspect the
+   full scenario diff with `python scripts/workshop.py diff capstone-transfer`.
 5. Test with focused verification. On the architect route, review a candidate
    implementation and make at least one bounded correction.
 6. Review the evidence and reject or amend unsupported output.
 7. Explain the change, reason, evidence, uncertainty, and next step.
 8. Self-score during the allocated three minutes and mark one confidence level.
+
+Use T+43-46 on the self-paced clock or 16:28-16:31 in the cohort. Keep the score
+in your private note; do not add it to an organiser record. A saved
+`verify --record` result supports a check claim, not a rubric score or proof of
+independent review. The same lane criteria apply whether the delivery was live,
+local, or captured/offline; label any unrun observation.
 
 ## Self / peer workflow
 

@@ -1,7 +1,44 @@
 # Lab 3 - Plan-driven migration of a legacy model layer
 
+<!-- journeys:card:3:start -->
+## Run card
+
+| Decision | This lab |
+|---|---|
+| Outcome | Preserve a public contract through small reviewed batches. |
+| First action | `python scripts/workshop.py start migration-legacy-models` |
+| Edit boundary | workshop/scenarios/migration-legacy-models/work/ |
+| Evidence | `workshop/scenarios/migration-legacy-models/work/MIGRATION_NOTES.md`; reset archives this work. |
+| Lane boundary | Supported: baseline, edited plan, one verified batch, handover. Core: full migration and contract comparison pass. Extension: one narrow risk check. |
+| Delivery | Default: **local**. Routes: local, captured/offline, live. Mode does not raise or lower the lane; follow the acceptance checklist. |
+| Clock | **70 elapsed minutes**; cohort **12:30-13:40 Europe/Berlin**. [Self-paced route](README.md#self-paced-route): start at T+0, pause between phases, keep the same cuts. |
+| Recovery | `python scripts/workshop.py resync migration-legacy-models --blocked-at <phase>`; then verify and reset. [Recovery commands](reference/scenario_tooling.md). |
+
+**Phase clock** (elapsed minutes; solo work uses the left column):
+
+| Elapsed | Cohort | Phase |
+|---|---|---|
+| T+0-5 | 12:30-12:35 | Start and orient |
+| T+5-13 | 12:35-12:43 | Capture baseline |
+| T+13-23 | 12:43-12:53 | Generate and edit plan |
+| T+23-26 | 12:53-12:56 | Save task context |
+| T+26-46 | 12:56-13:16 | Implement/Test in batches |
+| T+46-56 | 13:16-13:26 | Review and Explain |
+| T+56-65 | 13:26-13:35 | Verify and reset |
+| T+65-70 | 13:35-13:40 | Rejoin / review note |
+
+**Cuts — move on with honest evidence:**
+- **T+10 / 12:40:** Missing baseline: use the harness and narrow to Supported.
+- **T+25 / 12:55:** Unedited plan: use the template, make two meaningful edits, choose one batch.
+- **T+46 / 13:16:** Start no new batch; review and explain.
+- **T+56 / 13:26:** Freeze edits; verify once and record the actual result.
+- **T+65 / 13:35:** Reset even if verification is red.
+
+[Return: Lab 2](lab_02_incident_triage.md) · [Next: Lab 4](lab_04_review_and_delegation.md) · [All labs](README.md) · [Terms](README.md#terms-used-in-the-labs)
+<!-- journeys:card:3:end -->
+
 **Block:** 12:30-13:40 (70 minutes) - **Mode:** pairs or solo
-**Loop stages:** Understand/Plan (heavily) -> Implement/Test -> Review -> Explain
+**Loop stages:** Understand/Plan -> Implement/Test -> Review -> Explain
 **Scenario:** `migration-legacy-models`
 **Hard reset:** 13:35
 
@@ -9,9 +46,9 @@
 
 ## Outcome
 
-You supervise a multi-file migration with a captured baseline, a plan that you
-challenge before implementation, task context that survives individual prompts,
-small verified batches, and an explicit contract comparison.
+Supervise a multi-file migration. Save the original behaviour, edit the proposed
+plan, give the next step explicit context, and verify small batches. Compare
+the public contract before and after.
 
 The Core route is achievable for a prepared pair, but it is a stretch target, not
 the definition of a successful lab. A verified first batch with useful evidence
@@ -90,18 +127,10 @@ See [reference/invariants.md](reference/invariants.md).
 
 ## The 70-minute route
 
-| Clock | Budget | Phase | Required output |
-|---|---:|---|---|
-| 12:30-12:35 | 5 min | Start and orient | Saved fail-before run, roles, scope |
-| 12:35-12:43 | 8 min | Capture baseline | One representative valid/invalid contract capture per model family |
-| 12:43-12:53 | 10 min | Generate and edit plan | Saved plan plus at least two recorded edits |
-| 12:53-12:56 | 3 min | Persist task context | Context source and loading route; rotate roles |
-| 12:56-13:16 | 20 min | Implement/test in batches | One or more read and verified batches |
-| 13:16-13:26 | 10 min | Review and explain | Contract comparison and handover |
-| 13:26-13:35 | 9 min | Final check and reset | Actual verifier result, archive, scenario inactive |
-| 13:35-13:40 | 5 min | Room resync | One evidence-based observation per selected pair |
-
-The clocks are part of the exercise. Do not borrow from the protected break.
+Follow the [run card](#run-card). Baseline, plan, and saved context are part of
+Understand/Plan, not extra setup time. Keep nine minutes for final verification
+and reset, then five to record or share one observation. Do not borrow from the
+protected break.
 
 ### Stop and cut decisions
 
@@ -124,7 +153,7 @@ The clocks are part of the exercise. Do not borrow from the protected break.
 
 Use the public surface in `inventory.md`, not internal model methods. Capture:
 
-1. The initial verifier command, exit status, and observed failing/passing split.
+1. The initial verifier command, exit status, and which checks passed or failed.
 2. The public imports and call signatures.
 3. One valid equipment reference and one valid service-rate record through their
    public parser, payload, and JSON paths. Preserve representations and relevant
@@ -147,7 +176,7 @@ a plan without permitting edits.
 Require:
 
 - exact in-scope files and explicit out-of-scope files;
-- old-to-new idiom categories without speculative modernisation;
+- the kinds of library changes needed, without unrelated modernisation;
 - dependency order and batches independently verifiable in under five minutes;
 - an exact verification command and expected observation after each batch;
 - the unresolved request decision and a rollback point.
@@ -202,13 +231,14 @@ For each batch:
 
 1. State the files and intended contract-preserving change.
 2. Permit only that batch.
-3. Read the entire diff. If two minutes is not enough, reject and split it.
+3. Run `python scripts/workshop.py diff migration-legacy-models` and read the
+   output. If two minutes is not enough, stop and split the batch.
 4. Run the batch check and paste the command, exit status, and observed result.
 5. Continue only when the reviewer can explain the diff and the evidence.
 
-Watch for semantic validation loss, changed defaults or aliases, boundary
-serialisation changes, and unrequested modernisation. A request to edit outside
-the inventory is a claim to investigate, not permission.
+Check that validation still rejects invalid values. Look for changed defaults,
+field aliases, or serialised output. A request to edit outside the inventory
+needs evidence; it is not permission.
 
 ### 5. Review and explain - 10 minutes
 
@@ -286,9 +316,10 @@ describe a partial migration as Core-complete.
 
 ## Solo and captured/offline routes
 
-Solo participants use the same clocks and lane definitions. The deliberate
-one-minute role switch at 12:56 replaces conversational peer challenge; do not
-skip it.
+Use the run card's elapsed clock, not the time of day. At T+26, pause for one
+minute and challenge your own plan before implementation. At T+46, start no new
+batch. At T+56, freeze edits; reset by T+65. Keep the final five minutes for
+one written lesson and the next action. The lane criteria do not change.
 
 Without the runner, use
 `workshop/fallbacks/migration-legacy-models/`, copy the inert staged files to a

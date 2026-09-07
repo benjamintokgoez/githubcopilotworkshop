@@ -1,5 +1,39 @@
 # Elective 5C - Customization that survives Monday
 
+<!-- journeys:card:5C:start -->
+## Run card
+
+| Decision | This lab |
+|---|---|
+| Outcome | Rewrite and test three to five instruction rules on one stable task. |
+| First action | `python scripts/workshop.py start elective-customization` |
+| Edit boundary | workshop/scenarios/elective-customization/work/; never shared repository instructions. |
+| Evidence | `workshop/scenarios/elective-customization/work/customization_notes.md`; reset archives this work. |
+| Lane boundary | Supported: first three branch items and one contradiction. Core: all branch items and structure check. Extension: follow-up only. |
+| Delivery | Default: **local**. Routes: local, captured/offline, live. Mode does not raise or lower the lane; follow the acceptance checklist. |
+| Clock | **35 elapsed minutes**; cohort **15:00-15:35 Europe/Berlin**. [Self-paced route](README.md#self-paced-route): start at T+0, pause between phases, keep the same cuts. |
+| Recovery | `python scripts/workshop.py resync elective-customization --blocked-at <phase>`; then verify and reset. [Recovery commands](reference/scenario_tooling.md). |
+
+**Phase clock** (elapsed minutes; solo work uses the left column):
+
+| Elapsed | Cohort | Phase |
+|---|---|---|
+| T+0-5 | 15:00-15:05 | Understand/Plan |
+| T+5-18 | 15:05-15:18 | Implement/Test |
+| T+18-25 | 15:18-15:25 | Review |
+| T+25-29 | 15:25-15:29 | Explain |
+| T+29-33 | 15:29-15:33 | Verify and reset |
+| T+33-35 | 15:33-15:35 | Cross-elective awareness |
+
+**Cuts — move on with honest evidence:**
+- **T+3 / 15:03:** If the preflight-approved live route does not work, use the capture; no installation or sign-in.
+- **T+18 / 15:18:** Stop adding configuration; use captured observations if needed.
+- **T+29 / 15:29:** Stop work; verify and reset.
+- **T+33 / 15:33:** Keep the control / negative case / limitation report.
+
+[Return: Lab 5](lab_05_elective.md) · [Next: Lab 6](lab_06_capstone_transfer.md) · [All labs](README.md) · [Terms](README.md#terms-used-in-the-labs)
+<!-- journeys:card:5C:end -->
+
 **Block:** 15:00-15:35 (35 minutes) - **Scenario:** `elective-customization`
 **Parent:** [Lab 5 - Elective](lab_05_elective.md)
 
@@ -7,9 +41,9 @@
 
 ## Outcome
 
-You turn a weak instruction draft into three to five scoped, testable rules,
-measure the change on one repeatable task, and decide which requirements need
-deterministic enforcement instead.
+Turn a weak instruction draft into three to five scoped, testable rules.
+Compare them on one repeatable task. Decide which requirements need checks that
+run every time, rather than relying on the model to follow instructions.
 
 This route needs only an editor and the scenario. A live model comparison is
 optional. Work only in
@@ -53,6 +87,9 @@ belong in the room report or follow-up.
 
 ### Current product boundaries - as of 2026-08-25
 
+<details>
+<summary>Optional product lookup: discovery, supported clients, and official sources</summary>
+
 - `.github/copilot-instructions.md` is the repository-wide file.
   `.github/instructions/**/*.instructions.md` carries path-specific instructions
   using `applyTo`. Support differs by Copilot surface; consult the current
@@ -88,6 +125,8 @@ Official references:
 - <https://code.visualstudio.com/docs/agent-customization/agent-skills>
 - <https://code.visualstudio.com/docs/agent-customization/hooks>
 
+</details>
+
 ---
 
 ## Implement/Test (13 minutes)
@@ -100,7 +139,7 @@ before, after, and during the deletion test.
 1. Without reading the draft, write a short candidate response for the stable
    review input, or exchange one with a partner. Keep it to ten lines.
 2. Score the original draft with `fixtures/review_criteria.md`. Record which rules
-   are unfalsifiable, misplaced, conflicting, or likely to expire.
+   cannot be tested, belong elsewhere, conflict, or are likely to become outdated.
 3. Rewrite `work/instructions_draft.md` to three to five rules. For each rule,
    state scope, a reviewer check, and the failure it prevents.
 4. Apply the rewritten rules to the same input and write the after-candidate.
@@ -159,7 +198,7 @@ Complete `work/customization_notes.md`:
 
 ## Business invariant at stake
 
-**Conventions that live only in reviewers' heads are re-litigated forever.** The
+**Write shared rules down so every review need not debate them again.** The
 invariants in [reference/invariants.md](reference/invariants.md) are useful source
 material because they are objective and expensive to get wrong. The highest-risk
 ones still need tests or CI; instructions are not a substitute.
@@ -187,10 +226,13 @@ requires the structural verifier to pass.
 
 ## Solo path
 
-Write the ten-line candidate response yourself, set it aside, rewrite and score
-the rules, then revisit the response using the same rubric. Record both scores
-and the concrete edits. This produces demonstrable local evidence without a
-model or another participant.
+Use the shared 35-minute elapsed clock. Write the ten-line candidate response,
+set it aside, then rewrite and score the rules. At T+18 stop adding rules and
+test one conflicting request. Record both scores and concrete edits, explain
+the limits, and verify/reset at T+29. This is local evidence, not a model run.
+If you use supplied rather than personally produced observations, label them
+captured and keep any unrun check explicit. Finish the awareness step in
+[Lab 5](lab_05_elective.md#solo-path).
 
 ---
 

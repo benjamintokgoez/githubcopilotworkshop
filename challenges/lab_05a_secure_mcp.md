@@ -1,5 +1,39 @@
 # Elective 5A - Secure MCP context
 
+<!-- journeys:card:5A:start -->
+## Run card
+
+| Decision | This lab |
+|---|---|
+| Outcome | Reduce one proposed configuration and trace which layer controls each event. |
+| First action | `python scripts/workshop.py start elective-mcp` |
+| Edit boundary | workshop/scenarios/elective-mcp/work/ |
+| Evidence | `workshop/scenarios/elective-mcp/work/permission_inventory.md`; reset archives this work. |
+| Lane boundary | Supported: first three branch items and two event types. Core: all branch items and structure check. Extension: follow-up only. |
+| Delivery | Default: **captured/offline**. Routes: captured/offline, live. Mode does not raise or lower the lane; follow the acceptance checklist. |
+| Clock | **35 elapsed minutes**; cohort **15:00-15:35 Europe/Berlin**. [Self-paced route](README.md#self-paced-route): start at T+0, pause between phases, keep the same cuts. |
+| Recovery | `python scripts/workshop.py resync elective-mcp --blocked-at <phase>`; then verify and reset. [Recovery commands](reference/scenario_tooling.md). |
+
+**Phase clock** (elapsed minutes; solo work uses the left column):
+
+| Elapsed | Cohort | Phase |
+|---|---|---|
+| T+0-5 | 15:00-15:05 | Understand/Plan |
+| T+5-18 | 15:05-15:18 | Implement/Test |
+| T+18-25 | 15:18-15:25 | Review |
+| T+25-29 | 15:25-15:29 | Explain |
+| T+29-33 | 15:29-15:33 | Verify and reset |
+| T+33-35 | 15:33-15:35 | Cross-elective awareness |
+
+**Cuts — move on with honest evidence:**
+- **T+3 / 15:03:** If the preflight-approved live route does not work, use the capture; no installation or sign-in.
+- **T+18 / 15:18:** Stop adding configuration; use captured observations if needed.
+- **T+29 / 15:29:** Stop work; verify and reset.
+- **T+33 / 15:33:** Keep the control / negative case / limitation report.
+
+[Return: Lab 5](lab_05_elective.md) · [Next: Lab 6](lab_06_capstone_transfer.md) · [All labs](README.md) · [Terms](README.md#terms-used-in-the-labs)
+<!-- journeys:card:5A:end -->
+
 **Block:** 15:00-15:35 (35 minutes) - **Scenario:** `elective-mcp`
 **Parent:** [Lab 5 - Elective](lab_05_elective.md)
 
@@ -7,8 +41,8 @@
 
 ## Outcome
 
-You reduce one local MCP configuration, trace a positive and a negative tool
-event to the layer that controlled it, and write a defensible platform decision.
+Reduce one proposed MCP configuration. Trace a positive and a negative tool
+event to the part of the system that controlled it, then write a platform decision.
 Connecting a new server is **not** the outcome and is not part of the timebox.
 
 Work in `workshop/scenarios/elective-mcp/work/`. If staging or live MCP is
@@ -30,7 +64,8 @@ replace evidence work with connection troubleshooting.
 
 ## Understand/Plan (5 minutes)
 
-MCP is a protocol boundary. Four different control layers can be involved:
+MCP (Model Context Protocol) connects a client to tools and data from a server.
+Permission can be enforced in four different places:
 
 | Layer | It can control | It does not prove |
 |---|---|---|
@@ -47,6 +82,9 @@ Answer before editing:
 4. Which layer will produce each piece of evidence?
 
 ### Current product boundaries - as of 2026-08-25
+
+<details>
+<summary>Optional product lookup: check before live use, not during setup</summary>
 
 - The GitHub MCP Registry is **public preview**. Discovery through a registry is
   not the same as enterprise approval.
@@ -81,6 +119,8 @@ Official references:
 - <https://code.visualstudio.com/docs/agent-customization/mcp-servers>
 - <https://code.visualstudio.com/docs/agents/reference/mcp-configuration>
 
+</details>
+
 ---
 
 ## Implement/Test (13 minutes)
@@ -91,10 +131,10 @@ Official references:
    offered tool. Do not confuse intended use with capability.
 2. Reduce `work/mcp_config_reduced.json`:
    - remove environment and development access the server does not need,
-   - choose and defend one documented VS Code host posture: keep per-call
+   - choose and defend one documented VS Code host setup: keep per-call
      confirmations with the sandbox disabled, or enable `sandboxEnabled` and add
      the narrowest top-level filesystem/network rules you can defend,
-   - label an unexecuted edited policy proposed, and state platform/client
+   - label an unexecuted edited policy **proposed**, and state platform/client
      limitations.
 3. In `work/permission_inventory.md`, trace at least three captured events:
    tool selection, one accepted bounded result, and one refusal. For each, name
@@ -128,7 +168,7 @@ Record the request and result. A model refusal is not equivalent to a client
 deny, a sandbox error, an unknown tool, or a server validation error. For the
 captured route, trace an existing failed call and label it captured.
 
-Then name two non-goals. Examples of relevant categories are malicious server
+Then name two risks this control does not address. Examples are malicious server
 code, excessive but valid output, stolen upstream credentials, prompt injection
 inside returned content, or unsupported operating systems. Select the ones your
 evidence actually supports.
@@ -187,10 +227,11 @@ and requires the structural verifier to pass.
 
 ## Solo path
 
-Use the supplied configuration and capture. Produce the same reduced file,
-three-event control trace, negative case, and platform paragraph. If policy
-blocks MCP, record the policy owner and evaluate the proposed configuration
-without trying to bypass the policy.
+Use the supplied configuration and capture with the shared 35-minute elapsed
+clock. At T+18 stop configuration work; trace the negative case next. Write the
+same three-event trace and platform paragraph, then verify/reset at T+29.
+If policy blocks MCP, record the owner and review the proposal without bypassing
+the policy. Finish the awareness step in [Lab 5](lab_05_elective.md#solo-path).
 
 ---
 

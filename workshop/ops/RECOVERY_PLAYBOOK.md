@@ -10,7 +10,7 @@ Recovery is part of the design, not a failure of the participant. Name the issue
 4. Log only aggregate issue type, status, lane, and time.
 
 The facilitator guide's quantitative cut triggers take precedence over repeated
-retries. In particular, Lab 5 switches to captured/offline delivery at T+3 unless live
+retries. **Lab 0 stops setup repair at 09:08 / T+8.** Lab 5 switches to captured/offline delivery at T+3 unless live
 eligibility was Green at T-72, and acceptance commands stop after 90 seconds.
 
 For an active scenario, use the runner to print the matching participant route:
@@ -63,14 +63,31 @@ Script: “This is a checkpoint for everyone. Return to **Understand/Plan -> Imp
 
 ## Reset recipes
 
-**Clean repository reset**
+**Scenario reset and later return**
 
-1. Save only the participant’s notes or patch summary.
-2. Close running tools.
-3. Restore the approved clean checkpoint or create a fresh disposable branch.
-4. Reproduce the original symptom.
-5. Reapply the smallest bounded change.
-6. Run verification and record the evidence.
+1. Stop editing tools. Keep the participant's note in the run-card evidence
+   location; never copy private material to an organiser folder.
+2. Run `python scripts/workshop.py diff <scenario-id>` and read the output.
+   Ordinary `git diff` does not show these new, untracked working files.
+3. Run `python scripts/workshop.py verify <scenario-id>` once. Add `--record`
+   only if the participant wants private local check evidence.
+4. Run `python scripts/workshop.py reset <scenario-id>` even if verification
+   failed. Do not chain the commands with `&&`.
+5. Record the archive pointer. Later, use `attempts <scenario-id>` and
+   `resume <scenario-id> <attempt-id>` through `python scripts/workshop.py`;
+   no scenario may be active when resuming. Verify again after resuming.
+6. If validation refuses the archive, keep it intact and use the matching
+   fallback. Do not alter manifests, archived hashes, or original payloads to
+   force acceptance.
+
+Reset is not `git reset --hard` or `git clean`. If unrelated tracked files were
+changed, stop and inspect them separately; scenario reset does not repair
+arbitrary repository damage. Use an approved fresh checkout without discarding
+the participant's original tree.
+
+For a self-paced learner, the same cut ends a phase, not the whole learning
+attempt. Preserve the incomplete result, practise Review and Explain, and save
+a dated return action. See the [pause and return guide](../../challenges/reference/scenario_tooling.md#pause-and-return).
 
 **Cloud result reset**
 

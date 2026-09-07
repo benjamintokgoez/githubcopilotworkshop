@@ -1,5 +1,34 @@
 # Lab 0 - Preflight (before the day) and landing check
 
+<!-- journeys:card:0:start -->
+## Run card
+
+| Decision | This lab |
+|---|---|
+| Outcome | Know your usable environment, access limits, and safe fallback. |
+| First action | `python scripts/workshop_doctor.py` |
+| Edit boundary | Read-only checkout; installation belongs before the day. |
+| Evidence | `.workshop-state/notes/lab-00.md`; private and Git-ignored. |
+| Lane boundary | Supported: tested usable route. Core: green local baseline and capability card. Extension: one policy-owner map. |
+| Delivery | Default: **local**. Routes: local, captured/offline, live. Mode does not raise or lower the lane; follow the acceptance checklist. |
+| Clock | **20 elapsed minutes**; cohort **09:00-09:20 Europe/Berlin**. [Self-paced route](README.md#self-paced-route): start at T+0, pause between phases, keep the same cuts. |
+| Recovery | Keep the actual result in your private note; use the supplied capture or approved route. |
+
+**Phase clock** (elapsed minutes; solo work uses the left column):
+
+| Elapsed | Cohort | Phase |
+|---|---|---|
+| T+0-8 | 09:00-09:08 | Check route |
+| T+8-15 | 09:08-09:15 | Capability card |
+| T+15-20 | 09:15-09:20 | Room contract |
+
+**Cuts — move on with honest evidence:**
+- **T+8 / 09:08:** Stop setup repair; choose an approved or captured route.
+- **T+15 / 09:15:** Keep the route decision and privacy statement; cut Extension.
+
+[Next: Lab 1](lab_01_operator_model.md) · [All labs](README.md) · [Terms](README.md#terms-used-in-the-labs)
+<!-- journeys:card:0:end -->
+
 **Preflight:** complete by **T-72 hours** (allow 60-90 minutes on a cold machine;
 a prepared managed image may take less).
 **Landing check on the day:** 09:00-09:20 (20 minutes).
@@ -15,14 +44,9 @@ last-minute exception.
 
 ## Outcome
 
-You arrive with a working environment, known model access, a clear picture of what
-your organisation has and has not enabled, and a repository state you can reset
-to.
-
-This produces one shared control picture: a developer knows which local commands
-and interaction style are safe to use; an architect knows which policy,
-authorization, data, and budget assumptions the exercises rely on. Neither has to
-infer the other's constraints during an incident.
+Know which environment and tools you may use, what is blocked or unknown, and
+how to continue safely. Developers and architects use the same capability card:
+commands, permissions, data limits, budget, and the owner of unresolved decisions.
 
 ---
 
@@ -93,20 +117,12 @@ python scripts/workshop_doctor.py    # environment and repository structure
 python -m pytest -q                  # the test baseline
 ```
 
-Two commands, because they answer two different questions.
+These commands check different things. The doctor checks Python, dependencies,
+repository structure, `settings.yaml`, and `equipment.json`. It reports whether
+relevant environment variables are set, never their values. Read warnings too.
 
-`workshop_doctor.py` reports your Python version, whether the expected
-dependencies import, whether the repository revision and the expected baseline
-files are present, whether `settings.yaml` and `equipment.json` are structurally
-valid, and a few environment hints - it tells you whether a relevant variable is
-set, never what it contains. Read the whole output rather than scanning for the
-absence of red; a warning you skim past now is a broken lab at 11:00.
-
-What the doctor deliberately does **not** do: it does not run the test suite, it
-does not generate sample data, and it cannot see inside your IDE, so it says
-nothing about whether Copilot is signed in or reachable. `pytest -q` covers the
-first of those, and step 4 below covers the last - by hand, because no script can
-do it for you.
+The doctor does **not** run tests, generate data, or check IDE sign-in.
+`pytest -q` checks the tests; step 4 checks the live product by hand.
 
 If `scripts/workshop_doctor.py` is not present, first confirm that you are on the
 workshop revision supplied by the organizer. If that is intentional, run this
@@ -170,8 +186,8 @@ exclusion, cloud agent, code review, MCP, CLI, proxy, and captured fallbacks.
 Participants confirm only their assigned route; they are not expected to
 discover organisation policy alone.
 
-Answer these for **your** organisation. "I do not know" is a valid answer to bring
-to the room - it is often the most useful thing an attendee contributes all day.
+Answer for **your** organisation. "Unknown" is valid: record the owner and use
+the approved fallback rather than guessing.
 
 - [ ] Which Copilot plan or entitlement is assigned to me, is it personal or
       organisation-managed, and who administers it?
@@ -312,10 +328,11 @@ the named support channel.
 
 ### Solo path
 
-Run the same checks and write the same capability card. Replace pair confirmation
-with the exact command and observed result. If blocked, notify the organizer
-before the day and use the captured/offline route; pairing is optional, not a
-learning requirement.
+Finish installation before starting the 20-minute landing timer. Use T+0-8
+for the two checks, T+8-15 for the capability card, and T+15-20 for the safety
+rules. At T+8 stop repair and choose the supplied fallback. Record exact commands
+and results instead of pair confirmation. With no organiser, keep unknown policy
+items as blockers; never grant yourself an exception.
 
 ---
 

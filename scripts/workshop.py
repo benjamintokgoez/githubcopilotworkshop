@@ -3,16 +3,19 @@
 
 Stages, verifies, and restores the deterministic lab scenarios that the
 curriculum refers to.  A clean checkout is green: nothing in this repository
-is broken at rest.  ``start`` is the only command that stages a failing or
-questionable state, and ``reset`` restores the exact pre-start bytes.
+is broken at rest. ``start`` stages an exercise, ``resume`` reconstructs a saved
+attempt, and ``reset`` restores the exact pre-start bytes.
 
 Usage:
     python scripts/workshop.py list
     python scripts/workshop.py start <scenario-id>
     python scripts/workshop.py status
+    python scripts/workshop.py diff <scenario-id>
     python scripts/workshop.py resync <scenario-id> --blocked-at <phase>
-    python scripts/workshop.py verify <scenario-id>
+    python scripts/workshop.py verify <scenario-id> [--record]
     python scripts/workshop.py reset <scenario-id>
+    python scripts/workshop.py attempts <scenario-id>
+    python scripts/workshop.py resume <scenario-id> <attempt-id>
     python scripts/workshop.py fallback <scenario-id>
 
 Exit codes:
@@ -37,6 +40,7 @@ participant-authored Python with the participant's own privileges.
 from __future__ import annotations
 
 import argparse
+import difflib
 import errno
 import hashlib
 import importlib.util
@@ -58,7 +62,7 @@ from typing import Any, Final
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 TOOL_NAME: Final = "workshop.py"
-TOOL_VERSION: Final = "1.2.0"
+TOOL_VERSION: Final = "1.3.0"
 STATE_SCHEMA_VERSION: Final = 2
 MIN_STATE_SCHEMA_VERSION: Final = 1
 MANIFEST_SCHEMA_VERSION: Final = 1
@@ -68,6 +72,8 @@ STATE_FILE_NAME: Final = "state.json"
 LIFECYCLE_LOCK_FILE_NAME: Final = "lifecycle.lock"
 BACKUP_DIR_NAME: Final = "backups"
 ATTEMPT_DIR_NAME: Final = "attempts"
+ATTEMPT_MANIFEST_NAME: Final = "attempt.json"
+RECORD_DIR_NAME: Final = "evidence"
 
 SCENARIO_ROOT: Final = PurePosixPath("workshop/scenarios")
 FALLBACK_ROOT: Final = PurePosixPath("workshop/fallbacks")
@@ -158,7 +164,7 @@ RESYNC_PHASES: Final = (
     BLOCKED_REVIEW,
     BLOCKED_EXPLAIN,
 )
-LOCKED_COMMANDS: Final = frozenset(("start", "verify", "reset"))
+LOCKED_COMMANDS: Final = frozenset(("start", "verify", "reset", "resume", "diff", "attempts"))
 
 
 # ---------------------------------------------------------------------------
@@ -1831,6 +1837,169 @@ class ArchiveResult:
     reason: str | None = None
 
 
+@dataclass(frozen=True)
+class WorkEntry:
+    path: str
+    kind: str
+    mode: str
+    size: int = 0
+    sha256: str | None = None
+
+    def to_json(self) -> dict[str, Any]:
+        return {
+            "path": self.path,
+            "kind": self.kind,
+            "mode": self.mode,
+            "size": self.size,
+            "sha256": self.sha256,
+        }
+
+    @staticmethod
+    def from_json(raw: dict[str, Any], scenario_id: str) -> WorkEntry:
+        _check_keys(
+            raw, required=("path", "kind", "mode", "size", "sha256"), optional=(), where="entry"
+        )
+        path = _as_str(raw, "path", "entry")
+        check_confined(
+            path, parent=work_dir_rel(scenario_id), what="entry.path", allow_parent_itself=True
+        )
+        kind = _as_str(raw, "kind", "entry")
+        if kind not in ("file", "directory"):
+            raise ArtifactError("attempt entries must be regular files or directories")
+        mode = check_mode_string(_as_str(raw, "mode", "entry"), what="entry.mode")
+        size = _as_int(raw, "size", "entry", default=0, low=0, high=MAX_ARCHIVE_FILE_BYTES)
+        digest = _opt_str(raw, "sha256", "entry")
+        if kind == "file":
+            if digest is None:
+                raise ArtifactError("attempt file is missing its hash")
+            check_sha256(digest, what="entry.sha256")
+        elif size != 0 or digest is not None:
+            raise ArtifactError("attempt directory must not have file contents")
+        return WorkEntry(path, kind, mode, size, digest)
+
+
+def capture_work_tree(root: Path, scenario_id: str) -> list[WorkEntry]:
+    """Capture a bounded inventory, never following participant-created links."""
+    work = resolve_under_root(root, work_dir_rel(scenario_id), what="work inventory")
+    if not work.is_dir():
+        raise ArtifactError("the scenario work directory is missing or is not a directory")
+    entries: list[WorkEntry] = []
+    total = 0
+    try:
+        pending = [work]
+        while pending:
+            path = pending.pop()
+            rel = path.relative_to(root).as_posix()
+            check_confined(
+                rel, parent=work_dir_rel(scenario_id), what="work entry", allow_parent_itself=True
+            )
+            mode = path.lstat().st_mode
+            permissions = f"{stat.S_IMODE(mode):04o}"
+            check_mode_string(permissions, what="work entry mode")
+            if stat.S_ISDIR(mode):
+                entries.append(WorkEntry(rel, "directory", permissions))
+                with os.scandir(path) as children:
+                    for child in children:
+                        pending.append(Path(child.path))
+                        if len(entries) + len(pending) > MAX_ARCHIVE_FILES + 1:
+                            raise ArtifactError(
+                                f"work inventory exceeds {MAX_ARCHIVE_FILES} entries"
+                            )
+            elif stat.S_ISREG(mode):
+                safe = resolve_under_root(root, PurePosixPath(rel), what="work entry")
+                size = safe.stat().st_size
+                total += size
+                if size > MAX_ARCHIVE_FILE_BYTES or total > MAX_ARCHIVE_TOTAL_BYTES:
+                    raise ArtifactError("work inventory exceeds the bounded file or total size")
+                entries.append(WorkEntry(rel, "file", permissions, size, sha256_file(safe)))
+            else:
+                raise ArtifactError(f"work entry is not a regular file or directory: {rel}")
+    except OSError as exc:
+        raise WorkshopError(f"cannot capture work inventory: {exc.strerror or exc}") from exc
+    return sorted(entries, key=lambda item: item.path)
+
+
+def inventory_sha256(entries: Sequence[WorkEntry]) -> str:
+    data = json.dumps([item.to_json() for item in entries], sort_keys=True).encode("utf-8")
+    return sha256_bytes(data)
+
+
+def record_directory(root: Path, state: ScenarioState) -> Path:
+    identity = sha256_bytes(
+        f"{state.scenario_id}\n{state.started_at}\n{state.manifest_sha256}".encode()
+    )[:24]
+    rel = PurePosixPath(STATE_DIR_NAME) / RECORD_DIR_NAME / state.scenario_id / identity
+    return resolve_under_root(root, rel, what="verification records")
+
+
+def records_for_archive(root: Path, state: ScenarioState) -> Path | None:
+    try:
+        records = record_directory(root, state)
+    except ArtifactError as exc:
+        out(f"Verification records were left in place, not opened: {exc.message}")
+        return None
+    if records.exists() and not records.is_dir():
+        out("Verification record directory was replaced. It was left in place, not opened.")
+        return None
+    return records if records.is_dir() else None
+
+
+def attempt_metadata(root: Path, state: ScenarioState) -> dict[str, Any]:
+    """Keep reset available even when an attempt cannot be resumed automatically."""
+    entries: list[WorkEntry] = []
+    blocker: str | None = None
+    try:
+        entries = capture_work_tree(root, state.scenario_id)
+    except WorkshopError as exc:
+        # A complete archive can still preserve oversized, unreadable, or linked work.
+        blocker = exc.message
+    if state.phase != PHASE_ACTIVE:
+        blocker = "the attempt was interrupted before staging completed"
+    return {
+        "schema_version": 1,
+        "scenario_id": state.scenario_id,
+        "started_at": state.started_at,
+        "archived_at": utc_now_iso(),
+        "manifest_sha256": state.manifest_sha256,
+        "catalogue_sha256": state.catalogue_sha256,
+        "baseline": [
+            {"path": item.path, "sha256": item.staged_sha256, "mode": item.staged_mode}
+            for item in state.targets
+        ],
+        "tree": [item.to_json() for item in entries],
+        "resume_blocker": blocker,
+    }
+
+
+def finish_attempt_archive(
+    root: Path, state: ScenarioState, archive: ArchiveResult, metadata: dict[str, Any]
+) -> ArchiveResult:
+    directory = resolve_under_root(root, PurePosixPath(archive.path), what="attempt archive")
+    records = records_for_archive(root, state)
+    if records is not None:
+        try:
+            records.rename(directory / "verification")
+        except OSError as exc:
+            warning = (
+                f"Verification records remain at {rel_to_root(root, records)}: "
+                f"{exc.strerror or exc}"
+            )
+            metadata["verification_warning"] = warning
+            out(warning)
+    encoded = json.dumps(metadata, indent=2, ensure_ascii=True).encode("utf-8") + b"\n"
+    try:
+        atomic_write_bytes(directory / ATTEMPT_MANIFEST_NAME, encoded, 0o600)
+    except WorkshopError as exc:
+        out(
+            f"Archive preserved at {archive.path}; automatic-resume metadata could not "
+            f"be saved ({exc.message}). Use manual inspection. Reset will continue."
+        )
+        return archive
+    if metadata["resume_blocker"] is not None:
+        out(f"Archive is for manual recovery only: {metadata['resume_blocker']}")
+    return archive
+
+
 def archive_attempt(root: Path, state: ScenarioState) -> ArchiveResult | None:
     """Copy participant work into an ignored, timestamped archive."""
     if (
@@ -1841,17 +2010,23 @@ def archive_attempt(root: Path, state: ScenarioState) -> ArchiveResult | None:
         and not pre_start_work_path_of(root, state.scenario_id).exists()
     ):
         return None
+    metadata = attempt_metadata(root, state)
     whole_tree_reason = _whole_tree_archive_reason(root, state)
     if whole_tree_reason is not None:
-        return _relocate_work_tree(root, state, whole_tree_reason)
+        return _relocate_work_tree(root, state, whole_tree_reason, metadata)
     files = collect_attempt_files(root, state)
-    if not files:
+    changed = any(
+        target_status(root, item, state.scenario_id) != "unchanged" for item in state.targets
+    )
+    records = records_for_archive(root, state)
+    if not files and not changed and records is None:
         return None
     if len(files) > MAX_ARCHIVE_FILES:
         return _relocate_work_tree(
             root,
             state,
             f"{len(files)} changed files exceed the selective archive limit of {MAX_ARCHIVE_FILES}",
+            metadata,
         )
     total = 0
     for rel in files:
@@ -1860,13 +2035,14 @@ def archive_attempt(root: Path, state: ScenarioState) -> ArchiveResult | None:
             size = path.stat().st_size
         except OSError:
             return _relocate_work_tree(
-                root, state, f"{rel} could not be inspected for selective archiving"
+                root, state, f"{rel} could not be inspected for selective archiving", metadata
             )
         if size > MAX_ARCHIVE_FILE_BYTES:
             return _relocate_work_tree(
                 root,
                 state,
                 f"{rel} exceeds the {MAX_ARCHIVE_FILE_BYTES} byte selective archive limit",
+                metadata,
             )
         total += size
     if total > MAX_ARCHIVE_TOTAL_BYTES:
@@ -1875,6 +2051,7 @@ def archive_attempt(root: Path, state: ScenarioState) -> ArchiveResult | None:
             state,
             f"{total} changed bytes exceed the {MAX_ARCHIVE_TOTAL_BYTES} byte "
             "selective archive limit",
+            metadata,
         )
     archive_dir, archive_rel = _new_archive_dir(root, state.scenario_id)
     for rel in files:
@@ -1888,7 +2065,9 @@ def archive_attempt(root: Path, state: ScenarioState) -> ArchiveResult | None:
                 f"cannot archive {rel}: {exc.strerror or exc}",
                 hint="Nothing was restored; fix the cause and reset again.",
             ) from exc
-    return ArchiveResult(path=archive_rel, whole_work_tree=False)
+    return finish_attempt_archive(
+        root, state, ArchiveResult(path=archive_rel, whole_work_tree=False), metadata
+    )
 
 
 def _whole_tree_archive_reason(root: Path, state: ScenarioState) -> str | None:
@@ -1926,7 +2105,9 @@ def _whole_tree_archive_reason(root: Path, state: ScenarioState) -> str | None:
     return None
 
 
-def _relocate_work_tree(root: Path, state: ScenarioState, reason: str) -> ArchiveResult | None:
+def _relocate_work_tree(
+    root: Path, state: ScenarioState, reason: str, metadata: dict[str, Any]
+) -> ArchiveResult | None:
     work = work_dir_path_of(root, state.scenario_id)
     try:
         work.lstat()
@@ -1949,7 +2130,8 @@ def _relocate_work_tree(root: Path, state: ScenarioState, reason: str) -> Archiv
                 "Move large files out of work/ or fix the path permissions, then reset again."
             ),
         ) from exc
-    return ArchiveResult(path=archive_rel, whole_work_tree=True, reason=reason)
+    archive = ArchiveResult(path=archive_rel, whole_work_tree=True, reason=reason)
+    return finish_attempt_archive(root, state, archive, metadata)
 
 
 def _new_archive_dir(root: Path, scenario_id: str) -> tuple[Path, str]:
@@ -2053,6 +2235,7 @@ class CheckResult:
     label: str
     passed: bool
     detail: str
+    exit_code: int | None = None
 
 
 def run_evidence_check(root: Path, check: EvidenceCheck) -> list[CheckResult]:
@@ -2314,7 +2497,9 @@ def run_acceptance_command(root: Path, command: AcceptanceCommand) -> tuple[Chec
     output = sanitize_output(f"{completed.stdout}{completed.stderr}", root)
     passed = completed.returncode == 0
     detail = "exit 0" if passed else f"exit {completed.returncode}"
-    return CheckResult(label=command.label, passed=passed, detail=detail), output
+    return CheckResult(
+        label=command.label, passed=passed, detail=detail, exit_code=completed.returncode
+    ), output
 
 
 # ---------------------------------------------------------------------------
@@ -2372,7 +2557,9 @@ def cmd_list(root: Path, _args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
-def cmd_start(root: Path, args: argparse.Namespace) -> int:
+def cmd_start(
+    root: Path, args: argparse.Namespace, *, announce: bool = True, activate: bool = True
+) -> int:
     scenario_id = str(args.scenario_id)
     catalogue = load_catalogue(root)
     manifest = catalogue.require(scenario_id)
@@ -2399,7 +2586,7 @@ def cmd_start(root: Path, args: argparse.Namespace) -> int:
     state = ScenarioState(
         scenario_id=manifest.scenario_id,
         phase=PHASE_STAGING,
-        started_at=utc_now_iso(),
+        started_at=datetime.now(UTC).isoformat(timespec="microseconds"),
         repo_root=str(root),
         git=git_identity(root),
         catalogue_sha256=catalogue_hash,
@@ -2415,6 +2602,9 @@ def cmd_start(root: Path, args: argparse.Namespace) -> int:
     try:
         preserve_pre_start_work_directory(root, state)
         apply_payloads(root, manifest, state)
+        if activate:
+            state.phase = PHASE_ACTIVE
+        save_state(root, state)
     except BaseException as exc:
         try:
             _rollback(root, state)
@@ -2432,9 +2622,8 @@ def cmd_start(root: Path, args: argparse.Namespace) -> int:
             f"staging {scenario_id} failed and was rolled back: {exc}",
             hint="Your working tree is unchanged. Re-run start once the cause is fixed.",
         ) from exc
-    state.phase = PHASE_ACTIVE
-    save_state(root, state)
-
+    if not announce:
+        return EXIT_OK
     out(f"Started scenario: {manifest.scenario_id}")
     out(f"Title:            {manifest.title}")
     out(f"Kind:             {manifest.kind} ({manifest.lab})")
@@ -2467,6 +2656,11 @@ def cmd_start(root: Path, args: argparse.Namespace) -> int:
             out(f"  {evidence.path}")
     out("")
     out(f"Verify: {command_hint('verify', manifest.scenario_id)}")
+    out(f"Review: {command_hint('diff', manifest.scenario_id)}")
+    out(
+        "Record checks locally (optional): "
+        f"{command_hint('verify', manifest.scenario_id, '--record')}"
+    )
     out(f"Reset:  {command_hint('reset', manifest.scenario_id)}")
     return EXIT_OK
 
@@ -2518,6 +2712,293 @@ def _rollback(root: Path, state: ScenarioState) -> None:
     """Undo a partially staged scenario.  Leaves state in place if it fails."""
     restore_scenario(root, state)
     clear_state(root)
+
+
+def active_scenario(root: Path, scenario_id: str) -> tuple[Manifest, ScenarioState]:
+    manifest = load_catalogue(root).require(scenario_id)
+    state = load_state(root)
+    if state is None or state.scenario_id != scenario_id or state.phase != PHASE_ACTIVE:
+        raise StateConflictError(
+            f"scenario {scenario_id!r} is not active and fully staged",
+            hint=f"Run {command_hint('status')} before continuing.",
+        )
+    _check_definition_unchanged(root, state)
+    return manifest, state
+
+
+def baseline_sources(root: Path, manifest: Manifest, state: ScenarioState) -> dict[str, Path]:
+    sources: dict[str, Path] = {}
+    recorded = {item.path: item for item in state.targets}
+    for item in manifest.stage:
+        source = resolve_under_root(root, item.payload, what="pristine source")
+        record = recorded.get(item.target.as_posix())
+        if record is None or sha256_file(source) != record.staged_sha256:
+            raise ArtifactError(
+                f"pristine source no longer matches the staged baseline: {item.payload}",
+                hint="Restore the original payload before comparing or resuming this attempt.",
+            )
+        sources[item.target.as_posix()] = source
+    return sources
+
+
+def cmd_diff(root: Path, args: argparse.Namespace) -> int:
+    manifest, state = active_scenario(root, str(args.scenario_id))
+    sources = baseline_sources(root, manifest, state)
+    current = {item.path: item for item in capture_work_tree(root, state.scenario_id)}
+    baseline = {item.path: item for item in state.targets}
+    paths = sorted(set(baseline) | {path for path, item in current.items() if item.kind == "file"})
+    selected = getattr(args, "path", None)
+    if selected is not None:
+        rel = check_relpath(str(selected), what="diff --path")
+        full = (work_dir_rel(state.scenario_id) / rel).as_posix()
+        if full not in paths:
+            raise ArtifactError(f"no staged or participant-added file matches {selected!r}")
+        paths = [full]
+    out(f"Scenario diff: {state.scenario_id} (pristine staged sources -> current attempt)")
+    out("This is a local comparison, not a Git commit or an assessment of correctness.")
+    changes = 0
+    original_directories = {work_dir_rel(state.scenario_id).as_posix()}
+    for name in baseline:
+        for parent in PurePosixPath(name).parents:
+            if work_dir_rel(state.scenario_id) not in parent.parents:
+                break
+            original_directories.add(parent.as_posix())
+    if selected is None:
+        for directory_entry in current.values():
+            if (
+                directory_entry.kind == "directory"
+                and directory_entry.path not in original_directories
+            ):
+                out(f"Added directory: {directory_entry.path} (mode {directory_entry.mode})")
+                changes += 1
+    for name in paths:
+        before = (
+            read_bytes_checked(sources[name], what="pristine source") if name in sources else b""
+        )
+        entry = current.get(name)
+        if entry is not None and entry.kind != "file":
+            out(f"\nType changed: {name} (file -> {entry.kind})")
+            changes += 1
+            continue
+        after = (
+            read_bytes_checked(
+                resolve_under_root(root, PurePosixPath(name), what="diff file"), what=name
+            )
+            if entry is not None
+            else b""
+        )
+        old_mode = baseline[name].staged_mode if name in baseline else None
+        new_mode = entry.mode if entry else None
+        if before == after and old_mode == new_mode:
+            continue
+        changes += 1
+        out(f"\nFile: {name}")
+        if old_mode != new_mode:
+            out(f"Mode: {old_mode or '(absent)'} -> {new_mode or '(absent)'}")
+        try:
+            old_text, new_text = before.decode("utf-8"), after.decode("utf-8")
+        except UnicodeDecodeError:
+            out(f"Binary contents: {len(before)} -> {len(after)} bytes; inspect the file directly.")
+            continue
+        if "\0" in old_text or "\0" in new_text:
+            out(f"Binary contents: {len(before)} -> {len(after)} bytes; inspect the file directly.")
+            continue
+        for line in difflib.unified_diff(
+            old_text.splitlines(keepends=True),
+            new_text.splitlines(keepends=True),
+            fromfile=f"baseline/{name}" if name in baseline else "/dev/null",
+            tofile=f"attempt/{name}" if entry else "/dev/null",
+        ):
+            sys.stdout.write(line)
+            if not line.endswith("\n"):
+                sys.stdout.write("\n\\ No newline at end of file\n")
+    if not changes:
+        out("No file content or mode changes.")
+    return EXIT_OK
+
+
+def load_attempt(
+    root: Path, scenario_id: str, attempt_id: str
+) -> tuple[Path, dict[str, Any], list[WorkEntry]]:
+    identifier = check_relpath(attempt_id, what="attempt id")
+    if len(identifier.parts) != 1:
+        raise ArtifactError("attempt id must be one name printed by the attempts command")
+    directory = resolve_under_root(
+        root, attempt_dir_rel(scenario_id) / identifier, what="saved attempt"
+    )
+    metadata_path = resolve_under_root(
+        root,
+        PurePosixPath(rel_to_root(root, directory)) / ATTEMPT_MANIFEST_NAME,
+        what="attempt metadata",
+    )
+    metadata = read_json(metadata_path, max_bytes=MAX_STATE_BYTES, what="attempt metadata")
+    _check_keys(
+        metadata,
+        required=(
+            "schema_version",
+            "scenario_id",
+            "started_at",
+            "archived_at",
+            "manifest_sha256",
+            "catalogue_sha256",
+            "baseline",
+            "tree",
+            "resume_blocker",
+        ),
+        optional=("verification_warning",),
+        where="attempt",
+    )
+    version = _as_int(metadata, "schema_version", "attempt", default=0, low=1, high=1)
+    if version != 1 or metadata["scenario_id"] != scenario_id:
+        raise ArtifactError("saved attempt has an unsupported schema or different scenario")
+    for key in ("started_at", "archived_at"):
+        check_utc_timestamp(_as_str(metadata, key, "attempt"), what=f"attempt.{key}")
+    for key in ("manifest_sha256", "catalogue_sha256"):
+        check_sha256(_as_str(metadata, key, "attempt"), what=f"attempt.{key}")
+    blocker = _opt_str(metadata, "resume_blocker", "attempt")
+    if blocker is not None:
+        raise ArtifactError(
+            f"this archive requires manual recovery: {blocker}",
+            hint=f"Inspect the preserved files at {rel_to_root(root, directory)}.",
+        )
+    raw_entries = _as_dict_list(metadata, "tree", "attempt")
+    if not 1 <= len(raw_entries) <= MAX_ARCHIVE_FILES + 1:
+        raise ArtifactError("attempt inventory is empty or exceeds the entry limit")
+    entries = [WorkEntry.from_json(item, scenario_id) for item in raw_entries]
+    indexed = {item.path: item for item in entries}
+    work = work_dir_rel(scenario_id).as_posix()
+    if len(indexed) != len(entries) or work not in indexed or indexed[work].kind != "directory":
+        raise ArtifactError("attempt inventory has duplicates or lacks its work directory")
+    for item in entries:
+        if item.kind == "directory" and int(item.mode, 8) & 0o700 != 0o700:
+            raise ArtifactError(
+                "attempt contains a directory without owner read/write/search access",
+                hint="Inspect the archive manually; automatic resume would prevent safe reset.",
+            )
+        if item.path == work:
+            continue
+        parent = indexed.get(PurePosixPath(item.path).parent.as_posix())
+        if parent is None or parent.kind != "directory":
+            raise ArtifactError("attempt entry lacks a directory parent in the inventory")
+    if sum(item.size for item in entries) > MAX_ARCHIVE_TOTAL_BYTES:
+        raise ArtifactError("attempt inventory exceeds the total byte limit")
+    return directory, metadata, sorted(entries, key=lambda item: item.path)
+
+
+def cmd_attempts(root: Path, args: argparse.Namespace) -> int:
+    scenario_id = check_scenario_id(str(args.scenario_id), what="scenario id")
+    base = resolve_under_root(root, attempt_dir_rel(scenario_id), what="attempts")
+    out(f"Saved attempts: {scenario_id}")
+    if not base.is_dir():
+        out("No saved attempts. Reset preserves changed work and any recorded checks.")
+        return EXIT_OK
+    for path in sorted(base.iterdir()):
+        if path.is_symlink() or not path.is_dir():
+            out(f"  {path.name}: unsafe or non-directory entry; not opened")
+            continue
+        try:
+            _, metadata, entries = load_attempt(root, scenario_id, path.name)
+        except ArtifactError as exc:
+            out(f"  {path.name}: manual inspection only ({exc.message})")
+            continue
+        out(
+            f"  {path.name}: {sum(item.kind == 'file' for item in entries)} files, "
+            f"archived {metadata['archived_at']}"
+        )
+        out(f"    Inspect: {rel_to_root(root, path)}")
+        out(f"    Resume: {command_hint('resume', scenario_id, path.name)}")
+    out("Archives and recorded checks are private local files, not scores. Nothing is uploaded.")
+    return EXIT_OK
+
+
+def cmd_resume(root: Path, args: argparse.Namespace) -> int:
+    scenario_id = str(args.scenario_id)
+    manifest = load_catalogue(root).require(scenario_id)
+    if load_state(root) is not None:
+        raise StateConflictError(
+            "cannot resume while any scenario is active",
+            hint=f"Run {command_hint('status')}, then finish and reset that attempt first.",
+        )
+    directory, metadata, entries = load_attempt(root, scenario_id, str(args.attempt_id))
+    catalogue_hash, manifest_hash = definition_hashes(root, scenario_id)
+    if (catalogue_hash, manifest_hash) != (
+        metadata["catalogue_sha256"],
+        metadata["manifest_sha256"],
+    ):
+        raise ArtifactError(
+            "the saved attempt belongs to a different scenario definition",
+            hint="Use the original workshop checkout; the archive has not been changed.",
+        )
+    baseline = _as_dict_list(metadata, "baseline", "attempt")
+    if len(baseline) != len(manifest.stage):
+        raise ArtifactError("saved attempt does not describe the complete staged baseline")
+    sources: dict[str, Path] = {}
+    for raw, item in zip(baseline, manifest.stage, strict=True):
+        _check_keys(raw, required=("path", "sha256", "mode"), optional=(), where="baseline")
+        source = resolve_under_root(root, item.payload, what="original payload")
+        if raw != {
+            "path": item.target.as_posix(),
+            "sha256": sha256_file(source),
+            "mode": f"{item.mode:04o}",
+        }:
+            raise ArtifactError("pristine payloads no longer match this attempt's baseline")
+        sources[item.target.as_posix()] = source
+    contents: dict[str, bytes] = {}
+    for entry in entries:
+        if entry.kind == "directory":
+            continue
+        archived_rel = PurePosixPath(rel_to_root(root, directory)) / entry.path
+        archived = resolve_under_root(root, archived_rel, what="archived work")
+        saved_source = archived if archived.exists() else sources.get(entry.path)
+        if (
+            saved_source is None
+            or not saved_source.is_file()
+            or saved_source.stat().st_size != entry.size
+        ):
+            raise ArtifactError(f"saved contents are missing or changed: {entry.path}")
+        data = read_bytes_checked(saved_source, what=entry.path)
+        if sha256_bytes(data) != entry.sha256:
+            raise ArtifactError(f"saved contents do not match their recorded hash: {entry.path}")
+        contents[entry.path] = data
+
+    cmd_start(root, args, announce=False, activate=False)
+    state = load_state(root)
+    if state is None:  # pragma: no cover - start durably saves state
+        raise StateConflictError("resumed scenario lost its recovery state")
+    try:
+        work = work_dir_path_of(root, scenario_id)
+        _remove_work_entry(work, work_dir_rel(scenario_id).as_posix())
+        for entry in entries:
+            path = resolve_under_root(root, PurePosixPath(entry.path), what="resumed work")
+            if entry.kind == "directory":
+                path.mkdir(parents=True, exist_ok=True)
+            else:
+                atomic_write_bytes(path, contents[entry.path], int(entry.mode, 8))
+        for entry in reversed(entries):
+            if entry.kind == "directory":
+                (root / entry.path).chmod(int(entry.mode, 8))
+        if capture_work_tree(root, scenario_id) != entries:
+            raise WorkshopError("resumed work does not match the saved inventory")
+        state.phase = PHASE_ACTIVE
+        save_state(root, state)
+    except BaseException as exc:
+        try:
+            _rollback(root, state)
+        except WorkshopError as rollback_error:
+            raise WorkshopError(
+                f"resume failed and rollback needs attention: {rollback_error.message}",
+                hint=f"Keep {rel_to_root(root, directory)} and use reset to recover.",
+            ) from exc
+        raise WorkshopError(
+            "resume failed; the pre-start work directory was restored",
+            hint=f"The original attempt remains at {rel_to_root(root, directory)}. Cause: {exc}",
+        ) from exc
+    out(f"Resumed scenario: {scenario_id} from {args.attempt_id}")
+    out("The archive is unchanged. Previous checks are historical, not a pass for this run.")
+    out(f"Review: {command_hint('diff', scenario_id)}")
+    out(f"Next: {command_hint('verify', scenario_id, '--record')}")
+    out(f"Reset: {command_hint('reset', scenario_id)}")
+    return EXIT_OK
 
 
 def cmd_status(root: Path, _args: argparse.Namespace) -> int:
@@ -2586,6 +3067,7 @@ def cmd_status(root: Path, _args: argparse.Namespace) -> int:
             if len(additions) > 10:
                 out(f"  ... and {len(additions) - 10} more")
     out(f"Next: {command_hint('verify', state.scenario_id)}")
+    out(f"Review: {command_hint('diff', state.scenario_id)}")
     out(f"Reset: {command_hint('reset', state.scenario_id)}")
     return EXIT_OK
 
@@ -2665,6 +3147,52 @@ def cmd_resync(root: Path, args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def save_verification_record(
+    root: Path,
+    state: ScenarioState,
+    started_at: str,
+    before: list[WorkEntry],
+    observations: list[dict[str, Any]],
+    passed: bool,
+) -> Path:
+    after = capture_work_tree(root, state.scenario_id)
+    record = {
+        "schema_version": 1,
+        "scenario_id": state.scenario_id,
+        "attempt_started_at": state.started_at,
+        "started_at": started_at,
+        "finished_at": datetime.now(UTC).isoformat(timespec="microseconds"),
+        "manifest_sha256": state.manifest_sha256,
+        "source": "local-runner-execution",
+        "acceptance_passed": passed,
+        "assessment": "not assessed; no lane, supervision, or live-product claim",
+        "fingerprint_scope": work_dir_rel(state.scenario_id).as_posix(),
+        "before": {
+            "sha256": inventory_sha256(before),
+            "entries": [item.to_json() for item in before],
+        },
+        "after": {"sha256": inventory_sha256(after), "entries": [item.to_json() for item in after]},
+        "work_changed_during_check": before != after,
+        "observations": observations,
+        "privacy": "local only; output is bounded and pattern-redacted, not guaranteed secret-free",
+    }
+    encoded = json.dumps(record, indent=2, ensure_ascii=True).encode("utf-8") + b"\n"
+    if len(encoded) > MAX_EVIDENCE_BYTES:
+        raise ArtifactError("verification record exceeds its size limit; nothing was recorded")
+    base = record_directory(root, state)
+    stamp = utc_compact_stamp()
+    for index in range(1, 1000):
+        rel = PurePosixPath(rel_to_root(root, base)) / f"{stamp}-{index:03d}.json"
+        path = resolve_under_root(root, rel, what="verification record")
+        if path.exists():
+            continue
+        atomic_write_bytes(path, encoded, 0o600)
+        if before != after:
+            out("Note: files changed while the check ran. Both file states are recorded.")
+        return path
+    raise WorkshopError("too many verification records in the same second")
+
+
 def cmd_verify(root: Path, args: argparse.Namespace) -> int:
     scenario_id = str(args.scenario_id)
     catalogue = load_catalogue(root)
@@ -2686,6 +3214,10 @@ def cmd_verify(root: Path, args: argparse.Namespace) -> int:
             hint=f"Run {command_hint('reset', scenario_id)} and start again.",
         )
     _check_definition_unchanged(root, state)
+    recording = bool(getattr(args, "record", False))
+    before = capture_work_tree(root, scenario_id) if recording else []
+    started_at = datetime.now(UTC).isoformat(timespec="microseconds")
+    observations: list[dict[str, Any]] = []
     out(f"Verifying scenario: {scenario_id}")
     out(f"Acceptance contract: {manifest.acceptance_doc}")
     out("")
@@ -2699,6 +3231,19 @@ def cmd_verify(root: Path, args: argparse.Namespace) -> int:
             out(f"  result:  {'PASS' if result.passed else 'FAIL'} ({result.detail})")
             if not result.passed:
                 print_block(output)
+            if recording:
+                bounded_output, truncated = truncate_output(output)
+                observations.append(
+                    {
+                        "command": sanitize_output(command.display(), root),
+                        "label": sanitize_output(result.label, root),
+                        "passed": result.passed,
+                        "exit_code": result.exit_code,
+                        "detail": sanitize_output(result.detail, root),
+                        "output": bounded_output,
+                        "output_truncated": truncated,
+                    }
+                )
             results.append(result)
             out("")
     else:
@@ -2709,10 +3254,28 @@ def cmd_verify(root: Path, args: argparse.Namespace) -> int:
         results = run_evidence_check(root, evidence)
         for result in results:
             out(f"  {'PASS' if result.passed else 'FAIL'}  {result.label}: {result.detail}")
+            if recording:
+                observations.append(
+                    {
+                        "command": command_hint("verify", scenario_id),
+                        "label": sanitize_output(result.label, root),
+                        "passed": result.passed,
+                        "exit_code": None,
+                        "detail": sanitize_output(result.detail, root),
+                        "output": "",
+                        "output_truncated": False,
+                    }
+                )
         out("")
     passed = sum(1 for result in results if result.passed)
     total = len(results)
     out(f"Summary: {passed}/{total} acceptance checks passed")
+    if recording:
+        saved = save_verification_record(
+            root, state, started_at, before, observations, passed == total
+        )
+        out(f"Recorded locally: {rel_to_root(root, saved)}")
+        out("This records the check, not your judgement, lane completion, or live product use.")
     if passed != total:
         out("")
         out("This is the expected result before your change is complete.")
@@ -2771,6 +3334,8 @@ def cmd_reset(root: Path, args: argparse.Namespace) -> int:
     out("Your checkout is back at the pre-start state. The baseline should be green:")
     out("  python -m pytest tests/ -q")
     out(f"Next: {command_hint('list')}")
+    if archive is not None:
+        out(f"Return later: {command_hint('attempts', scenario_id)}")
     return EXIT_OK
 
 
@@ -2828,7 +3393,8 @@ def build_parser() -> argparse.ArgumentParser:
         prog="python scripts/workshop.py",
         description=(
             "Stage, verify, and restore MittelWerk workshop scenarios. "
-            "A clean checkout is green; only 'start' stages a failing state, "
+            "A clean checkout is green; 'start' stages an exercise, "
+            "'resume' restores a saved attempt, "
             "and 'reset' restores it exactly."
         ),
         epilog=(
@@ -2849,9 +3415,22 @@ def build_parser() -> argparse.ArgumentParser:
         ("verify", "Run the scenario's acceptance checks"),
         ("reset", "Restore the pre-start state of a scenario"),
         ("fallback", "Print the offline fallback directory and its inventory"),
+        ("diff", "Compare your attempt with the pristine staged sources"),
+        ("attempts", "List saved attempts and their local inspection paths"),
+        ("resume", "Resume a saved attempt without overwriting active work"),
     ):
         sub = subparsers.add_parser(name, help=help_text)
         sub.add_argument("scenario_id", metavar="<scenario-id>", help="Scenario identifier")
+        if name == "verify":
+            sub.add_argument(
+                "--record",
+                action="store_true",
+                help="Save bounded, pattern-redacted results and file fingerprints locally",
+            )
+        elif name == "diff":
+            sub.add_argument("--path", help="Show only this file path relative to work/")
+        elif name == "resume":
+            sub.add_argument("attempt_id", metavar="<attempt-id>", help="Name printed by attempts")
 
     resync = subparsers.add_parser("resync", help="Continue learning when one lab phase is blocked")
     resync.add_argument("scenario_id", metavar="<scenario-id>", help="Scenario identifier")
@@ -2872,6 +3451,9 @@ HANDLERS: Final[dict[str, Any]] = {
     "verify": cmd_verify,
     "reset": cmd_reset,
     "fallback": cmd_fallback,
+    "diff": cmd_diff,
+    "attempts": cmd_attempts,
+    "resume": cmd_resume,
 }
 
 

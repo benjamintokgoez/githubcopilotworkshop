@@ -1,7 +1,40 @@
-# Lab 7 - Close: retrieve, commit, govern
+# Lab 7 - Close: remember, choose, and act
+
+<!-- journeys:card:7:start -->
+## Run card
+
+| Decision | This lab |
+|---|---|
+| Outcome | Keep a return-later pointer, one engineering habit, and three dated commitments. |
+| First action | Open your private Lab 6 note or archive pointer; do not restart the scenario. |
+| Edit boundary | Private notes only; no employer code or internal identifiers. |
+| Evidence | `.workshop-state/notes/lab-07.md`; private and Git-ignored. |
+| Lane boundary | Supported: use the supplied habit card. Core: tailor it with evidence and dates. Both: three commitments. Extension: pilot proposal after the workshop. |
+| Delivery | Default: **local**. Routes: local, captured/offline. Mode does not raise or lower the lane; follow the acceptance checklist. |
+| Clock | **25 elapsed minutes**; cohort **16:35-17:00 Europe/Berlin**. [Self-paced route](README.md#self-paced-route): start at T+0, pause between phases, keep the same cuts. |
+| Recovery | Keep the actual result in your private note; use the supplied capture or approved route. |
+
+**Phase clock** (elapsed minutes; solo work uses the left column):
+
+| Elapsed | Cohort | Phase |
+|---|---|---|
+| T+0-3 | 16:35-16:38 | Return-later pointer |
+| T+3-8 | 16:38-16:43 | Retrieval |
+| T+8-12 | 16:43-16:47 | Engineering habit |
+| T+12-20 | 16:47-16:55 | Three commitments |
+| T+20-22 | 16:55-16:57 | Close |
+| T+22-25 | 16:57-17:00 | Save private note / finish |
+
+**Cuts — move on with honest evidence:**
+- **T+8 / 16:43:** Stop retrieval; protect the habit and three commitments.
+- **T+20 / 16:55:** Do not expand the pilot; close and save the next action.
+
+[Return: Lab 6](lab_06_capstone_transfer.md) · [All labs](README.md) · [Terms](README.md#terms-used-in-the-labs)
+<!-- journeys:card:7:end -->
 
 **Block:** 16:35-17:00 (25 minutes) - **Mode:** whole room, written individually
-**Loop stage:** Explain, applied to your next use
+**Loop:** Understand/Plan -> Implement/Test -> Review -> Explain.
+This close applies Explain to your next use.
 
 ---
 
@@ -9,13 +42,12 @@
 
 You leave with:
 
-1. one pointer for unfinished learning;
-2. one bounded engineering habit to use once next week; and
-3. one bounded, reversible adoption experiment that a team could approve,
-   revise, or reject.
+1. one place to return to unfinished learning;
+2. one small engineering habit to use next week; and
+3. three dated commitments: your action, a team decision, and an approval ask.
 
-Everyone writes all three. The habit is usable when making or reviewing a change;
-the experiment is usable when shaping team controls. There is no audience split.
+Everyone writes all three. A fuller team experiment can wait until after the
+workshop.
 
 Use toy labels in the room. Do not include work code, repository names, internal
 identifiers, personal or customer data, secrets, or private links. Organisers do
@@ -26,6 +58,9 @@ not collect these notes, Lab 6 artifacts, prompts, transcripts, or scores.
 ## 1. Remediation pointer - 3 minutes
 
 Write one line for each incomplete lab; do not try to finish it now.
+For saved attempts, `python scripts/workshop.py attempts <scenario-id>` helps
+you find the archive. Use the [pause and return guide](reference/scenario_tooling.md#pause-and-return)
+for your next session.
 
 | Lab | Last observed evidence | Archive or fallback pointer | Next 20-minute action | Date |
 |---|---|---|---|---|
@@ -130,7 +165,7 @@ Answer the Lab 0 question again:
 > The capability I am least sure my organisation has enabled is ____, and the way
 > I will find out is ____.
 
-Then write only these two commitments:
+Summarise the commitments you already wrote; do not add another project:
 
 > **My engineering gate next week is:** ____.
 >
@@ -139,6 +174,23 @@ Then write only these two commitments:
 The method is not a Copilot trick. It is professional engineering applied to a
 fast, confident, occasionally wrong collaborator. Accountability stays with the
 people who define, review, approve, and operate the change.
+
+Use the final three minutes to save the private note and next date. Do not
+start the optional product lookup or reopen an unfinished repair.
+
+## Lanes and solo path
+
+- **Supported:** use the supplied habit card and toy labels. Keep the return
+  pointer and all three dated commitments.
+- **Core:** tailor the same card using evidence from your labs and name the
+  decision owner.
+- **Extension:** after the timed close, prepare the optional pilot proposal.
+  Do not replace the three commitments with a larger plan.
+
+Use the 25-minute elapsed clock in the run card when working alone. At T+8,
+stop retrieval and write the habit; at T+20, stop expanding commitments.
+Schedule the one-week recall privately. A captured route changes the evidence
+source, not the lane or the privacy rules.
 
 ## Delayed one-week retrieval bank
 

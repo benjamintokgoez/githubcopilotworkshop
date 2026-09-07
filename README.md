@@ -1,18 +1,25 @@
 # MittelWerk - a one-day workshop in supervised agentic engineering
 
-MittelWerk is a **simulated industrial equipment and field-service platform**
-written in Python. It gives professional engineers a familiar DACH enterprise
-system in which to practise supervised agentic engineering: service incidents,
-legacy migrations, unattended-change reviews, permissions, and handovers.
+Practise safe, evidence-based work with a coding assistant in a **synthetic
+Python equipment-service simulator**. You decide the scope, verify the result,
+and explain what remains uncertain. No equipment-domain knowledge is needed.
 
-This is **not** a tour of GitHub Copilot features. It is a day of engineering
-practice in which the assistant is one participant and you are accountable for the
-result.
+## Start here
 
-> **Simulation notice.** MittelWerk is teaching software, not a production field
-> service system. Every organisation, site, asset, provider, work order, service
-> rate, telemetry reading, event, and scenario is synthetic and describes no real
-> company or person.
+| You are here as a… | Start with… |
+|---|---|
+| **Participant** | [Lab 0: prepare your environment](challenges/lab_00_preflight.md), then the [labs index](challenges/README.md). In the room, open the current lab's run card. |
+| **Solo learner** | [Self-paced route](challenges/README.md#self-paced-route): elapsed clocks, private notes, and safe pause/return steps. |
+| **Facilitator** | [Facilitator guide](workshop/ops/FACILITATOR_GUIDE.md) and [preflight checklist](workshop/ops/PREFLIGHT.md). |
+
+New to the simulator? The optional [simulator walkthrough](docs/SIMULATOR_WALKTHROUGH.md)
+starts with captured examples; running live services is never required for a lab.
+For the learning sequence, see the [competency map](challenges/overview.md).
+
+> **Safety contract:** this is teaching software, not a production system. Every
+> organisation, site, asset, provider, work order, rate, reading, and event is
+> synthetic. Use synthetic data only. A clean checkout is healthy; deliberate
+> failures appear only in started scenarios. Your working notes stay private.
 
 ---
 
@@ -83,9 +90,8 @@ By the end of the day you can:
 
 ## Scope: one day, and what that excludes
 
-This is a **single-day** workshop. That is a design decision, not a limitation to
-apologise for: one day is enough to build one loop to competence, and adding
-surfaces converts practice time into demonstration time.
+The cohort route takes **one day**. Solo learners can split the same labs across
+sessions without dropping Review or Explain.
 
 **In scope:** the loop, workflow selection, durable context, supervision, testing,
 review of unattended work, one elective, and transfer to your own work.
@@ -104,23 +110,25 @@ All times are 24-hour, local workshop time (Europe/Berlin: CET in winter, CEST i
 summer). **Sixty minutes of the day are protected slack** - they exist so that
 overruns, questions, and human beings are survivable.
 
+<!-- journeys:agenda:start -->
 | Time | Block | Duration |
 |---|---|---|
-| 09:00-09:20 | [Lab 0](challenges/lab_00_preflight.md) - landing check, recovery lane, room contract | 20 min |
-| 09:20-10:00 | [Lab 1](challenges/lab_01_operator_model.md) - operator model and worked example | 40 min |
-| 10:00-10:15 | Break | 15 min |
-| 10:15-11:20 | [Lab 2](challenges/lab_02_incident_triage.md) - guided authentic incident | 65 min |
-| 11:20-11:45 | **Slack A** - recovery and resync | 25 min |
-| 11:45-12:30 | Lunch | 45 min |
-| 12:30-13:40 | [Lab 3](challenges/lab_03_plan_driven_migration.md) - plan-driven legacy migration | 70 min |
-| 13:40-13:55 | Break | 15 min |
-| 13:55-14:40 | [Lab 4](challenges/lab_04_review_and_delegation.md) - human review plus captured automated comparison | 45 min |
-| 14:40-15:00 | **Slack B** - recovery and resync | 20 min |
-| 15:00-15:35 | [Lab 5](challenges/lab_05_elective.md) - one bounded elective | 35 min |
-| 15:35-15:45 | Break | 10 min |
-| 15:45-16:35 | [Lab 6](challenges/lab_06_capstone_transfer.md) - capstone, individual | 50 min |
-| 16:35-17:00 | [Lab 7](challenges/lab_07_close_and_adoption.md) - retrieval and one-action adoption | 25 min |
-| 17:00-17:15 | **Slack C** - questions and quiet completion | 15 min |
+| 09:00-09:20 | [Lab 0 - Preflight and landing](challenges/lab_00_preflight.md) | 20 min |
+| 09:20-10:00 | [Lab 1 - Operator model](challenges/lab_01_operator_model.md) | 40 min |
+| 10:00-10:15 | **Protected break** | 15 min |
+| 10:15-11:20 | [Lab 2 - Guided incident](challenges/lab_02_incident_triage.md) | 65 min |
+| 11:20-11:45 | **Slack A - recovery and rejoin** | 25 min |
+| 11:45-12:30 | **Protected lunch** | 45 min |
+| 12:30-13:40 | [Lab 3 - Plan-driven migration](challenges/lab_03_plan_driven_migration.md) | 70 min |
+| 13:40-13:55 | **Protected break** | 15 min |
+| 13:55-14:40 | [Lab 4 - Review unattended work](challenges/lab_04_review_and_delegation.md) | 45 min |
+| 14:40-15:00 | **Slack B - recovery and rejoin** | 20 min |
+| 15:00-15:35 | [Lab 5 - Choose one elective](challenges/lab_05_elective.md) | 35 min |
+| 15:35-15:45 | **Protected break** | 10 min |
+| 15:45-16:35 | [Lab 6 - Independent capstone](challenges/lab_06_capstone_transfer.md) | 50 min |
+| 16:35-17:00 | [Lab 7 - Close and next action](challenges/lab_07_close_and_adoption.md) | 25 min |
+| 17:00-17:15 | **Slack C - questions or quiet completion** | 15 min |
+<!-- journeys:agenda:end -->
 
 Each lab has a **resync checkpoint** where the whole room stops and can return to a
 known-good state, and three **achievement lanes** (Supported, Core, Extension).
@@ -137,7 +145,7 @@ operated.
 - An organizer-approved **GitHub Codespace** is the easiest way to start. It
   opens the repository with Python 3.12 and the workshop tools already set up.
   If Codespaces is unavailable because of access, policy, quota, or network
-  restrictions, use the local setup below.
+  restrictions, use the local setup in Lab 0.
 - For local setup: **Python 3.12.x**, `git`, and an editor. Python 3.12 is the
   workshop baseline. Newer minor versions are not supported for the workshop
   day.
@@ -176,61 +184,20 @@ do not bypass policy or spend the lab troubleshooting sign-in in public.
 
 ## Preflight - exact steps
 
-Do this **before** the workshop day. Full detail, including the policy checklist,
-is in [challenges/lab_00_preflight.md](challenges/lab_00_preflight.md).
-
-### Recommended: GitHub Codespaces
-
-1. Open the repository on GitHub.
-2. Select **Code**, then **Codespaces**, then **Create codespace**.
-3. Wait for setup to finish and for the repository to open in the browser.
-4. In the Codespace terminal, run:
+Follow [Lab 0](challenges/lab_00_preflight.md) for the **Codespaces** and
+**local Python 3.12** setup commands. Finish installation and access checks by
+T-72 hours. On a prepared checkout, both commands must pass:
 
 ```bash
 python scripts/workshop_doctor.py
 python -m pytest -q
 ```
 
-If you cannot create or open a Codespace, do not spend the workshop fixing
-account, quota, policy, or network problems. Use the local setup instead.
-
-### Fallback: local setup
-
-```bash
-git clone <repo-url>
-cd githubcopilotworkshop
-
-python -m venv .venv
-source .venv/bin/activate       # macOS/Linux
-# .venv\Scripts\Activate.ps1    # Windows PowerShell
-
-pip install -e ".[dev]"
-
-python scripts/workshop_doctor.py    # environment and repository structure
-python -m pytest -q                  # the test baseline
-```
-
-`workshop_doctor.py` checks your Python version, that the expected dependencies
-import, that the repository, `settings.yaml`, and `equipment.json` have the
-structure the labs assume, and it reports environment hints - including whether
-relevant variables are set, never their values. It does **not** run the test
-suite, generate sample data, or check anything inside your IDE. Those are
-separate steps, which is why `pytest -q` is listed above and the IDE check below.
-
-**Expected result: a clean checkout has a passing baseline.** `python
-scripts/workshop_doctor.py` reports no failures **and** `pytest -q` is green. Both
-are required; neither one alone is the baseline. If anything fails - a doctor
-check, a test, an import, or collection - your environment needs
-attention before the day. Do not assume a red result is "workshop material": the
-failing checks you will work on appear only **after** you start a scenario with
-`python scripts/workshop.py start <scenario-id>`, and the scenario tooling tells
-you when it has changed your working tree.
-
-If you plan to use the live route, check Copilot **by hand, in your IDE** - no
-script can do this for you. Confirm whether Copilot Chat answers a question about
-this repository and record which models and workflows (Ask, Plan, Agent) are
-actually available. An unavailable or policy-blocked result selects the local or
-captured/offline delivery mode; it does not fail the repository preflight.
+The doctor checks the environment and repository structure, not the test suite
+or IDE sign-in. A failed baseline is a real problem, never a deliberate lab
+defect. For live work, manually check the approved client, available
+Ask/Plan/Agent workflows, and model selector. Blocked product access selects a
+local or captured/offline route; it does not fail the repository baseline.
 
 ---
 
@@ -241,7 +208,7 @@ captured/offline delivery mode; it does not fail the repository preflight.
 | **In-person cohort** | Facilitated, pairs, shared resync checkpoints | Yes - this is the primary design |
 | **Remote cohort** | Same agenda, pairs in breakout rooms, resync in the main room | Yes |
 | **Pair mode** | Your environment is broken, so you work on your partner's machine as navigator and reviewer | Yes - a full-value path, not a consolation prize |
-| **Solo, self-paced** | Every lab has a "Solo path" section with adjusted timings | Yes |
+| **Solo, self-paced** | Every lab has elapsed phase clocks, cuts, and a Solo path | Yes |
 | **Offline / restricted network** | Local scenarios and sanitized captures replace live product calls | Yes - every lab keeps the same learning objective, with less live-product practice |
 | **No cloud agent** | The cloud agent is disabled or unavailable | Yes - it is bonus material in exactly one lab |
 | **Air-gapped, no Copilot at all** | No live assistant is available | Yes as a captured/reviewer route for the engineering loop, but not equivalent hands-on product practice; the facilitator states that limitation explicitly |
@@ -250,21 +217,11 @@ captured/offline delivery mode; it does not fail the repository preflight.
 
 ## Policy checklist
 
-Answer these for your own organisation before the day. "I do not know" is a valid
-answer and often the most useful thing an attendee brings.
-
-- [ ] Which Copilot plan or entitlement is assigned to me, and who manages it?
-- [ ] Which models appear in my picker?
-- [ ] Is the **cloud agent** enabled for me, and for which repositories?
-- [ ] Is **Copilot code review** enabled?
-- [ ] Are **MCP servers** allowed, and does the supported client receive the
-      enterprise `managed-settings.json` allowlist? Treat a private registry as
-      preview and weaker enforcement; check cloud-agent MCP separately.
-- [ ] Can I install **Copilot CLI** on this machine?
-- [ ] What **GitHub AI Credits** allowance, paid-usage policy, or stop rule
-      applies?
-- [ ] Are there **content exclusion** rules on my work repositories?
-- [ ] Has our works council (Betriebsrat) agreed how usage data may be used?
+Use the [Lab 0 policy card](challenges/lab_00_preflight.md#5-organizer-capability-matrix-and-policy-reality-check)
+for access, model choice, cloud agent, review, MCP, CLI, credits, exclusions, and
+privacy/works-council decisions. "Unknown" is a valid result: name the decision
+owner and use the approved fallback. Do not infer permission from a feature
+appearing in a client.
 
 Live references (revalidate before delivery):
 [policies](https://docs.github.com/en/copilot/concepts/policies) ,
@@ -335,6 +292,7 @@ or environment defect, not workshop material.
 | Runtime (`mittelwerk/`), tests, tooling, dashboard | Python 3.12 baseline, simulated service-operations platform, `de-DE`/`en-GB` presentation with explicit DACH scope, healthy tests |
 | Scenario system (`workshop/scenarios/`, `workshop/fallbacks/`, `scripts/workshop.py`) | Seven deterministic scenarios, exact reset with participant-work archive, captured offline fallbacks |
 | Preflight tooling (`scripts/workshop_doctor.py`) | Environment, dependency, configuration, and workshop-structure checks without reading secret values |
+| Journey definition (`workshop/journeys.json`) | Shared run cards, cohort and elapsed clocks, cuts, evidence paths, and navigation; check with `python scripts/workshop_journeys.py --check` |
 | Facilitator and operations material (`workshop/ops/`) | Matching agenda plus accessibility, privacy, works-council, assessment, and recovery guidance |
 | Technical documentation (`ARCHITECTURE.md`, `docs/`) | Runtime architecture, REST/MCP contracts, and domain terminology |
 
@@ -369,21 +327,8 @@ githubcopilotworkshop/
 Architecture detail: [ARCHITECTURE.md](ARCHITECTURE.md). Contribution guidelines:
 [CONTRIBUTING.md](CONTRIBUTING.md).
 
-**Facilitators:** delivery, accessibility, privacy, and recovery material lives in
-`workshop/ops/`, and it follows the same agenda, block names, and loop as this
-curriculum. Start with `workshop/ops/FACILITATOR_GUIDE.md` and
-`workshop/ops/PREFLIGHT.md`.
-
----
-
-## Start here
-
-1. Read the [one-day competency map](challenges/overview.md).
-2. Read the [labs index](challenges/README.md).
-3. Complete [Lab 0 - Preflight](challenges/lab_00_preflight.md) **before** the day.
-4. Skim
-   [challenges/reference/invariants.md](challenges/reference/invariants.md) so you
-   know where the numbers live. You are not expected to memorise them.
+Skim [the invariant reference](challenges/reference/invariants.md) when a lab
+names a rule. You are not expected to memorise the simulator.
 
 ---
 

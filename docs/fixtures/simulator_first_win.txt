@@ -1,0 +1,26 @@
+MittelWerk optional first win - synthetic field-service simulation
+
+1. Prepare a service request (not submitted yet)
+   Asset: DEMO-CNC-01 | organisation: demo-requester
+   DEMO-REQUEST-001: 2.50 h, cap 100.00 EUR/h
+   Created: 2026-01-15T08:00:00+00:00 (UTC fixture)
+
+2. Offer provider capacity
+   DEMO-OFFER-001 / demo-provider: 3.00 h at 80.50 EUR/h -> ACCEPTED
+
+3. Submit the request and inspect the assignment
+   DEMO-REQUEST-001 -> ASSIGNED
+   DEMO-OFFER-001 -> PARTIALLY_ASSIGNED
+   Assigned: 2.50 h at 80.50 EUR/h
+   Unassigned request: 0.00 h | available provider capacity: 0.50 h
+
+4. Read workload and estimated service cost
+   Requester net workload: +2.50 h
+   Provider net workload: -2.50 h
+   Estimated assigned service cost: 2.50 h x 80.50 EUR/h = 201.25 EUR
+   Requester workload revaluation cost: 0.00 EUR (not an invoice total)
+
+5. Explain the result
+   The accepted offer is 80.50 EUR/h; the request cap is 100.00 EUR/h.
+   Assigned means allocated, not completed maintenance.
+   No state is sent to the application, dashboard, or scenario workspaces.

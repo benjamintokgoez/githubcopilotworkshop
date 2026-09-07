@@ -29,6 +29,28 @@ A separate employer process does not become workshop collection by changing its
 label. It needs its own documented purpose, transparency, lawful basis, and
 privacy/works-council review.
 
+## Private learner notes and optional check records
+
+`python scripts/workshop.py verify <scenario-id> --record` is an opt-in aid for
+the participant. It writes only to the local, Git-ignored `.workshop-state/`
+directory. It saves bounded command output, results, timestamps, and file hashes
+for the scenario work directory. It does not capture prompts, run an upload, or
+score the participant. Recording remains off when `--record` is absent.
+
+At reset, these records move into the participant's attempt archive under
+`verification/`. Non-scenario notes may live in `.workshop-state/notes/`.
+Organizers do not collect either kind of material.
+
+Common credential patterns are removed from recorded command output, but
+automatic redaction cannot guarantee safe sharing. Use synthetic data only and
+review any excerpt before choosing to show it. A hash records a file state; it
+does not prove that someone reviewed the file or met a learning outcome.
+
+Participants keep only the notes and attempts they need for their planned
+follow-up, under the organization's policy. Do not delete active state or its
+backups. After reset, remove only the named notes, record directories, or
+attempts that are no longer needed.
+
 ## Operating checklist
 
 - [ ] State purpose, fields, access, retention, optionality, and contact before collection.
@@ -39,6 +61,9 @@ privacy/works-council review.
       may contain a complete scenario work directory after a size or file-type
       fallback; inspect only with consent and delete it after the approved
       retention window.
+- [ ] Apply the same boundary to optional `.workshop-state/evidence/` records
+      and `.workshop-state/notes/`. Do not ask learners to enable recording or
+      submit their private files as attendance or performance evidence.
 - [ ] Restrict access to the organizer’s named roles; do not share raw feedback with employers or vendors outside the approved process.
 - [ ] Keep a retention date for each approved dataset; delete captures, branches,
       and incident notes when no longer needed.

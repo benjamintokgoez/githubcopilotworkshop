@@ -1,5 +1,39 @@
 # Lab 5 - Elective (choose exactly one)
 
+<!-- journeys:card:5:start -->
+## Run card
+
+| Decision | This lab |
+|---|---|
+| Outcome | Test one control, its negative case, and its limits. |
+| First action | Choose 5A, 5B, or 5C below; start only that branch. If unsure, choose 5C. |
+| Edit boundary | The selected elective's work/ directory only. |
+| Evidence | `.workshop-state/notes/lab-05-choice.md`; private and Git-ignored. |
+| Lane boundary | Supported: one positive and one negative case plus decision. Core: branch checklist and structure check. Extension: one follow-up question only. |
+| Delivery | Default: **captured/offline**. Routes: local, captured/offline, live. Mode does not raise or lower the lane; follow the acceptance checklist. |
+| Clock | **35 elapsed minutes**; cohort **15:00-15:35 Europe/Berlin**. [Self-paced route](README.md#self-paced-route): start at T+0, pause between phases, keep the same cuts. |
+| Recovery | Keep the actual result in your private note; use the supplied capture or approved route. |
+
+**Phase clock** (elapsed minutes; solo work uses the left column):
+
+| Elapsed | Cohort | Phase |
+|---|---|---|
+| T+0-5 | 15:00-15:05 | Understand/Plan |
+| T+5-18 | 15:05-15:18 | Implement/Test |
+| T+18-25 | 15:18-15:25 | Review |
+| T+25-29 | 15:25-15:29 | Explain |
+| T+29-33 | 15:29-15:33 | Verify and reset |
+| T+33-35 | 15:33-15:35 | Cross-elective awareness |
+
+**Cuts — move on with honest evidence:**
+- **T+3 / 15:03:** If the preflight-approved live route does not work, use the capture; no installation or sign-in.
+- **T+18 / 15:18:** Stop adding configuration; use captured observations if needed.
+- **T+29 / 15:29:** Stop work; verify and reset.
+- **T+33 / 15:33:** Keep the control / negative case / limitation report.
+
+[Return: Lab 4](lab_04_review_and_delegation.md) · [Next: Lab 6](lab_06_capstone_transfer.md) · [All labs](README.md) · [Terms](README.md#terms-used-in-the-labs)
+<!-- journeys:card:5:end -->
+
 **Block:** 15:00-15:35 (35 minutes) - **Mode:** pairs or solo
 **Loop stages:** Understand/Plan -> Implement/Test -> Review -> Explain
 
@@ -32,9 +66,9 @@ scope decisions transfer across Copilot surfaces.
 Working solo is an arrangement, not a delivery mode. Record it separately and
 write both the operator and reviewer observations.
 
-The local or captured/offline route is not a consolation route. It must still produce an
-edited artifact, an evidence trace, a negative case, and a decision a team could
-review. It must not claim that a configuration ran when it did not.
+Local and captured/offline work still needs an edited artifact, a positive case,
+a negative case, and a reviewable decision. Do not claim a configuration ran if
+you only analysed it.
 
 **Preflight gates:**
 
@@ -75,14 +109,10 @@ competency, in the other two.
 Work stops at 15:29 so verification, reset, and the awareness report stay inside
 the block.
 
-| Clock | Phase | Required result |
-|---|---|---|
-| 15:00-15:05 | **Understand/Plan (5 min)** | Name the control, non-goal, mode, lane, and evidence |
-| 15:05-15:18 | **Implement/Test (13 min)** | Produce the smallest useful artifact and one positive trace |
-| 15:18-15:25 | **Review (7 min)** | Run or trace one negative case and identify the enforcing layer |
-| 15:25-15:29 | **Explain (4 min)** | Write the team-facing decision and approval owner |
-| 15:29-15:33 | **Verify/reset (4 min)** | Record the actual verifier result and reset |
-| 15:33-15:35 | **Awareness report (2 min)** | Control, negative case, limitation |
+Follow the [run card](#run-card). Every branch uses the same phase clock:
+positive evidence during Implement/Test, negative evidence during Review,
+then a decision and owner during Explain. Verification, reset, and the
+awareness report stay inside the 35 minutes.
 
 **Mandatory cut at 15:18:** stop adding configuration. If live work has not
 produced evidence, move to the supplied capture and finish the same reasoning
@@ -123,7 +153,7 @@ alone is not evidence. Predicted results remain labelled predictions.
 
 One person per represented elective gives a 30-second report:
 
-1. What control was tested, and at which layer?
+1. What control was tested, and which part of the system enforced it?
 2. What evidence changed your confidence?
 3. What does the control **not** protect?
 4. Is the product capability GA, preview, experimental, optional, or
@@ -151,13 +181,23 @@ for each elective.
 
 ---
 
+## Solo path
+
+Choose one branch before T+0; branch reading and setup are part of its 35-minute
+budget. Follow the elapsed run card. At T+18 stop adding configuration and
+protect the negative case. At T+29 verify and reset. At T+33 read one unchosen
+branch's control table and write `control / negative case / limitation`.
+That is awareness, not completion of a second elective. Return to Lab 6.
+
+---
+
 ## Reflection and retrieval
 
 1. What is the smallest version of your elective you could propose next week
    without changing enterprise policy?
 2. Which next step needs a decision from someone else, and which role owns it?
-3. Name one thing your elective's control does **not** protect. A control without
-   a stated boundary is security theatre.
+3. Name one thing your elective's control does **not** protect. Why would claiming
+   broader protection be misleading?
 
 ---
 

@@ -48,23 +48,46 @@ adapters, microphones, and a local timer.
 
 The day has **60 minutes of protected slack** in Slack A, Slack B, and Slack C, plus protected breaks and lunch. Slack is for recovery, questions, accessibility adjustments, or optional Extension work; do not fill it in advance. If all runs green, release slack as an early break or quiet work time.
 
-| Time | Block and direct challenge link | Lead | Facilitation and observable outcome |
-| --- | --- | --- | --- |
-| 09:00–09:20 | [Lab 0 - Preflight and landing](../../challenges/lab_00_preflight.md) | Host + producer | Welcome, accessible-room check, support path, privacy and recording statement, Python 3.12/offline check, policy-safe lane choice, and confidence signal. Outcome: each participant can name their Supported/Core/Extension lane and fallback. |
-| 09:20–10:00 | [Lab 1 - Operator model and worked example](../../challenges/lab_01_operator_model.md) | Facilitator | Model **Understand/Plan -> Implement/Test -> Review -> Explain** with a small safe example. Outcome: participants can distinguish a suggestion from evidence and record uncertainty. |
-| 10:00–10:15 | **Protected break** | All | Predictable break; helpers privately triage red/amber issues. |
-| 10:15–11:20 | [Lab 2 - Guided incident](../../challenges/lab_02_incident_triage.md) | Helpers | Reproduce, bound one implementation/test step, review, explain, and reset by 11:20. |
-| 11:20–11:45 | **Slack A (25m)** | Facilitator | Recovery, questions, accessibility adjustment, or released Extension time. Do not make it routine Lab 2 time. |
-| 11:45–12:30 | **Protected lunch** | Host | No required technical content. |
-| 12:30–13:40 | [Lab 3 - Plan-driven migration](../../challenges/lab_03_plan_driven_migration.md) | Helpers | Save baseline, edit plan, verify one batch, review, explain, and reset by 13:35. |
-| 13:40–13:55 | **Protected break** | All | Quiet option available; helpers privately resolve accessibility or policy needs. |
-| 13:55–14:40 | [Lab 4 - Review and delegation](../../challenges/lab_04_review_and_delegation.md) | Facilitator + helpers | Human review first, then required captured automated comparison; verify/reset by 14:35. |
-| 14:40–15:00 | **Slack B (20m)** | Facilitator | Recovery and resync. Optional live/cloud extras only after the room is green. |
-| 15:00–15:35 | [Lab 5 - Elective (choose exactly one)](../../challenges/lab_05_elective.md) ([secure MCP](../../challenges/lab_05a_secure_mcp.md), [CLI permissions](../../challenges/lab_05b_cli_permissions.md), or [customization](../../challenges/lab_05c_customization.md)) | Helpers | One bounded control artifact, positive/negative evidence, decision, reset, and cross-elective awareness report. |
-| 15:35–15:45 | **Protected break** | All | Required cognitive reset before individual assessment. No setup or sign-in. |
-| 15:45–16:35 | [Lab 6 - Individual capstone transfer](../../challenges/lab_06_capstone_transfer.md) | Facilitator + helpers | Builder or supervising-architect route; actual Implement/Test evidence, self-review, private rubric, verify/reset. |
-| 16:35–17:00 | [Lab 7 - Close and adoption](../../challenges/lab_07_close_and_adoption.md) | Facilitator + host | Five retrieval decisions; one Monday action, team decision, and externally owned ask; one-week repeat. |
-| 17:00–17:15 | **Slack C (15m)** | Host | Final questions or quiet completion. At least ten minutes remains unused in a healthy pilot. |
+<!-- journeys:agenda:start -->
+| Time | Block | Duration |
+|---|---|---|
+| 09:00-09:20 | [Lab 0 - Preflight and landing](../../challenges/lab_00_preflight.md) | 20 min |
+| 09:20-10:00 | [Lab 1 - Operator model](../../challenges/lab_01_operator_model.md) | 40 min |
+| 10:00-10:15 | **Protected break** | 15 min |
+| 10:15-11:20 | [Lab 2 - Guided incident](../../challenges/lab_02_incident_triage.md) | 65 min |
+| 11:20-11:45 | **Slack A - recovery and rejoin** | 25 min |
+| 11:45-12:30 | **Protected lunch** | 45 min |
+| 12:30-13:40 | [Lab 3 - Plan-driven migration](../../challenges/lab_03_plan_driven_migration.md) | 70 min |
+| 13:40-13:55 | **Protected break** | 15 min |
+| 13:55-14:40 | [Lab 4 - Review unattended work](../../challenges/lab_04_review_and_delegation.md) | 45 min |
+| 14:40-15:00 | **Slack B - recovery and rejoin** | 20 min |
+| 15:00-15:35 | [Lab 5 - Choose one elective](../../challenges/lab_05_elective.md) | 35 min |
+| 15:35-15:45 | **Protected break** | 10 min |
+| 15:45-16:35 | [Lab 6 - Independent capstone](../../challenges/lab_06_capstone_transfer.md) | 50 min |
+| 16:35-17:00 | [Lab 7 - Close and next action](../../challenges/lab_07_close_and_adoption.md) | 25 min |
+| 17:00-17:15 | **Slack C - questions or quiet completion** | 15 min |
+<!-- journeys:agenda:end -->
+
+The host and producer lead landing; helpers support Labs 2, 3, and 5; the
+facilitator leads Labs 1, 4, and 6 and closes Lab 7 with the host. Each linked
+lab's run card names the outcome and evidence boundary. For Lab 5, choose
+[secure MCP](../../challenges/lab_05a_secure_mcp.md),
+[CLI permissions](../../challenges/lab_05b_cli_permissions.md), or
+[customization](../../challenges/lab_05c_customization.md), not all three.
+
+Read the card aloud in this order: **outcome, first action, edit boundary, cut**.
+Define unfamiliar words using the [short glossary](../../challenges/README.md#terms-used-in-the-labs).
+Show elapsed and room clocks together so solo, late-arrival, and accessibility
+routes do not require mental time conversion. In Lab 6 Core, ask participants to
+build their own map from the issue and contracts; do not project the optional
+Supported reading route.
+
+Before delivery, run `python scripts/workshop_journeys.py --check`. The
+[journey definition](../journeys.json) generates these tables and the lab cards;
+update it and regenerate rather than changing a copied clock. A captured
+[simulator introduction](../../docs/SIMULATOR_WALKTHROUGH.md) is available
+before the labs or during released slack. Live services are never the next
+lab's prerequisite.
 
 ## Lab lane contract
 
@@ -146,22 +169,39 @@ Never cut Slack A/B/C as if it were disposable: use slack to absorb the delay, r
 
 ## Operational cut triggers
 
-| Lab | Trigger | Mandatory action |
+<!-- journeys:cuts:start -->
+| Lab | Elapsed / cohort | Action |
 |---|---|---|
-| 0 | T+12 and not green | Assign paired work or captured/offline delivery; stop environment repair |
-| 1 | First live response exceeds 90 seconds | Use the captured explanation |
-| 2 | T+8 without repeatable failure | Show L1; use shipped acceptance failure |
-| 2 | T+35 without bounded change | Freeze code; continue Review and Explain |
-| 3 | T+10 without baseline evidence | Use baseline harness; narrow to Supported |
-| 3 | T+25 without edited plan | Use plan template; require two edits |
-| 3 | T+50 without one verified batch | Stop implementation; review, hand over, reset |
-| 4 | T+12 without two candidate findings | Show concern-first review order |
-| 4 | T+27 | Freeze human findings; open captured automated review |
-| 5 | T+3 and live eligibility is not Green from T-72 | Switch to captured; do not install or authenticate |
-| 5 | T+18 without positive and negative observations | Use prepared captured observations |
-| 6 | T+10 without bounded plan and first check | Narrow lane or use supervising-architect route |
-| 6 | T+35 without passing bounded slice | Freeze implementation; review, self-score, reset |
-| 7 | T+8 | Stop retrieval; complete the three commitments |
+| 0 | T+8 / 09:08 | Stop setup repair; choose an approved or captured route. |
+| 0 | T+15 / 09:15 | Keep the route decision and privacy statement; cut Extension. |
+| 1 | T+15 / 09:35 | Use the captured statement if live input is missing; stop any live wait at 90 seconds. |
+| 1 | T+26 / 09:46 | Open no new code paths; finish evidence and uncertainty. |
+| 1 | T+35 / 09:55 | Stop the task and review the note; cut extra triage and Extension. |
+| 2 | T+8 / 10:23 | No repeatable failure: take L1 and use the supplied failure. |
+| 2 | T+31 / 10:46 | Freeze implementation; review and explain the actual result. |
+| 2 | T+51 / 11:06 | Stop file changes; verify once and reset before the next block. |
+| 3 | T+10 / 12:40 | Missing baseline: use the harness and narrow to Supported. |
+| 3 | T+25 / 12:55 | Unedited plan: use the template, make two meaningful edits, choose one batch. |
+| 3 | T+46 / 13:16 | Start no new batch; review and explain. |
+| 3 | T+56 / 13:26 | Freeze edits; verify once and record the actual result. |
+| 3 | T+65 / 13:35 | Reset even if verification is red. |
+| 4 | T+9 / 14:04 | Write your account before opening the description. |
+| 4 | T+12 / 14:07 | Fewer than two concerns: take L1 and review one concern at a time. |
+| 4 | T+24 / 14:19 | Find no new issues; strengthen existing findings. |
+| 4 | T+27 / 14:22 | Open the captured automated review, even if your review is incomplete. |
+| 4 | T+33 / 14:28 | Stop analysis; fix only missing note structure. |
+| 4 | T+40 / 14:35 | Reset; do not borrow Slack B to finish Core. |
+| 5 | T+3 / 15:03 | If the preflight-approved live route does not work, use the capture; no installation or sign-in. |
+| 5 | T+18 / 15:18 | Stop adding configuration; use captured observations if needed. |
+| 5 | T+29 / 15:29 | Stop work; verify and reset. |
+| 5 | T+33 / 15:33 | Keep the control / negative case / limitation report. |
+| 6 | T+10 / 15:55 | No bounded plan and first check: take L1 and narrow the lane. |
+| 6 | T+20 / 16:05 | No passing slice: take L2 and choose one observable behaviour. |
+| 6 | T+32 / 16:17 | Freeze behaviour; review the full diff. |
+| 6 | T+46 / 16:31 | Record the last result and reset, including incomplete work. |
+| 7 | T+8 / 16:43 | Stop retrieval; protect the habit and three commitments. |
+| 7 | T+20 / 16:55 | Do not expand the pilot; close and save the next action. |
+<!-- journeys:cuts:end -->
 
 Cut any acceptance command after 90 seconds. Record the timeout and use the
 captured result; do not wait for a manifest safety timeout during delivery.

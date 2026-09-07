@@ -1,5 +1,39 @@
 # Elective 5B - CLI permissions and confinement
 
+<!-- journeys:card:5B:start -->
+## Run card
+
+| Decision | This lab |
+|---|---|
+| Outcome | Trace a proposed permission policy and identify what it cannot restrict. |
+| First action | `python scripts/workshop.py start elective-cli` |
+| Edit boundary | workshop/scenarios/elective-cli/work/ |
+| Evidence | `workshop/scenarios/elective-cli/work/permission_policy.md`; reset archives this work. |
+| Lane boundary | Supported: first three branch items and traced negative event. Core: all branch items and structure check. Extension: follow-up only. |
+| Delivery | Default: **captured/offline**. Routes: captured/offline, live. Mode does not raise or lower the lane; follow the acceptance checklist. |
+| Clock | **35 elapsed minutes**; cohort **15:00-15:35 Europe/Berlin**. [Self-paced route](README.md#self-paced-route): start at T+0, pause between phases, keep the same cuts. |
+| Recovery | `python scripts/workshop.py resync elective-cli --blocked-at <phase>`; then verify and reset. [Recovery commands](reference/scenario_tooling.md). |
+
+**Phase clock** (elapsed minutes; solo work uses the left column):
+
+| Elapsed | Cohort | Phase |
+|---|---|---|
+| T+0-5 | 15:00-15:05 | Understand/Plan |
+| T+5-18 | 15:05-15:18 | Implement/Test |
+| T+18-25 | 15:18-15:25 | Review |
+| T+25-29 | 15:25-15:29 | Explain |
+| T+29-33 | 15:29-15:33 | Verify and reset |
+| T+33-35 | 15:33-15:35 | Cross-elective awareness |
+
+**Cuts — move on with honest evidence:**
+- **T+3 / 15:03:** If the preflight-approved live route does not work, use the capture; no installation or sign-in.
+- **T+18 / 15:18:** Stop adding configuration; use captured observations if needed.
+- **T+29 / 15:29:** Stop work; verify and reset.
+- **T+33 / 15:33:** Keep the control / negative case / limitation report.
+
+[Return: Lab 5](lab_05_elective.md) · [Next: Lab 6](lab_06_capstone_transfer.md) · [All labs](README.md) · [Terms](README.md#terms-used-in-the-labs)
+<!-- journeys:card:5B:end -->
+
 **Block:** 15:00-15:35 (35 minutes) - **Scenario:** `elective-cli`
 **Parent:** [Lab 5 - Elective](lab_05_elective.md)
 
@@ -7,8 +41,9 @@
 
 ## Outcome
 
-You design and test one GitHub Copilot CLI permission policy, distinguish tool
-availability from approval and confinement, and state the residual blast radius.
+Design and test one proposed GitHub Copilot CLI permission policy. Separate
+tool visibility, permission to run, and process confinement (limits on what a
+running process can reach). State what could still be affected.
 Installing, authenticating, or enabling experimental sandbox features is not
 part of the block.
 
@@ -59,6 +94,9 @@ Plan one task and answer:
 
 ### Current product boundaries - as of 2026-08-25
 
+<details>
+<summary>Optional product lookup: permissions, preview limits, and official sources</summary>
+
 - GitHub Copilot CLI is **generally available** to Copilot subscribers. Business
   and Enterprise administrators can disable it.
 - Command-line allow/deny flags apply to the current session. Saved
@@ -87,14 +125,17 @@ Official references:
 - <https://docs.github.com/en/copilot/concepts/about-cloud-and-local-sandboxes>
 - <https://docs.github.com/en/copilot/reference/enterprise-administrators/enterprise-managed-settings>
 
+</details>
+
 ---
 
 ## Implement/Test (13 minutes)
 
 ### Captured/offline mode
 
-1. In `fixtures/repo_safe_task.md`, record your verdicts **before** reading the
-   transcript.
+1. Read `fixtures/repo_safe_task.md`. Record your predicted decisions in
+   `work/permission_policy.md` **before** reading the transcript. Do not edit
+   the fixture.
 2. Read `fixtures/cli_session_transcript.md` as an event trace. For each requested
    action, record:
    - whether the model needed that capability,
@@ -195,9 +236,11 @@ and requires the structural verifier to pass.
 
 ## Solo path
 
-Use the captured route. Make verdicts before opening the transcript, then compare,
-write the current policy mapping, and trace the negative case. This produces a
-reviewable artifact without pretending that the CLI or a sandbox ran.
+Use the captured route and shared 35-minute elapsed clock. Make predictions
+before opening the transcript. At T+18 stop editing the policy and trace one
+negative case through its rules. Explain what remains outside the policy, then
+verify/reset at T+29. Do not claim the CLI or sandbox ran. Finish the awareness
+step in [Lab 5](lab_05_elective.md#solo-path).
 
 ---
 

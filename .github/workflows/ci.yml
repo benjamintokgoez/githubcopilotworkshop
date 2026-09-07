@@ -5,7 +5,13 @@ on:
     branches: ["main"]
   pull_request:
     branches: ["main"]
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      delivery_snapshot:
+        description: "Retain this checked Linux environment as a snapshot (not release approval)"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -16,8 +22,9 @@ concurrency:
 
 env:
   # Exact interpreter patch baseline. Dependencies use bounded ranges rather
-  # than a lock file, so the delivery release checklist still requires a
-  # clean-room run. Keep this compatible with requires-python and aligned with
+  # than a development lock file. Tagged deliveries retain their tested
+  # snapshot separately; the checklist still requires a clean-room run.
+  # Keep this compatible with requires-python and aligned with
   # the baseline documented in pyproject.toml and the devcontainer.
   PYTHON_VERSION: "3.12.14"
 
@@ -42,6 +49,10 @@ jobs:
       - name: Install project (editable, with dev extras)
         run: python -m pip install -e ".[dev]"
 
+      - name: Include source build tools in selected delivery environment
+        if: github.event_name == 'workflow_dispatch' && inputs.delivery_snapshot
+        run: python -m pip install setuptools wheel
+
       - name: Verify dependency consistency
         run: python -m pip check
 
@@ -64,6 +75,9 @@ jobs:
 
       - name: Run workshop doctor (environment preflight)
         run: python scripts/workshop_doctor.py --strict
+
+      - name: Check generated participant journeys
+        run: python scripts/workshop_journeys.py --check
 
       - name: Validate dashboard JavaScript
         shell: bash
@@ -91,3 +105,20 @@ jobs:
 
       - name: Run security_check.py (workshop vulnerability scan)
         run: python security_check.py
+
+      # Manual repository workflows only: never package PR environments or publish
+      # a release. Capture runs after every quality gate in this same environment.
+      - name: Capture selected delivery environment
+        if: github.event_name == 'workflow_dispatch' && inputs.delivery_snapshot
+        run: |
+          python scripts/workshop_release.py capture --output dist/delivery-snapshot
+          python scripts/workshop_release.py check --snapshot dist/delivery-snapshot
+
+      - name: Retain selected environment snapshot
+        if: github.event_name == 'workflow_dispatch' && inputs.delivery_snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: delivery-snapshot-${{ github.sha }}
+          path: dist/delivery-snapshot/
+          if-no-files-found: error
+          retention-days: 90

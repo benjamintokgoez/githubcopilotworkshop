@@ -15,6 +15,9 @@ Record only: check, status, owner, timestamp, fallback lane, and ticket referenc
 ## T-72 hours: owner sign-off
 
 - [ ] **Objectives and artifacts:** facilitator guide, starter repository, lab branches, fixtures, expected evidence, rubric, feedback form, and all short links are versioned and locally available.
+- [ ] **Journey consistency:** run `python scripts/workshop_journeys.py --check`.
+      The source is `workshop/journeys.json`; regenerate cards after a clock,
+      route, or evidence-path change. Use the same elapsed and cohort cuts.
 - [ ] **Environment routes:** the organizer-tested Codespace is ready as the
       recommended route, and a local Python 3.12 environment is ready as the
       fallback. Both routes can run the doctor and test baseline.
@@ -66,6 +69,9 @@ event, and one limitation. Do not add a solution or claim live operation.
 
 ## Day-of: before doors open
 
+- [ ] Confirm the Lab 0 repair stop is **09:08 / T+8**, not T+12. Route anyone
+      still blocked to an approved or captured environment; protect the privacy
+      statement and capability card.
 - [ ] Start the Supported lane from a clean checkout; run the focused smoke test and one deliberate failure/recovery.
 - [ ] Open the starter repository, fixture data, test commands, pre-created captures, rubric, linked lab files, and run-of-show tabs before participants arrive.
 - [ ] Verify screen sharing, captions, microphones, timer, chat, breakout rooms, whiteboard, power, adapters, and visible support route.
@@ -75,6 +81,9 @@ event, and one limitation. Do not add a solution or claim live operation.
 - [ ] Take an anonymous green/amber/red confidence signal; assign helpers before Lab 1.
 - [ ] Confirm planned breaks and quiet space; ask privately whether anyone needs an adjustment, without asking for a diagnosis.
 - [ ] If cloud status, policy, network, or credits are amber/red, announce the captured/offline fallback once and continue. Do not burn Lab 0 or Lab 1 on repeated retries.
+- [ ] Show the evidence location from the run card. Non-scenario notes belong
+      in `.workshop-state/notes/`; scenario notes belong under that scenario's
+      `work/` so reset archives them. Neither is collected by organisers.
 
 ## Five-minute smoke test
 

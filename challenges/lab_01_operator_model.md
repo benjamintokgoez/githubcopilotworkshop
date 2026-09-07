@@ -1,5 +1,36 @@
 # Lab 1 - The operator model and a worked example
 
+<!-- journeys:card:1:start -->
+## Run card
+
+| Decision | This lab |
+|---|---|
+| Outcome | Choose a workflow and verify claims without editing code. |
+| First action | Open [the invariants](reference/invariants.md) and choose one calculation. |
+| Edit boundary | Read-only checkout; do not repair code in this lab. |
+| Evidence | `.workshop-state/notes/lab-01.md`; private and Git-ignored. |
+| Lane boundary | Supported: two claims, one verified. Core: three claims, two verified. Both: one open claim and uncertainty. Extension: narrower comparison. |
+| Delivery | Default: **local**. Routes: local, captured/offline, live. Mode does not raise or lower the lane; follow the acceptance checklist. |
+| Clock | **40 elapsed minutes**; cohort **09:20-10:00 Europe/Berlin**. [Self-paced route](README.md#self-paced-route): start at T+0, pause between phases, keep the same cuts. |
+| Recovery | Keep the actual result in your private note; use the supplied capture or approved route. |
+
+**Phase clock** (elapsed minutes; solo work uses the left column):
+
+| Elapsed | Cohort | Phase |
+|---|---|---|
+| T+0-12 | 09:20-09:32 | Worked example / solo reading |
+| T+12-30 | 09:32-09:50 | Your full loop |
+| T+30-35 | 09:50-09:55 | Workflow triage |
+| T+35-40 | 09:55-10:00 | Review note / rejoin |
+
+**Cuts — move on with honest evidence:**
+- **T+15 / 09:35:** Use the captured statement if live input is missing; stop any live wait at 90 seconds.
+- **T+26 / 09:46:** Open no new code paths; finish evidence and uncertainty.
+- **T+35 / 09:55:** Stop the task and review the note; cut extra triage and Extension.
+
+[Return: Lab 0](lab_00_preflight.md) · [Next: Lab 2](lab_02_incident_triage.md) · [All labs](README.md) · [Terms](README.md#terms-used-in-the-labs)
+<!-- journeys:card:1:end -->
+
 **Block:** 09:20-10:00 (40 minutes) - **Mode:** pairs, with solo and
 captured/offline routes
 **Loop stages:** **Understand/Plan -> Implement/Test -> Review -> Explain**.
@@ -10,16 +41,9 @@ For the participant task, the bounded implementation decision is deliberately
 
 ## Outcome
 
-You can choose between an **Ask**, **Plan**, and **Agent** workflow for a concrete
-task and defend the choice, build a bounded map of an unfamiliar code path, and
-turn a generated explanation into something you have personally verified.
-
-This is the lab that sets the standard for the whole day: **you are the operator**.
-The tool proposes; you decide, verify, and remain accountable.
-
-The same evidence serves both implementation and architecture work: it tells a
-developer whether a claim is safe to act on and tells an architect whether the
-chosen authority, controls, and review burden fit the task.
+Choose **Ask**, **Plan**, or **Agent** for one task and explain why. Map only the
+code needed for that decision. Turn a generated explanation into claims you can
+check yourself. The tool proposes; you decide and remain accountable.
 
 ---
 
@@ -32,7 +56,7 @@ the label you actually see.
 
 | Role used in this lab | Expected action boundary | Use it when | Operator check |
 |---|---|---|---|
-| **Ask** | Read-only Q&A and suggestions; no workspace edits. | You need to understand, compare, or decide. | Can I turn the response into falsifiable claims? |
+| **Ask** | Read-only Q&A and suggestions; no workspace edits. | You need to understand, compare, or decide. | Can I state claims that evidence could prove wrong? |
 | **Plan** | Read-only research and an implementation plan for review before handoff. | The task spans files, has ordering constraints, or must preserve a contract. | Are scope, non-goals, risks, and verification explicit? |
 | **Agent** | Local edits, tool calls, commands, and iteration. | The task is bounded and you can supervise and verify it. | Which tools, approvals, isolation, stop rule, and rollback apply? |
 
@@ -92,8 +116,8 @@ decisions. The facilitator will narrate:
 1. **Understand/Plan** - what question was asked first, and why it was not
    "fix this".
 2. **Implement/Test** - how the scope was bounded before anything was accepted.
-3. **Review** - one generated suggestion is **rejected on camera**, with the
-   reason stated. This is the most important 60 seconds of the demonstration.
+3. **Review** - one generated suggestion is **rejected in the demonstration**,
+   with the reason stated. Recording is not required.
 4. **Explain** - the three-part uncertainty sentence, said out loud.
 
 Write down the moment the facilitator chose an interaction role, the authority it
@@ -131,7 +155,7 @@ challenger may use the shared note.
 No live Q&A? Use the facilitator's captured explanation from Part A, or treat
 this synthetic statement as untrusted input:
 
-> The selected risk path follows the repository's sign and scaling conventions
+> The selected calculation follows the repository's sign and scaling conventions
 > and handles its boundary inputs consistently.
 
 Split it into claims and verify it exactly as you would a generated response.
@@ -230,11 +254,12 @@ spend each lab repeating setup work.
 
 ## Solo path
 
-Budget 30 minutes: 8 minutes to read the role table and
-[reference/evidence.md](reference/evidence.md), 17 minutes for Part B, and
-5 minutes to answer Part C in writing. Use live Q&A or the offline statement.
-Replace the pair challenge with a deliberate second pass after closing the chat
-response. The evidence may be written; speaking aloud is not required.
+Use the run card's **40-minute elapsed clock**: 12 minutes for the role table,
+[reference/evidence.md](reference/evidence.md), and the worked-loop decisions;
+18 for Part B; 5 for Part C; 5 to review the note and move on.
+Use live Q&A or the offline statement. Close the response before your review
+pass. At T+26, open no new paths: finish evidence and uncertainty. Write your
+answers; speaking aloud is not required.
 
 ---
 

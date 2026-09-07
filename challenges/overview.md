@@ -65,12 +65,16 @@ before making one well-evidenced decision.
 
 ## The run card for every timed lab
 
-1. **Outcome:** say what capability this lab adds.
-2. **Invariant:** identify what must remain true.
-3. **Artifact:** know where the work and evidence belong.
-4. **Timebox:** stop the current phase when its time expires.
-5. **Evidence:** record what was observed, not what was intended.
-6. **Resync:** verify once, archive/reset, and rejoin the room.
+Every lab starts with a generated card: outcome, first action, edit boundary,
+evidence location, lane, delivery route, phase clock, cuts, and recovery.
+Use it to start work without reading every reference first. The full
+instructions and acceptance criteria remain below the card.
+
+The clocks come from [one journey definition](../workshop/journeys.json).
+**Elapsed time** starts at T+0 for your current lab; the cohort column gives
+the same phase in Europe/Berlin time. Follow the
+[self-paced route](README.md#self-paced-route) to pause, return, or replace a
+pair with an independent second review pass.
 
 Completion is not the only successful outcome. A participant who cannot complete
 one phase should still practise the later phases on the incomplete attempt. For

@@ -24,6 +24,9 @@ below.
 - [ ] Revalidate current GitHub Copilot, model/Auto, Agent, cloud-agent, code-review, MCP, Actions, runner, Codespaces/devcontainer, and organization-policy behavior against current official documentation and a disposable test path.
 - [ ] Record product surface, URL, observed behavior, validation date, account/org scope, and fallback in the manifest below.
 - [ ] Re-run the clean-room checkpoint from a fresh clone and clean environment.
+- [ ] Retain the exact tested dependency/environment snapshot for each tagged
+      delivery target using the workflow below; keep development dependency
+      ranges unchanged. Verify a restore against that snapshot before delivery.
 - [ ] Verify all captures are sanitized, labelled with date and product context, and still understandable if the live UI differs.
 - [ ] Run pilot checks for representative and enterprise-restricted cohorts, including proxy/SSL and accessibility paths.
 - [ ] Confirm AI-credit budgets, rate limits, quotas, runner capacity, and support contacts with the organizer; do not put credentials in the manifest.
@@ -53,6 +56,153 @@ below.
 - [ ] Confirm T-72 live-elective eligibility and organizer capability matrix are
       complete; no timed install/auth/proxy/policy discovery remains.
 - [ ] Freeze the release branch/tag only after the above evidence is attached to the internal release record.
+
+## Retain and replay the tested environment
+
+Development continues to use the bounded ranges in `pyproject.toml`; a moving
+development environment is **not** the retained environment for a tagged
+delivery. Use `scripts/workshop_release.py` to retain the actual resolved
+transitive versions separately from development requirements. The tool is
+standard-library-only, writes only to an explicitly selected new local
+directory, and never creates a tag, publishes anything, runs tests, or grants
+organizer approval.
+
+### Capture after validation
+
+1. Use a dedicated virtual environment on the intended delivery platform and
+   exact Python patch. It must import this checkout's editable `mittelwerk`
+   source. Prepare dependencies with `python -m pip install -e ".[dev]"
+   setuptools wheel` **before** running the clean-room checks; retaining these
+   build tools also enables the no-build-isolation restore below.
+2. Run the repository quality gates, workshop doctor,
+   `python scripts/workshop_journeys.py --check`, and the appropriate pilot.
+   Record the results separately, with the
+   source revision and target platform. Installing anything or changing source
+   after testing requires revalidation.
+3. Capture the unchanged environment and verify it:
+
+   ```bash
+   python scripts/workshop_release.py capture --output dist/delivery-target
+   python scripts/workshop_release.py check --snapshot dist/delivery-target
+   ```
+
+   Use a new directory for every capture; existing output is never overwritten.
+   `dist/` is ignored by Git: these are retained delivery artifacts, not a
+   local-machine lockfile to commit. Select a target-specific name for each
+   Python/OS/architecture combination.
+4. Retain the complete directory, the exact approved source/tag, and the
+   independently recorded test/pilot/approval evidence through the organizer's
+   approved internal artifact channel. Verify again against the final tag.
+   Retain a complete repository checkout/archive, including the offline capture
+   `docs/fixtures/simulator_first_win.txt`; dependency wheels do not contain the
+   workshop's complete documentation and captured/offline assets.
+   A changed revision requires a new capture, even if its files are identical.
+   A dirty capture is useful for local diagnosis, but is **not** a tagged
+   delivery baseline; revalidate and capture the final clean source.
+
+Each directory contains:
+
+| Artifact | Meaning |
+|---|---|
+| `constraints.txt` | Sorted exact versions of **all** installed external distributions, including development/build tools; the editable repository project is deliberately excluded |
+| `manifest.json` | Schema version, package identities, Python patch/implementation/ABI, OS/architecture/libc target, project identity, Git revision, current source digest and dirty flag, selected repository manifest hashes, artifact SHA-256 hashes, and explicit limitations |
+| `wheelhouse/` (optional) | Exactly one binary wheel for each captured external distribution, with per-file SHA-256 hashes |
+
+No timestamps, hostnames, local source paths, usernames, Git remotes/authors,
+environment variable values, package-index configuration, or direct-URL
+metadata are exported. External editable/direct-URL dependencies and local
+version labels are rejected, not silently omitted. Use a dedicated approved
+index-based environment instead; do not work around rejection by deleting
+provenance metadata. The local project is bound to this repository's editable
+source rather than substituted with a same-named index package.
+
+`check` requires the exact installed package set (including tooling), versions,
+Python/platform target, source revision and source bytes, and validates artifact
+hashes. It fails closed on malformed, missing, extra, changed, or unsupported
+artifacts. Its success means **matching inputs**, not passed tests or approval.
+The source digest covers tracked and non-ignored untracked files, excluding the
+selected artifact directory. Ignored files, OS packages, native drivers,
+system libraries beyond the recorded target indicators, editor extensions,
+Copilot clients, and external services are not an environment image.
+
+### Restore from constraints and repository source
+
+Obtain the trusted snapshot and its matching source/tag before installation.
+Create a fresh virtual environment using the same Python patch on the same
+target platform; do not reuse a workstation environment with unrelated packages.
+For the build-tool-inclusive snapshot prepared above:
+
+```bash
+python -m pip install -r dist/delivery-target/constraints.txt
+python -m pip install --no-build-isolation --no-deps \
+  -c dist/delivery-target/constraints.txt -e ".[dev]"
+python -m pip check
+python scripts/workshop_release.py check --snapshot dist/delivery-target
+```
+
+The constraints file can be used with `-c` for dependency resolution, but
+constraints alone do not install packages; `-r` above installs the entire
+recorded set first. Do not replace the local source/tag with
+`pip install mittelwerk`. If the virtual environment bootstraps an extra package
+not in the snapshot, recreate it without that extra rather than treating a
+mismatch as a pass. Re-run the quality gates and delivery smoke/pilot after
+restore. Online version pins do not guarantee the continued availability or
+identical bytes of packages on an index.
+
+### Optional approved offline wheels or image
+
+To retain external package bytes, explicitly request downloads from the active
+pip's already approved package sources:
+
+```bash
+python scripts/workshop_release.py capture \
+  --output dist/delivery-target-offline --wheelhouse
+python scripts/workshop_release.py check --snapshot dist/delivery-target-offline
+```
+
+This uses existing pip, downloads binary wheels only, and neither installs
+packages nor builds arbitrary source distributions. Pip, setuptools, and wheel
+must already have been installed **before** testing. A missing binary wheel,
+failed download, or changed environment aborts capture and removes the incomplete
+output. Pip diagnostics/configuration are not retained because they can contain
+credentials. Wheels are publisher-provided bytes, not proof of approval or a
+substitute for dependency/license review.
+
+On the matching platform, restore without contacting an index:
+
+```bash
+python -m pip install --no-index \
+  --find-links dist/delivery-target-offline/wheelhouse \
+  -r dist/delivery-target-offline/constraints.txt
+python -m pip install --no-index --no-build-isolation --no-deps \
+  -c dist/delivery-target-offline/constraints.txt -e ".[dev]"
+python -m pip check
+python scripts/workshop_release.py check --snapshot dist/delivery-target-offline
+```
+
+Use only a trusted retained artifact: hashes detect corruption or change, not
+authenticity if an attacker replaces both manifest and files. The source remains
+a separate requirement. Wheels and snapshots are **not portable across arbitrary
+Python patches, platforms, architectures, or native-library environments**.
+When a complete container/VM is needed, the organizer must separately approve,
+retain, and test an immutable image/digest and record its platform. The floating
+devcontainer image tag and its range-based `postCreateCommand` are development
+conveniences, not a delivery freeze. No image build or publication is automated
+by this tool.
+
+### Optional CI retention
+
+A maintainer may manually run **CI** with `delivery_snapshot` enabled against
+the intended trusted repository revision/tag. Only after all existing quality
+checks pass does that same job capture/check its Linux environment and upload a
+workflow artifact named `delivery-snapshot-<revision>`. Normal pushes and pull
+requests do not package snapshots. The manual option installs the source build
+tools before the quality checks so they are included in the tested snapshot.
+This option does not download a wheelhouse,
+publish a release, or perform a pilot/approval. The artifact expires after
+90 days (or earlier under repository policy); download and retain it in the
+approved delivery record before expiry. A CI Linux snapshot does not describe
+macOS, Windows, or the devcontainer environment.
 
 ## Day before
 

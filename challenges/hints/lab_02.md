@@ -1,14 +1,14 @@
 # Hints - Lab 2 (guided incident)
 
-No hint level names a file, a function, or a fix. If you want the answer, the
-honest move is to ask a human, and that is an allowed move.
+No hint names the faulty file, function, or repair. If you still need help,
+ask a person to help choose the next check, not to supply a solution.
 
 <details>
-<summary><strong>L1 - Orientation</strong> (take by 10:23 without a reproduction)</summary>
+<summary><strong>L1 - Orientation</strong> (T+8 / 10:23: no repeatable failure)</summary>
 
 - Separate the ticket into three columns before you touch code: **observed**,
-  **concluded**, **assumed**. Most tickets have one line in the first column and
-  five in the other two.
+  **concluded**, **assumed**. Do not treat the reporter's proposed cause as an
+  observed fact.
 - Start from the reported symptom and follow the data, not the file names. Ask:
   what path does an incoming service request take before an assignment exists?
 - The worked example in
@@ -37,7 +37,7 @@ honest move is to ask a human, and that is an allowed move.
 </details>
 
 <details>
-<summary><strong>L3 - Structure</strong> (take at 10:46 and finish the remaining loop)</summary>
+<summary><strong>L3 - Structure</strong> (T+31 / 10:46: finish Review and Explain)</summary>
 
 Core evidence contains:
 
@@ -54,8 +54,8 @@ Core evidence contains:
 If your regression test would still pass with the change reverted, it is not a
 regression test.
 
-Supported evidence stops after a captured or live failure, invariant,
-localization, one review finding, bounded next action, and honest handover. Do not
+Supported evidence needs a captured or live failure, invariant, the relevant
+code path, one review finding, bounded next action, and honest handover. Do not
 claim that unrun or failing acceptance passed.
 
 </details>

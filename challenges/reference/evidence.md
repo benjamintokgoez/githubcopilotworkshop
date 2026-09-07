@@ -6,9 +6,16 @@ to human-written code.
 
 ## The evidence note
 
-Keep one Markdown scratch file per lab (anywhere outside the repository history is
-fine; `notes/` in your working copy works). Fill in these seven lines. They take
-about three minutes once you have the habit.
+Keep one private Markdown note per lab. For scenario labs, use the evidence file
+under `workshop/scenarios/<id>/work/` named in the run card: `reset` archives
+participant additions with the attempt. For Labs 0, 1, 7, and elective-choice
+notes, use **`.workshop-state/notes/`**, which is already ignored by Git. Create
+that folder in your editor if needed. Do not use a top-level `notes/` folder:
+it is not covered by the repository's ignore rules.
+
+The first seven lines are the engineering evidence; the last three state the
+lane and delivery mode. Use short phrases, not an essay. Paste only the relevant
+synthetic output, never secrets, personal data, or a full unrelated transcript.
 
 ```markdown
 ## Lab N - <title>
@@ -17,7 +24,7 @@ about three minutes once you have the habit.
 2. Invariant at stake:                 (INV-... from reference/invariants.md)
 3. Workflow chosen:                    Ask | Plan | Agent  - because ...
 4. Model used:                         Auto or approved model - because ...
-5. Evidence that it works:             command + observed result (paste output)
+5. Evidence / actual status:           command + observed result; label captured/unrun
 6. Blast radius:                       files touched, what else could break
 7. Uncertainty:                        what I verified / what I assumed /
                                        what could still be wrong
@@ -26,7 +33,7 @@ about three minutes once you have the habit.
 10. Live surface operated:             <surface> | none
 ```
 
-Line 7 is the one people skip and the one reviewers value most.
+Line 7 keeps the review honest even when a check failed or could not run.
 
 Lines 8-10 prevent two false conclusions. A deliberately narrower Supported
 artifact does not need to pass a full Core verifier, and a captured analysis
@@ -55,7 +62,7 @@ Worked example:
 
 > I verified that a 12-hour request now uses the accepted 110.00 EUR/h provider rate, using
 > the scenario's acceptance command, and that the regression test fails on the
-> pre-change commit. I assumed the fixture's arrival timestamps reflect real
+> original staged state. I assumed the fixture's arrival timestamps reflect real
 > arrival order rather than insertion order. It could still be wrong if two offers
 > share a timestamp, which the fixture does not cover.
 
@@ -79,6 +86,19 @@ review it the same way:
    number formatting, error swallowing.
 6. **Explanation** - can you restate why the change works without reading the
    generated commentary? If not, you are not the reviewer yet.
+
+Use `python scripts/workshop.py diff <scenario-id>` to inspect active work
+against its starting state; ordinary `git diff` does not show changes to these
+new, untracked scenario files.
+Use `--path <work-relative-file>` for one file, then review the full diff before
+acceptance. Optional `verify <scenario-id> --record` saves bounded local check
+evidence and file inventories under `.workshop-state/evidence/`; reset moves
+the matching records into the archive's `verification/` directory. Use the
+printed archive path afterwards, not the old record path. A record does not
+replace your note or prove that you reviewed the change. See
+[scenario tooling](scenario_tooling.md#pause-and-return) for returning to an
+archived attempt. These files stay on your machine; organisers do not collect
+them or your rubric.
 
 Copilot code review is a useful **second** pass, not a substitute for the first:
 <https://docs.github.com/en/copilot/concepts/agents/code-review>.

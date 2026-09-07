@@ -1,7 +1,47 @@
 # Lab 4 - Reviewing work you did not write
 
+<!-- journeys:card:4:start -->
+## Run card
+
+| Decision | This lab |
+|---|---|
+| Outcome | Write independent findings, compare automated review, and decide. |
+| First action | `python scripts/workshop.py start review-pr` |
+| Edit boundary | Only workshop/scenarios/review-pr/work/review_notes.md; do not apply the patch. |
+| Evidence | `workshop/scenarios/review-pr/work/review_notes.md`; reset archives this work. |
+| Lane boundary | Supported: two findings and captured comparison. Core: three findings and passing structure check. Both: own decision and uncertainty. Extension: recurrence control. |
+| Delivery | Default: **captured/offline**. Routes: captured/offline, live. Mode does not raise or lower the lane; follow the acceptance checklist. |
+| Clock | **45 elapsed minutes**; cohort **13:55-14:40 Europe/Berlin**. [Self-paced route](README.md#self-paced-route): start at T+0, pause between phases, keep the same cuts. |
+| Recovery | `python scripts/workshop.py resync review-pr --blocked-at <phase>`; then verify and reset. [Recovery commands](reference/scenario_tooling.md). |
+
+**Phase clock** (elapsed minutes; solo work uses the left column):
+
+| Elapsed | Cohort | Phase |
+|---|---|---|
+| T+0-4 | 13:55-13:59 | Start and orient |
+| T+4-9 | 13:59-14:04 | Independent read |
+| T+9-24 | 14:04-14:19 | Human review |
+| T+24-27 | 14:19-14:22 | Process check and decision |
+| T+27-33 | 14:22-14:28 | Captured-review comparison |
+| T+33-37 | 14:28-14:32 | Verify and cut |
+| T+37-40 | 14:32-14:35 | Reset |
+| T+40-45 | 14:35-14:40 | Rejoin / review note |
+
+**Cuts — move on with honest evidence:**
+- **T+9 / 14:04:** Write your account before opening the description.
+- **T+12 / 14:07:** Fewer than two concerns: take L1 and review one concern at a time.
+- **T+24 / 14:19:** Find no new issues; strengthen existing findings.
+- **T+27 / 14:22:** Open the captured automated review, even if your review is incomplete.
+- **T+33 / 14:28:** Stop analysis; fix only missing note structure.
+- **T+40 / 14:35:** Reset; do not borrow Slack B to finish Core.
+
+[Return: Lab 3](lab_03_plan_driven_migration.md) · [Next: Lab 5](lab_05_elective.md) · [All labs](README.md) · [Terms](README.md#terms-used-in-the-labs)
+<!-- journeys:card:4:end -->
+
 **Block:** 13:55-14:40 (45 minutes) - **Mode:** pairs or solo
-**Loop stages:** Review -> Explain
+**Loop:** Understand/Plan -> Implement/Test -> Review -> Explain.
+The emphasis is Review and Explain; implementation is your review note, and the
+test checks its structure.
 **Scenario:** `review-pr`
 **Hard reset:** 14:35
 
@@ -9,9 +49,9 @@
 
 ## Outcome
 
-You review a change you did not write or watch being written, produce prioritised
-findings another contributor could act on, compare your judgement with an
-automated review, and make an explicit review decision.
+Review a change you did not write. Give the author a short, ordered list of
+findings they can act on. Compare an automated review only after your own
+review, then decide whether to approve or request changes.
 
 The default route is captured and offline. No cloud run, live pull request, or
 Copilot code review entitlement is needed. Forty-five minutes is enough for the
@@ -20,6 +60,13 @@ Core route only when the reading order and cut times are protected.
 ---
 
 ## Local agent session and Copilot cloud agent
+
+Local work happens on your machine; cloud work happens in a separate hosted
+environment. Both need human review. Use the captured package today; open this
+product reference only if the distinction affects your decision.
+
+<details>
+<summary>Optional product reference: execution, availability, and official sources</summary>
 
 **Copilot cloud agent** is the current name for the product formerly called
 **Copilot coding agent**. In VS Code, the broader **Cloud** session target may
@@ -83,6 +130,8 @@ Official references:
 - <https://docs.github.com/en/copilot/concepts/policies>
 - <https://docs.github.com/en/copilot/concepts/billing/budgets-for-usage-based-billing>
 
+</details>
+
 ---
 
 ## Set up and choose roles - 13:55-13:59
@@ -145,16 +194,9 @@ issue and diff.
 
 ## The 45-minute route
 
-| Clock | Budget | Phase | Required output |
-|---|---:|---|---|
-| 13:55-13:59 | 4 min | Start and orient | Empty-template fail-before run, roles |
-| 13:59-14:04 | 5 min | Independent read | Issue + diff account written before summary |
-| 14:04-14:19 | 15 min | Structured human review | Two or three prioritised findings with evidence |
-| 14:19-14:22 | 3 min | Process check and decision | Description/log/thread comparison; role rotation |
-| 14:22-14:28 | 6 min | Automated-review comparison | Three comparison statements |
-| 14:28-14:32 | 4 min | Verify and cut | Structural check fixed or honest gap recorded |
-| 14:32-14:35 | 3 min | Reset | Attempt archived; scenario inactive |
-| 14:35-14:40 | 5 min | Room resync | Blocking call and evidence, not a defect count |
+Follow the [run card](#run-card). Human findings come before the captured
+comparison. Keep four minutes for the structure check, three for reset, and
+five to record or share your decision and its evidence, not a defect count.
 
 ### Stop and cut decisions
 
@@ -203,8 +245,8 @@ For each finding, record:
 | Requested change | A specific outcome, not "please fix" |
 
 At least one finding must evaluate scope. Two findings with traceable evidence
-are Supported; a third makes the Core set. Both beat eleven observations with no
-consequence. A changed test is evidence about
+are Supported; a third makes the Core set. Prefer a few supported findings over
+a long list of guesses. A changed test is evidence about
 what the author chose to assert; a green test claim is not proof that the test
 remained strong.
 
@@ -232,7 +274,8 @@ Only now open `captured_code_review.md`. Record:
 - one comment you would not forward, with the contract or trade-off that makes it
   unhelpful.
 
-Do not count comments. Compare relevance, evidence, severity, and actionability.
+Do not count comments. Compare relevance, evidence, seriousness, and whether
+the author could act on each comment.
 The final approve/request-changes decision remains yours.
 
 If the facilitator has a prepared isolated pull request and live Copilot code
@@ -305,9 +348,11 @@ gap is recorded before reset.
 
 ## Solo and captured/offline routes
 
-Solo work uses the same clocks. The role change at 14:19 prevents the
-automated review from becoming an answer key: first defend your own evidence,
-then challenge it.
+Use the run card's 45-minute elapsed clock. At T+24, stop seeking findings and
+switch to checking your decision. At T+27, open the captured automated review,
+even if your own findings are incomplete. At T+33, stop analysis and verify;
+reset by T+40. Keep the final five minutes for your uncertainty note. The
+reading order stays the same: your evidence first, automated comments second.
 
 The complete package under `workshop/fallbacks/review-pr/` is the default route
 and works offline. If the scenario runner is unavailable, copy the staged

@@ -52,8 +52,9 @@ python -m pip install -r requirements.txt
   result, the contract comparison, and handover in that note. An arbitrary note
   is not automatic agent context; explicitly attach, reference, or hand it off.
 - Diff against the pristine starting point at any time:
-  `git diff --no-index workshop/scenarios/migration-legacy-models/payloads/legacy_models.py.txt
-  workshop/scenarios/migration-legacy-models/work/legacy_models.py`
+  `python scripts/workshop.py diff migration-legacy-models`.
+  Add `--path legacy_models.py` to review only that file. Ordinary `git diff`
+  does not compare these new working files with the staged starting point.
 - The request is underspecified in one place. Finding it is part of the planning
   work, and nothing in this folder tells you where it is.
 - Lab cuts are deliberate: start no new batch after 13:16, freeze edits at

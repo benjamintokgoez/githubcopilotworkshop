@@ -1,5 +1,37 @@
 # Lab 2 - Guided incident: a service rate nobody offered
 
+<!-- journeys:card:2:start -->
+## Run card
+
+| Decision | This lab |
+|---|---|
+| Outcome | Reproduce, bound, review, and explain one incident. |
+| First action | `python scripts/workshop.py start incident-service-rate` |
+| Edit boundary | workshop/scenarios/incident-service-rate/work/ |
+| Evidence | `workshop/scenarios/incident-service-rate/work/NOTES.md`; reset archives this work. |
+| Lane boundary | Supported: located path and reviewed next action; full check may fail. Core: repair, independent regression, passing check. Extension: one adjacent invariant. |
+| Delivery | Default: **local**. Routes: local, captured/offline, live. Mode does not raise or lower the lane; follow the acceptance checklist. |
+| Clock | **65 elapsed minutes**; cohort **10:15-11:20 Europe/Berlin**. [Self-paced route](README.md#self-paced-route): start at T+0, pause between phases, keep the same cuts. |
+| Recovery | `python scripts/workshop.py resync incident-service-rate --blocked-at <phase>`; then verify and reset. [Recovery commands](reference/scenario_tooling.md). |
+
+**Phase clock** (elapsed minutes; solo work uses the left column):
+
+| Elapsed | Cohort | Phase |
+|---|---|---|
+| T+0-13 | 10:15-10:28 | Understand/Plan |
+| T+13-31 | 10:28-10:46 | Implement/Test |
+| T+31-41 | 10:46-10:56 | Review |
+| T+41-51 | 10:56-11:06 | Explain |
+| T+51-65 | 11:06-11:20 | Verify / reset / rejoin |
+
+**Cuts — move on with honest evidence:**
+- **T+8 / 10:23:** No repeatable failure: take L1 and use the supplied failure.
+- **T+31 / 10:46:** Freeze implementation; review and explain the actual result.
+- **T+51 / 11:06:** Stop file changes; verify once and reset before the next block.
+
+[Return: Lab 1](lab_01_operator_model.md) · [Next: Lab 3](lab_03_plan_driven_migration.md) · [All labs](README.md) · [Terms](README.md#terms-used-in-the-labs)
+<!-- journeys:card:2:end -->
+
 **Block:** 10:15-11:20 (65 minutes) - **Mode:** pairs, with solo and
 captured/offline routes
 **Loop stages:** all four - Understand/Plan -> Implement/Test -> Review -> Explain
@@ -9,20 +41,18 @@ captured/offline routes
 
 ## Outcome
 
-You take a real-shaped incident from an ambiguous ticket to a defensible
-disposition: reproduced, localised, reviewed, and explained with honest
-uncertainty. Core adds a supervised repair and independent fail-before/pass-after
-regression evidence; Supported preserves the same incident reasoning when
-implementation is blocked.
+Take a realistic synthetic incident from an unclear ticket to a decision you can
+defend. Reproduce it, locate the relevant path, review the next action, and
+explain uncertainty. Core adds a supervised repair and a separate
+fail-before/pass-after regression check. Supported keeps the same reasoning
+when implementation is blocked.
 
 This is the first lab where you change code. It is guided: the structure is given,
 the answer is not.
 
-The same incident evidence supports two decisions: a developer can decide whether
-a bounded repair is safe to merge, and an architect can decide whether the
-diagnostic path, controls, and regression evidence are strong enough for a
-client-facing system. Work on one shared artifact rather than producing separate
-role reports.
+Developers and architects use one shared note: is the change correct, is the
+scope safe, and what evidence supports the decision? No separate role report is
+needed.
 
 ---
 
@@ -109,13 +139,8 @@ service domain knowledge is expected; everything required is written there.
 
 ## Timebox
 
-| Time | Phase | Required output |
-|---|---|---|
-| 10:15-10:28 | **Understand/Plan** | Fail-before evidence, observed/concluded/assumed split, invariant, bounded plan |
-| 10:28-10:46 | **Implement/Test** | Focused regression attempt, bounded diff or honest incomplete state, verifier result |
-| 10:46-10:56 | **Review** | Evidence-based finding and scope decision |
-| 10:56-11:06 | **Explain** | Operations handover and uncertainty |
-| 11:06-11:20 | **Resync** | Verify once, archive/reset, share method |
+Use the [run card](#run-card) for the elapsed and cohort phase clock. The steps
+below describe what to record in each phase.
 
 Setup and reproduction are inside Understand/Plan. The external 11:20-11:45
 Slack A block is protected recovery time, not hidden Core-lab budget.
@@ -156,6 +181,8 @@ Supervision is the skill being trained here. Whichever workflow you chose:
   the diff exceeds that, stop and ask why.
 - **Checkpoint.** Inspect the diff after each meaningful step. Scenario reset is
   the archive-and-restore route, not a substitute for reading the current diff.
+  Use `python scripts/workshop.py diff incident-service-rate`; these new,
+  untracked `work/` files do not appear in ordinary `git diff`.
 - **Interrupt early.** If a session starts refactoring, renaming, or "improving"
   code you did not ask about, stop it. Do not let it finish out of politeness.
 - **Challenge one proposed claim or change.** Reject or narrow it when evidence
@@ -303,9 +330,10 @@ scenario to make Core fit.
 
 ## Solo path
 
-Budget the full 65 minutes: 13 Understand/Plan, 18 Implement/Test, 10 Review in a
-diff viewer, 10 Explain, and 14 verify/archive/reset/resync. Do not
-review in the same editor view you implemented in.
+Use the full 65-minute elapsed clock in the run card. At T+8, use the supplied
+failure if you cannot reproduce it. At T+31, stop implementation and review
+from the diff, not the editor view you used to write the change. At T+51,
+verify once and reset. An unfinished repair still needs Review and Explain.
 
 No runner? Use the offline working-copy or read-only route above. Do not
 reconstruct a different incident when the same synthetic ticket, logs, staged

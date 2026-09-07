@@ -1,7 +1,7 @@
 # Hints - Lab 3 (plan-driven migration)
 
-Open only the next level you need. A hint should restore the method, not disclose
-the migration.
+Open only the next level you need. Hints help you return to the method; they do
+not supply the migration.
 
 <details>
 <summary><strong>L1 - Orientation</strong> (recover scope and evidence)</summary>
@@ -13,13 +13,13 @@ the migration.
   change.
 - In a pair, ask the contract reviewer to state the file scope and the current
   stop time. Solo, write those two lines before continuing.
-- If it is already 12:55 and no edited plan exists, take the Supported route:
+- At T+25 / 12:55, if no edited plan exists, take the Supported route:
   plan and verify one batch rather than rushing the whole migration.
 
 </details>
 
 <details>
-<summary><strong>L2 - Method</strong> (recover a supervisable batch)</summary>
+<summary><strong>L2 - Method</strong> (choose a batch you can review and test)</summary>
 
 - Split by a dependency boundary that can be checked independently. If its diff
   cannot be read in two minutes or its check cannot run in five, split again.
@@ -27,9 +27,9 @@ the migration.
   exact check, and rollback point.
 - A task note becomes agent context only when you explicitly attach, reference,
   or hand it off. Do not assume every Markdown file is discovered automatically.
-- Compare accepted and rejected behaviour. Happy-path output alone misses
+- Compare accepted and rejected behaviour. Valid-input output alone misses
   defaults, aliases, validation, and error translation.
-- A proposed out-of-inventory edit is a question to investigate. It is never an
+- A proposed edit outside the inventory needs evidence. It is never an
   automatic expansion of scope.
 
 </details>
@@ -57,8 +57,9 @@ Final state:
   I verified ... I assumed ... It could still be wrong if ...
 ```
 
-At 13:16, start no new batch. At 13:26, stop editing and record the real verifier
-result before reset. A useful incomplete handover is a Supported outcome; changing tests,
-inventing evidence, or skipping reset is not.
+At T+46 / 13:16, start no new batch. At T+56 / 13:26, stop editing and record
+the actual verifier result before reset. A useful incomplete handover is a
+Supported outcome; weakening supplied tests, inventing evidence, or skipping
+reset is not.
 
 </details>

@@ -1,0 +1,177 @@
+{
+  "version": 1,
+  "timezone": "Europe/Berlin",
+  "loop": "Understand/Plan -> Implement/Test -> Review -> Explain",
+  "blocks": [
+    {
+      "id": "0", "start": "09:00", "minutes": 20,
+      "phases": [["Check route", 8], ["Capability card", 7], ["Room contract", 5]],
+      "cuts": [[8, "Stop setup repair; choose an approved or captured route."], [15, "Keep the route decision and privacy statement; cut Extension."]]
+    },
+    {
+      "id": "1", "start": "09:20", "minutes": 40,
+      "phases": [["Worked example / solo reading", 12], ["Your full loop", 18], ["Workflow triage", 5], ["Review note / rejoin", 5]],
+      "cuts": [[15, "Use the captured statement if live input is missing; stop any live wait at 90 seconds."], [26, "Open no new code paths; finish evidence and uncertainty."], [35, "Stop the task and review the note; cut extra triage and Extension."]]
+    },
+    {"id": "break-1", "start": "10:00", "minutes": 15, "label": "Protected break"},
+    {
+      "id": "2", "start": "10:15", "minutes": 65,
+      "phases": [["Understand/Plan", 13], ["Implement/Test", 18], ["Review", 10], ["Explain", 10], ["Verify / reset / rejoin", 14]],
+      "cuts": [[8, "No repeatable failure: take L1 and use the supplied failure."], [31, "Freeze implementation; review and explain the actual result."], [51, "Stop file changes; verify once and reset before the next block."]]
+    },
+    {"id": "slack-a", "start": "11:20", "minutes": 25, "label": "Slack A - recovery and rejoin"},
+    {"id": "lunch", "start": "11:45", "minutes": 45, "label": "Protected lunch"},
+    {
+      "id": "3", "start": "12:30", "minutes": 70,
+      "phases": [["Start and orient", 5], ["Capture baseline", 8], ["Generate and edit plan", 10], ["Save task context", 3], ["Implement/Test in batches", 20], ["Review and Explain", 10], ["Verify and reset", 9], ["Rejoin / review note", 5]],
+      "cuts": [[10, "Missing baseline: use the harness and narrow to Supported."], [25, "Unedited plan: use the template, make two meaningful edits, choose one batch."], [46, "Start no new batch; review and explain."], [56, "Freeze edits; verify once and record the actual result."], [65, "Reset even if verification is red."]]
+    },
+    {"id": "break-2", "start": "13:40", "minutes": 15, "label": "Protected break"},
+    {
+      "id": "4", "start": "13:55", "minutes": 45,
+      "phases": [["Start and orient", 4], ["Independent read", 5], ["Human review", 15], ["Process check and decision", 3], ["Captured-review comparison", 6], ["Verify and cut", 4], ["Reset", 3], ["Rejoin / review note", 5]],
+      "cuts": [[9, "Write your account before opening the description."], [12, "Fewer than two concerns: take L1 and review one concern at a time."], [24, "Find no new issues; strengthen existing findings."], [27, "Open the captured automated review, even if your review is incomplete."], [33, "Stop analysis; fix only missing note structure."], [40, "Reset; do not borrow Slack B to finish Core."]]
+    },
+    {"id": "slack-b", "start": "14:40", "minutes": 20, "label": "Slack B - recovery and rejoin"},
+    {
+      "id": "5", "start": "15:00", "minutes": 35,
+      "phases": [["Understand/Plan", 5], ["Implement/Test", 13], ["Review", 7], ["Explain", 4], ["Verify and reset", 4], ["Cross-elective awareness", 2]],
+      "cuts": [[3, "If the preflight-approved live route does not work, use the capture; no installation or sign-in."], [18, "Stop adding configuration; use captured observations if needed."], [29, "Stop work; verify and reset."], [33, "Keep the control / negative case / limitation report."]]
+    },
+    {"id": "break-3", "start": "15:35", "minutes": 10, "label": "Protected break"},
+    {
+      "id": "6", "start": "15:45", "minutes": 50,
+      "phases": [["Set up", 4], ["Understand/Plan", 9], ["Implement/Test", 19], ["Review", 6], ["Explain", 5], ["Private rubric", 3], ["Verify and reset", 4]],
+      "cuts": [[10, "No bounded plan and first check: take L1 and narrow the lane."], [20, "No passing slice: take L2 and choose one observable behaviour."], [32, "Freeze behaviour; review the full diff."], [46, "Record the last result and reset, including incomplete work."]]
+    },
+    {
+      "id": "7", "start": "16:35", "minutes": 25,
+      "phases": [["Return-later pointer", 3], ["Retrieval", 5], ["Engineering habit", 4], ["Three commitments", 8], ["Close", 2], ["Save private note / finish", 3]],
+      "cuts": [[8, "Stop retrieval; protect the habit and three commitments."], [20, "Do not expand the pilot; close and save the next action."]]
+    },
+    {"id": "slack-c", "start": "17:00", "minutes": 15, "label": "Slack C - questions or quiet completion"}
+  ],
+  "labs": [
+    {
+      "id": "0", "block": "0", "title": "Preflight and landing",
+      "doc": "challenges/lab_00_preflight.md", "scenario": null,
+      "outcome": "Know your usable environment, access limits, and safe fallback.",
+      "first": "python scripts/workshop_doctor.py",
+      "workspace": "Read-only checkout; installation belongs before the day.",
+      "evidence": ".workshop-state/notes/lab-00.md",
+      "lanes": "Supported: tested usable route. Core: green local baseline and capability card. Extension: one policy-owner map.",
+      "routes": ["local", "captured/offline", "live"], "default": "local",
+      "next": "1", "return": null
+    },
+    {
+      "id": "1", "block": "1", "title": "Operator model",
+      "doc": "challenges/lab_01_operator_model.md", "hints": "challenges/hints/lab_01.md", "scenario": null,
+      "outcome": "Choose a workflow and verify claims without editing code.",
+      "first": "Open [the invariants](reference/invariants.md) and choose one calculation.",
+      "workspace": "Read-only checkout; do not repair code in this lab.",
+      "evidence": ".workshop-state/notes/lab-01.md",
+      "lanes": "Supported: two claims, one verified. Core: three claims, two verified. Both: one open claim and uncertainty. Extension: narrower comparison.",
+      "routes": ["local", "captured/offline", "live"], "default": "local",
+      "next": "2", "return": "0"
+    },
+    {
+      "id": "2", "block": "2", "title": "Guided incident",
+      "doc": "challenges/lab_02_incident_triage.md", "hints": "challenges/hints/lab_02.md", "scenario": "incident-service-rate",
+      "outcome": "Reproduce, bound, review, and explain one incident.",
+      "first": "python scripts/workshop.py start incident-service-rate",
+      "workspace": "workshop/scenarios/incident-service-rate/work/",
+      "evidence": "workshop/scenarios/incident-service-rate/work/NOTES.md",
+      "lanes": "Supported: located path and reviewed next action; full check may fail. Core: repair, independent regression, passing check. Extension: one adjacent invariant.",
+      "routes": ["local", "captured/offline", "live"], "default": "local",
+      "next": "3", "return": "1"
+    },
+    {
+      "id": "3", "block": "3", "title": "Plan-driven migration",
+      "doc": "challenges/lab_03_plan_driven_migration.md", "hints": "challenges/hints/lab_03.md", "scenario": "migration-legacy-models",
+      "outcome": "Preserve a public contract through small reviewed batches.",
+      "first": "python scripts/workshop.py start migration-legacy-models",
+      "workspace": "workshop/scenarios/migration-legacy-models/work/",
+      "evidence": "workshop/scenarios/migration-legacy-models/work/MIGRATION_NOTES.md",
+      "lanes": "Supported: baseline, edited plan, one verified batch, handover. Core: full migration and contract comparison pass. Extension: one narrow risk check.",
+      "routes": ["local", "captured/offline", "live"], "default": "local",
+      "next": "4", "return": "2"
+    },
+    {
+      "id": "4", "block": "4", "title": "Review unattended work",
+      "doc": "challenges/lab_04_review_and_delegation.md", "hints": "challenges/hints/lab_04.md", "scenario": "review-pr",
+      "outcome": "Write independent findings, compare automated review, and decide.",
+      "first": "python scripts/workshop.py start review-pr",
+      "workspace": "Only workshop/scenarios/review-pr/work/review_notes.md; do not apply the patch.",
+      "evidence": "workshop/scenarios/review-pr/work/review_notes.md",
+      "lanes": "Supported: two findings and captured comparison. Core: three findings and passing structure check. Both: own decision and uncertainty. Extension: recurrence control.",
+      "routes": ["captured/offline", "live"], "default": "captured/offline",
+      "next": "5", "return": "3"
+    },
+    {
+      "id": "5", "block": "5", "title": "Choose one elective",
+      "doc": "challenges/lab_05_elective.md", "hints": "challenges/hints/lab_05.md", "scenario": null,
+      "outcome": "Test one control, its negative case, and its limits.",
+      "first": "Choose 5A, 5B, or 5C below; start only that branch. If unsure, choose 5C.",
+      "workspace": "The selected elective's work/ directory only.",
+      "evidence": ".workshop-state/notes/lab-05-choice.md",
+      "lanes": "Supported: one positive and one negative case plus decision. Core: branch checklist and structure check. Extension: one follow-up question only.",
+      "routes": ["local", "captured/offline", "live"], "default": "captured/offline",
+      "next": "6", "return": "4"
+    },
+    {
+      "id": "5A", "block": "5", "title": "Secure MCP context",
+      "doc": "challenges/lab_05a_secure_mcp.md", "scenario": "elective-mcp",
+      "outcome": "Reduce one proposed configuration and trace which layer controls each event.",
+      "first": "python scripts/workshop.py start elective-mcp",
+      "workspace": "workshop/scenarios/elective-mcp/work/",
+      "evidence": "workshop/scenarios/elective-mcp/work/permission_inventory.md",
+      "lanes": "Supported: first three branch items and two event types. Core: all branch items and structure check. Extension: follow-up only.",
+      "routes": ["captured/offline", "live"], "default": "captured/offline",
+      "next": "6", "return": "5"
+    },
+    {
+      "id": "5B", "block": "5", "title": "CLI permissions",
+      "doc": "challenges/lab_05b_cli_permissions.md", "scenario": "elective-cli",
+      "outcome": "Trace a proposed permission policy and identify what it cannot restrict.",
+      "first": "python scripts/workshop.py start elective-cli",
+      "workspace": "workshop/scenarios/elective-cli/work/",
+      "evidence": "workshop/scenarios/elective-cli/work/permission_policy.md",
+      "lanes": "Supported: first three branch items and traced negative event. Core: all branch items and structure check. Extension: follow-up only.",
+      "routes": ["captured/offline", "live"], "default": "captured/offline",
+      "next": "6", "return": "5"
+    },
+    {
+      "id": "5C", "block": "5", "title": "Useful customization",
+      "doc": "challenges/lab_05c_customization.md", "scenario": "elective-customization",
+      "outcome": "Rewrite and test three to five instruction rules on one stable task.",
+      "first": "python scripts/workshop.py start elective-customization",
+      "workspace": "workshop/scenarios/elective-customization/work/; never shared repository instructions.",
+      "evidence": "workshop/scenarios/elective-customization/work/customization_notes.md",
+      "lanes": "Supported: first three branch items and one contradiction. Core: all branch items and structure check. Extension: follow-up only.",
+      "routes": ["local", "captured/offline", "live"], "default": "local",
+      "next": "6", "return": "5"
+    },
+    {
+      "id": "6", "block": "6", "title": "Independent capstone",
+      "doc": "challenges/lab_06_capstone_transfer.md", "hints": "challenges/hints/lab_06.md", "scenario": "capstone-transfer",
+      "outcome": "Build your own bounded map, test a change, review it, and explain uncertainty.",
+      "first": "python scripts/workshop.py start capstone-transfer",
+      "workspace": "workshop/scenarios/capstone-transfer/work/ only.",
+      "evidence": "workshop/scenarios/capstone-transfer/work/NOTES.md",
+      "lanes": "Supported: stated bounded checks and handover; service output may remain unfinished. Core: full suite, own risk check, review, private rubric. Extension: one extra check.",
+      "routes": ["local", "captured/offline", "live"], "default": "local",
+      "next": "7", "return": "5"
+    },
+    {
+      "id": "7", "block": "7", "title": "Close and next action",
+      "doc": "challenges/lab_07_close_and_adoption.md", "scenario": null,
+      "outcome": "Keep a return-later pointer, one engineering habit, and three dated commitments.",
+      "first": "Open your private Lab 6 note or archive pointer; do not restart the scenario.",
+      "workspace": "Private notes only; no employer code or internal identifiers.",
+      "evidence": ".workshop-state/notes/lab-07.md",
+      "lanes": "Supported: use the supplied habit card. Core: tailor it with evidence and dates. Both: three commitments. Extension: pilot proposal after the workshop.",
+      "routes": ["local", "captured/offline"], "default": "local",
+      "next": null, "return": "6"
+    }
+  ]
+}
